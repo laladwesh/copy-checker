@@ -1,14 +1,19 @@
 // controllers/admin.controller.js
 const User = require("../models/User");
-const Copy = require("../models/Copy"); // Assuming Copy model is separate and updated
+const Copy = require("../models/Copy");
 const Paper = require("../models/Paper"); // Your Question Paper model
 const Query = require("../models/Query");
-const pdfGen = require("../utils/pdfGenerator"); // For merging images to PDF, returns { buffer, pageCount }
+const pdfGen = require("../utils/pdfGenerator");
 const {
   getOrCreateFolder,
   uploadFileToFolder,
 } = require("../config/googleDrive");
-const { PDFDocument } = require("pdf-lib"); // Used to get page count from an existing PDF
+const { PDFDocument } = require("pdf-lib");
+
+// Utility function to sanitize folder names (replace invalid characters)
+const sanitizeFolderName = (name) => {
+    return String(name).replace(/[^a-zA-Z0-9-_. ]/g, '_').substring(0, 100); // Limit length
+};
 
 // 1. User Management (No changes needed here for this request)
 exports.createUser = async (req, res, next) => {
@@ -65,17 +70,14 @@ exports.getExaminers = async (req, res, next) => {
 };
 
 // 2. Exam (Question Paper) Management
-// Admin can create an exam and upload question paper (PDF or images) at that time
 exports.createExam = async (req, res, next) => {
   try {
     const { title, course, examType, date, totalMarks } = req.body;
 
-    // --- Add detailed logs for debugging ---
     console.log("--- Inside createExam controller ---");
     console.log("Request Body:", req.body);
-    console.log("req.files:", req.files); // Log the entire req.files object
-    console.log("req.files.paper:", req.files.paper); // Log the 'paper' field files
-    // --- End detailed logs ---
+    console.log("req.files:", req.files);
+    console.log("req.files.paper:", req.files.paper);
 
     // 1. Basic validation for form fields
     if (!title || !course || !examType || !date || !totalMarks) {
@@ -125,7 +127,7 @@ exports.createExam = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid date format for exam." });
     }
 
-    let finalPdfBuffer = pdfFile.buffer; // Directly use the buffer from memory storage
+    let finalPdfBuffer = pdfFile.buffer;
     let finalFilename = pdfFile.originalname;
     let numPagesInPdf = 0;
 
@@ -146,16 +148,27 @@ exports.createExam = async (req, res, next) => {
     }
     console.log(`[Admin] PDF has ${numPagesInPdf} pages.`);
 
-    // Upload the final question paper PDF to Google Drive
-    const questionPapersRootId = await getOrCreateFolder("question_papers");
+    // --- NEW LOGIC FOR FOLDER STRUCTURE ---
+    // 1. Get or create the root folder for all exams
+    const examsRootId = await getOrCreateFolder("Exams"); // Central folder for all exams
+
+    // 2. Create a unique folder for THIS specific exam
+    // Sanitize title for folder name
+    const sanitizedTitle = sanitizeFolderName(title);
+    // Combine title and a timestamp/random string for uniqueness if titles can repeat
+    const examFolderName = `${sanitizedTitle}_${Date.now()}`; 
+    const examFolderId = await getOrCreateFolder(examFolderName, examsRootId);
+    console.log(`[Admin] Exam folder created/found: '${examFolderName}' with ID: ${examFolderId}`);
+
+    // 3. Upload the question paper PDF directly into this exam's folder
     console.log(
-      `[Admin] Uploading final Question Paper PDF (${finalFilename})...`
+      `[Admin] Uploading Question Paper PDF (${finalFilename}) into exam folder...`
     );
     const driveFile = await uploadFileToFolder(
       finalPdfBuffer,
       finalFilename,
-      pdfFile.mimetype, // Use the actual mimetype from the uploaded file
-      questionPapersRootId
+      pdfFile.mimetype,
+      examFolderId // Upload to the newly created exam-specific folder
     );
     console.log(
       `[Admin] Question paper uploaded to Drive: ${driveFile.viewLink}`
@@ -167,13 +180,13 @@ exports.createExam = async (req, res, next) => {
       course,
       examType,
       date: examDate,
-      totalMarks: parseInt(totalMarks), // Ensure totalMarks is a number
-      // CORRECTED: Use driveFile.viewLink for both 'url' and 'viewLink' fields
+      totalMarks: parseInt(totalMarks),
       driveFile: {
         id: driveFile.id,
-        url: driveFile.viewLink, // <--- CHANGED THIS LINE
+        url: driveFile.viewLink,
         viewLink: driveFile.viewLink,
       },
+      driveFolderId: examFolderId, // NEW: Save the ID of the exam's dedicated folder
       totalPages: numPagesInPdf,
       assignedExaminers: [],
     });
@@ -188,10 +201,9 @@ exports.createExam = async (req, res, next) => {
     });
   } catch (err) {
     console.error("Error creating exam:", err);
-    // No manual file cleanup needed here as Multer memoryStorage handles it.
     res.status(500).json({
       message: "Failed to create exam due to an internal server error.",
-      error: err.message, // Provide the actual error message for debugging
+      error: err.message,
     });
   }
 };
@@ -199,7 +211,6 @@ exports.createExam = async (req, res, next) => {
 // Provides the "pool where all exams should be there" for the admin panel
 exports.listPapers = async (req, res, next) => {
   try {
-    // Populate assigned examiners to show their names in the admin panel
     const papers = await Paper.find().populate(
       "assignedExaminers",
       "name email"
@@ -213,8 +224,8 @@ exports.listPapers = async (req, res, next) => {
 // NEW: Assign Examiners to an Exam (Paper) and Distribute Copies
 exports.assignExaminersToExam = async (req, res, next) => {
   try {
-    const { examinerIds } = req.body; // Array of examiner IDs passed from frontend
-    const paperId = req.params.id; // The ID of the Paper (Exam) to which examiners are assigned
+    const { examinerIds } = req.body;
+    const paperId = req.params.id;
 
     if (!paperId) {
       return res.status(400).json({ message: "Exam (Paper) ID is required." });
@@ -227,7 +238,6 @@ exports.assignExaminersToExam = async (req, res, next) => {
         .json({ message: "Exam (Question Paper) not found." });
     }
 
-    // Validate examiners exist and are indeed examiners
     const validExaminers = await User.find({
       _id: { $in: examinerIds },
       role: "examiner",
@@ -245,16 +255,13 @@ exports.assignExaminersToExam = async (req, res, next) => {
     }
     const validExaminerObjectIds = validExaminers.map((e) => e._id);
 
-    // Update the Paper's assignedExaminers pool
-    // This stores which examiners are responsible for this exam
-    paper.assignedExaminers = validExaminerObjectIds; // Use the validated IDs
+    paper.assignedExaminers = validExaminerObjectIds;
     await paper.save();
 
-    // Find all pending copies for this specific exam that are not yet assigned
     const pendingUnassignedCopies = await Copy.find({
       questionPaper: paperId,
       status: "pending",
-      examiners: { $size: 0 }, // Only copies with no assigned examiners
+      examiners: { $size: 0 },
     });
 
     if (pendingUnassignedCopies.length === 0) {
@@ -273,18 +280,17 @@ exports.assignExaminersToExam = async (req, res, next) => {
       });
     }
 
-    // Distribute copies equally among assigned examiners (round-robin approach)
     let examinerIndex = 0;
     for (const copy of pendingUnassignedCopies) {
       const currentExaminerId = validExaminerObjectIds[examinerIndex];
-      copy.examiners = [currentExaminerId]; // Assign only one examiner per copy for marking
+      copy.examiners = [currentExaminerId];
       await copy.save();
       examinerIndex = (examinerIndex + 1) % validExaminerObjectIds.length;
     }
 
     res.status(200).json({
       message: `Examiners assigned to exam and ${pendingUnassignedCopies.length} pending copies distributed.`,
-      paper: paper, // Return updated paper details
+      paper: paper,
     });
   } catch (err) {
     console.error("Error assigning examiners to exam:", err);
@@ -293,7 +299,6 @@ exports.assignExaminersToExam = async (req, res, next) => {
 };
 
 // 3. Answer Copy Management (Manual Upload by Admin/Examiner)
-// Copies are uploaded first, without examiner assignment
 exports.uploadCopy = async (req, res, next) => {
   try {
     const { studentId, paperId } = req.body;
@@ -330,13 +335,13 @@ exports.uploadCopy = async (req, res, next) => {
       }
     } else if (files.images && files.images.length > 0) {
       const buffers = files.images.map((f) => f.buffer);
-      const pdfGenResult = await pdfGen(buffers); // pdfGen returns { buffer, pageCount }
+      const pdfGenResult = await pdfGen(buffers);
       finalPdfBuffer = pdfGenResult.buffer;
       numPagesInPdf = pdfGenResult.pageCount;
 
       finalFilename = `copy-${Date.now()}.pdf`;
     } else {
-      throw new Error("No copyPdf or images provided"); // Should be caught by initial check
+      throw new Error("No copyPdf or images provided");
     }
 
     const student = await User.findById(studentId);
@@ -345,18 +350,45 @@ exports.uploadCopy = async (req, res, next) => {
         .status(404)
         .json({ message: "Student not found or invalid user role." });
     }
-    const batch = student.batch;
+    
+    // --- NEW LOGIC FOR FOLDER STRUCTURE FOR COPIES ---
+    const questionPaper = await Paper.findById(paperId);
+    if (!questionPaper) {
+      return res.status(404).json({ message: "Question Paper not found." });
+    }
+    // Check if the question paper has a driveFolderId stored
+    if (!questionPaper.driveFolderId) {
+        console.error(`[Copy Upload Error] Question Paper (ID: ${paperId}) does not have a driveFolderId. Cannot organize copy.`);
+        return res.status(500).json({ message: "Associated exam folder not found on Google Drive. Please re-upload the question paper or check its settings." });
+    }
 
-    const rootId = await getOrCreateFolder("copies");
-    const batchId = await getOrCreateFolder(batch, rootId);
-    const stuFolderId = await getOrCreateFolder(studentId.toString(), batchId); // Ensure ID is string for folder name
+    const examFolderId = questionPaper.driveFolderId;
+    console.log(`[Copy] Found exam folder ID: ${examFolderId} for QPID: ${paperId}`);
+
+    // Create/get "answer_copies" subfolder within the specific exam's folder
+    const answerCopiesFolderId = await getOrCreateFolder("answer_copies", examFolderId);
+    console.log(`[Copy] Answer Copies folder ID: ${answerCopiesFolderId} within exam folder.`);
+
+    // Continue with batch and student folders inside "answer_copies"
+    const batchFolderName = student.batch
+      ? sanitizeFolderName(student.batch)
+      : "unassigned_batch";
+    const batchFolderId = await getOrCreateFolder(batchFolderName, answerCopiesFolderId);
+    console.log(`[Copy] Batch folder ID: ${batchFolderId}`);
+
+    const stuFolderId = await getOrCreateFolder(
+      student._id.toString(), // Use student._id as folder name for uniqueness
+      batchFolderId
+    );
+    console.log(`[Copy] Student folder ID: ${stuFolderId}`);
 
     const driveFile = await uploadFileToFolder(
       finalPdfBuffer,
       finalFilename,
       "application/pdf", // Always PDF now
-      stuFolderId
+      stuFolderId // Upload to the student's folder inside answer_copies/batch
     );
+    // --- END NEW LOGIC ---
 
     // Initialize 'pages' array in DB for examiner annotations/marks
     const initialPagesData = [];
@@ -365,20 +397,18 @@ exports.uploadCopy = async (req, res, next) => {
         pageNumber: i,
         marksAwarded: 0,
         comments: [],
-        annotations: "{}", // Default empty JSON for frontend annotations
+        annotations: "{}",
       });
     }
 
-    // Save Copy document - EXAMINERS ARE NOT ASSIGNED AT THIS STAGE
     const copy = new Copy({
       student: studentId,
       questionPaper: paperId,
-      driveFile, // Contains id, link, viewLink to the single PDF
-      // Removed pageImageFiles as per the new approach
-      totalPages: numPagesInPdf, // Store the total number of pages from the PDF
-      status: "pending", // Copies start as pending
-      pages: initialPagesData, // Store the initialized page data
-      examiners: [], // Initialize with empty array, will be assigned later
+      driveFile,
+      totalPages: numPagesInPdf,
+      status: "pending",
+      pages: initialPagesData,
+      examiners: [],
     });
     await copy.save();
 
@@ -394,7 +424,7 @@ exports.listCopies = async (req, res, next) => {
     const copies = await Copy.find()
       .populate("student", "name email batch")
       .populate("questionPaper", "title totalPages")
-      .populate("examiners", "name email"); // Populate examiner details for admin view
+      .populate("examiners", "name email");
     res.json(copies);
   } catch (err) {
     next(err);
@@ -485,10 +515,8 @@ exports.toggleCopyRelease = async (req, res, next) => {
 exports.uploadScannedCopy = async (req, res, next) => {
   try {
     const { studentEmail, questionPaperId } = req.body;
-    // Multer stores files under req.files as an object with field names as keys
     const uploadedFiles = req.files; 
 
-    // --- Input validation for files ---
     if (!studentEmail || !questionPaperId || !uploadedFiles) {
       return res.status(400).json({
         message: "Student email, question paper ID, and files are required.",
@@ -498,25 +526,19 @@ exports.uploadScannedCopy = async (req, res, next) => {
     let fileToProcess = null;
     let isPdfUpload = false;
 
-    // Check if 'scannedPdf' field has files
     if (uploadedFiles.scannedPdf && uploadedFiles.scannedPdf.length > 0) {
       fileToProcess = uploadedFiles.scannedPdf[0];
       isPdfUpload = true;
       console.log("[ScanCopy] Processing PDF from 'scannedPdf' field.");
-    } 
-    // Check if 'scannedImages' field has files
-    else if (uploadedFiles.scannedImages && uploadedFiles.scannedImages.length > 0) {
-      fileToProcess = uploadedFiles.scannedImages; // This will be an array of image file objects
+    } else if (uploadedFiles.scannedImages && uploadedFiles.scannedImages.length > 0) {
+      fileToProcess = uploadedFiles.scannedImages;
       isPdfUpload = false;
       console.log(`[ScanCopy] Processing images from 'scannedImages' field. Total: ${fileToProcess.length}`);
     } else {
-      // If neither field has files, return an error
       return res.status(400).json({
         message: "No scanned PDF or image files provided.",
       });
     }
-    // --- End of input validation for files ---
-
 
     const student = await User.findOne({
       email: studentEmail,
@@ -535,29 +557,43 @@ exports.uploadScannedCopy = async (req, res, next) => {
     }
     console.log("[ScanCopy] Associating copy with exam:", questionPaper.title);
 
+    // --- NEW LOGIC FOR FOLDER STRUCTURE FOR SCANNED COPIES ---
+    // Retrieve the exam's dedicated folder ID
+    if (!questionPaper.driveFolderId) {
+        console.error(`[ScanCopy Error] Question Paper (ID: ${questionPaperId}) does not have a driveFolderId. Cannot organize scanned copy.`);
+        return res.status(500).json({ message: "Associated exam folder not found on Google Drive. Please ensure the question paper was uploaded correctly." });
+    }
+
+    const examFolderId = questionPaper.driveFolderId;
+    console.log(`[ScanCopy] Found exam folder ID: ${examFolderId} for QPID: ${questionPaperId}`);
+
+    // Create/get "answer_copies" subfolder within the specific exam's folder
+    const answerCopiesFolderId = await getOrCreateFolder("answer_copies", examFolderId);
+    console.log(`[ScanCopy] Answer Copies folder ID: ${answerCopiesFolderId} within exam folder.`);
+
+    // Continue with batch and student folders inside "answer_copies"
+    const batchFolderName = student.batch
+      ? sanitizeFolderName(student.batch)
+      : "unassigned_batch";
+    const batchFolderId = await getOrCreateFolder(batchFolderName, answerCopiesFolderId);
+    console.log(`[ScanCopy] Batch folder ID: ${batchFolderId}`);
+
+    const stuFolderId = await getOrCreateFolder(
+      student._id.toString(), // Use student._id as folder name for uniqueness
+      batchFolderId
+    );
+    console.log(`[ScanCopy] Student folder ID: ${stuFolderId}`);
+    // --- END NEW LOGIC ---
+
     let finalPdfBuffer;
     let finalFilename;
     let numPagesInPdf = 0;
 
-    // Ensure these folders exist on Drive
-    const rootId = await getOrCreateFolder("copies");
-    // Use 'unassigned_batch' if student.batch is null or undefined for folder creation
-    const batchFolderName = student.batch
-      ? String(student.batch)
-      : "unassigned_batch";
-    const batchId = await getOrCreateFolder(batchFolderName, rootId);
-    const stuFolderId = await getOrCreateFolder(
-      student._id.toString(),
-      batchId
-    );
-
     if (isPdfUpload) {
-      // Case 1: User uploaded a PDF directly (fileToProcess is the single PDF file object)
       finalPdfBuffer = fileToProcess.buffer;
       finalFilename = fileToProcess.originalname;
       console.log(`[ScanCopy] Processing existing PDF: ${finalFilename}`);
 
-      // Get page count for the existing PDF
       try {
         const loadedPdf = await PDFDocument.load(finalPdfBuffer);
         numPagesInPdf = loadedPdf.getPageCount();
@@ -570,45 +606,39 @@ exports.uploadScannedCopy = async (req, res, next) => {
       }
       console.log(`[ScanCopy] Existing PDF has ${numPagesInPdf} pages.`);
     } else {
-      // Case 2: User uploaded images, convert to PDF (fileToProcess is an array of image file objects)
       const imageBuffers = fileToProcess.map((file) => file.buffer);
       console.log(
         `[ScanCopy] Converting ${imageBuffers.length} images to PDF...`
       );
 
-      const pdfGenResult = await pdfGen(imageBuffers); // pdfGen returns { buffer, pageCount }
+      const pdfGenResult = await pdfGen(imageBuffers);
       finalPdfBuffer = pdfGenResult.buffer;
-      numPagesInPdf = pdfGenResult.pageCount; // Get page count from the generated PDF
+      numPagesInPdf = pdfGenResult.pageCount;
 
-      const studentEmailSafe = String(student.email).replace(
-        /[^a-zA-Z0-9]/g,
-        "_"
-      );
+      const studentEmailSafe = sanitizeFolderName(student.email);
       finalFilename = `scanned_copy_${studentEmailSafe}_${Date.now()}.pdf`;
     }
 
-    // --- CORE LOGIC: Upload ONLY the single final PDF to Google Drive ---
     console.log(
       `[ScanCopy] Uploading final PDF (${finalFilename}) to Google Drive...`
     );
     const uploadedFileDetails = await uploadFileToFolder(
       finalPdfBuffer,
       finalFilename,
-      "application/pdf", // Always PDF now
-      stuFolderId
+      "application/pdf",
+      stuFolderId // Upload to the student's folder under the correct exam structure
     );
     console.log(
       `[ScanCopy] PDF uploaded to Drive with ID: ${uploadedFileDetails.id}`
     );
 
-    // --- Initialize 'pages' array in DB for annotations, comments, marks ---
     const initialPagesData = [];
     for (let i = 1; i <= numPagesInPdf; i++) {
       initialPagesData.push({
         pageNumber: i,
         marksAwarded: 0,
         comments: [],
-        annotations: "{}", // Default empty JSON for frontend annotations
+        annotations: "{}",
       });
     }
     console.log(
@@ -623,10 +653,10 @@ exports.uploadScannedCopy = async (req, res, next) => {
         link: uploadedFileDetails.viewLink,
         viewLink: uploadedFileDetails.viewLink,
       },
-      totalPages: numPagesInPdf, // Store the total number of pages from the PDF
+      totalPages: numPagesInPdf,
       status: "pending",
-      pages: initialPagesData, // Store the initialized page data
-      examiners: [], // Initially no examiners assigned
+      pages: initialPagesData,
+      examiners: [],
     });
 
     await newCopy.save();
