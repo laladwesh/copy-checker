@@ -15,9 +15,10 @@ exports.listPending = async (req, res, next) => {
 
 exports.listHistory = async (req, res, next) => {
   try {
+    // Corrected: Use 'evaluated' status instead of 'completed'
     const copies = await Copy.find({
       examiners: req.user._id,
-      status: "completed",
+      status: "evaluated", // Changed from "completed" to "evaluated"
     }).populate("student questionPaper");
     res.json(copies);
   } catch (err) {
@@ -47,6 +48,7 @@ exports.markPage = async (req, res, next) => {
     }
 
     // Ensure the examiner is assigned to this copy
+    // Assuming req.user._id is available from authentication middleware
     if (!copy.examiners.includes(req.user._id)) {
       return res
         .status(403)
@@ -58,32 +60,46 @@ exports.markPage = async (req, res, next) => {
 
     if (pageIndex > -1) {
       // Update existing page entry
-      copy.pages[pageIndex].marks = marks;
+      copy.pages[pageIndex].marksAwarded = marks; // Corrected: Use marksAwarded as per schema
       copy.pages[pageIndex].comments = comments;
       copy.pages[pageIndex].annotations = annotations;
+      // Optionally update lastAnnotatedBy and lastAnnotatedAt
+      copy.pages[pageIndex].lastAnnotatedBy = req.user._id;
+      copy.pages[pageIndex].lastAnnotatedAt = new Date();
     } else {
       // Add new page entry
-      copy.pages.push({ pageNumber, marks, comments, annotations });
+      copy.pages.push({
+        pageNumber,
+        marksAwarded: marks, // Corrected: Use marksAwarded as per schema
+        comments,
+        annotations,
+        lastAnnotatedBy: req.user._id,
+        lastAnnotatedAt: new Date(),
+      });
     }
 
     // Sort pages to maintain order (optional, but good practice)
     copy.pages.sort((a, b) => a.pageNumber - b.pageNumber);
 
-    // If all pages are marked, set status to completed
+    // If all pages are marked, set status to 'evaluated'
     // This assumes copy.totalPages is accurate
     // It's crucial to ensure `copy.totalPages` is correctly set when the copy is created.
     if (
       copy.pages.length === copy.totalPages &&
-      copy.pages.every((p) => typeof p.marks === "number")
+      copy.pages.every((p) => typeof p.marksAwarded === "number") // Corrected: Check marksAwarded
     ) {
-      copy.status = "completed";
+      copy.status = "evaluated"; // Set status to 'evaluated' when all pages are marked
+    } else if (copy.status === "pending") {
+      // If it's the first page being marked, change status to 'examining'
+      copy.status = "examining";
     }
 
     await copy.save();
     // Re-populate for response to ensure frontend has latest data including totalPages
     const updatedCopy = await Copy.findById(req.params.id)
       .populate("student")
-      .populate("questionPaper");
+      .populate("questionPaper")
+      .populate("examiners"); // Also populate examiners if needed on frontend
     res.json(updatedCopy);
   } catch (err) {
     next(err);
