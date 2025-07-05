@@ -12,6 +12,7 @@ const paperSchema = new mongoose.Schema({
         url: { type: String, required: true }, // Ensure this matches what you store (webContentLink or webViewLink)
         viewLink: { type: String }, // Optional, if you want to store it separately
     },
+    driveFolderId: { type: String },
     totalPages: Number,
     assignedExaminers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
