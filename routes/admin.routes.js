@@ -5,7 +5,7 @@ const {
     listUsers,
     getStudentsByBatch,
     getExaminers,
-    createExam,        // This controller will need updates
+    createExam,
     listPapers,
     assignExaminersToExam,
     uploadCopy,

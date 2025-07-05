@@ -482,17 +482,41 @@ exports.toggleCopyRelease = async (req, res, next) => {
 };
 
 // 6. Handle scanned copy upload (simulated printer scanning)
-// This function already largely aligns with the new single PDF approach for copies.
 exports.uploadScannedCopy = async (req, res, next) => {
   try {
     const { studentEmail, questionPaperId } = req.body;
-    const files = req.files;
+    // Multer stores files under req.files as an object with field names as keys
+    const uploadedFiles = req.files; 
 
-    if (!studentEmail || !questionPaperId || !files || files.length === 0) {
+    // --- Input validation for files ---
+    if (!studentEmail || !questionPaperId || !uploadedFiles) {
       return res.status(400).json({
         message: "Student email, question paper ID, and files are required.",
       });
     }
+
+    let fileToProcess = null;
+    let isPdfUpload = false;
+
+    // Check if 'scannedPdf' field has files
+    if (uploadedFiles.scannedPdf && uploadedFiles.scannedPdf.length > 0) {
+      fileToProcess = uploadedFiles.scannedPdf[0];
+      isPdfUpload = true;
+      console.log("[ScanCopy] Processing PDF from 'scannedPdf' field.");
+    } 
+    // Check if 'scannedImages' field has files
+    else if (uploadedFiles.scannedImages && uploadedFiles.scannedImages.length > 0) {
+      fileToProcess = uploadedFiles.scannedImages; // This will be an array of image file objects
+      isPdfUpload = false;
+      console.log(`[ScanCopy] Processing images from 'scannedImages' field. Total: ${fileToProcess.length}`);
+    } else {
+      // If neither field has files, return an error
+      return res.status(400).json({
+        message: "No scanned PDF or image files provided.",
+      });
+    }
+    // --- End of input validation for files ---
+
 
     const student = await User.findOne({
       email: studentEmail,
@@ -527,12 +551,10 @@ exports.uploadScannedCopy = async (req, res, next) => {
       batchId
     );
 
-    const isPdfUpload = files[0].mimetype === "application/pdf";
-
     if (isPdfUpload) {
-      // Case 1: User uploaded a PDF directly
-      finalPdfBuffer = files[0].buffer;
-      finalFilename = files[0].originalname;
+      // Case 1: User uploaded a PDF directly (fileToProcess is the single PDF file object)
+      finalPdfBuffer = fileToProcess.buffer;
+      finalFilename = fileToProcess.originalname;
       console.log(`[ScanCopy] Processing existing PDF: ${finalFilename}`);
 
       // Get page count for the existing PDF
@@ -548,8 +570,8 @@ exports.uploadScannedCopy = async (req, res, next) => {
       }
       console.log(`[ScanCopy] Existing PDF has ${numPagesInPdf} pages.`);
     } else {
-      // Case 2: User uploaded images, convert to PDF
-      const imageBuffers = files.map((file) => file.buffer);
+      // Case 2: User uploaded images, convert to PDF (fileToProcess is an array of image file objects)
+      const imageBuffers = fileToProcess.map((file) => file.buffer);
       console.log(
         `[ScanCopy] Converting ${imageBuffers.length} images to PDF...`
       );
