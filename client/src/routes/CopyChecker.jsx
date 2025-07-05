@@ -54,21 +54,9 @@ export default function CopyChecker() {
       try {
         const res = await api.get(`/examiner/copies/${copyId}`);
         setCopy(res.data);
-        // Set initial AC page from existing marks if any, or default to 1
-        if (res.data.pages && res.data.pages.length > 0) {
-          // Find the maximum marked page number
-          const maxPageMarked = Math.max(
-            ...res.data.pages.map((p) => p.pageNumber)
-          );
-          // Set current page to the next unmarked page, or the last page if all are marked
-          setCurrentPage(
-            maxPageMarked + 1 > res.data.totalPages
-              ? res.data.totalPages
-              : maxPageMarked + 1
-          );
-        } else {
-          setCurrentPage(1); // Start at page 1 if no pages marked
-        }
+        // Set both Answer Copy and Question Paper to page 1 on load
+        setCurrentPage(1);
+        setQpCurrentPage(1);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
         showTemporaryToast(
@@ -81,12 +69,12 @@ export default function CopyChecker() {
   }, [copyId]);
 
   // 2) Prefill marks/comments when current page of answer copy changes or copy data changes
-  //    Also, preload next answer copy page and reset zoom for AC.
+  //    Also, preload next answer copy page and reset zoom for AC.
   useEffect(() => {
     if (!copy) return;
     const foundPageData = copy.pages.find((p) => p.pageNumber === currentPage);
     if (foundPageData) {
-      setMarks(foundPageData.marks ?? "");
+      setMarks(foundPageData.marksAwarded ?? "");
       setComments(foundPageData.comments ?? "");
     } else {
       setMarks("");
@@ -96,10 +84,9 @@ export default function CopyChecker() {
     // Preload next answer copy page
     if (currentPage < copy.totalPages) {
       const nextAcPageNum = currentPage + 1;
-      const nextAcPage = copy.pageImageFiles.find(
-        (p) => p.pageNumber === nextAcPageNum
-      );
-      if (nextAcPage) {
+      // Directly use driveFile.id for preloading
+      if (copy.driveFile?.id) {
+        // Ensure driveFile and its id exist
         const img = new Image();
         img.src = `/api/drive/page-image/${copy.driveFile.id}/${nextAcPageNum}`;
         acNextImageRef.current = img;
@@ -117,10 +104,9 @@ export default function CopyChecker() {
     if (!copy || !copy.questionPaper) return;
     if (qpCurrentPage < copy.questionPaper.totalPages) {
       const nextQpPageNum = qpCurrentPage + 1;
-      const nextQpPage = copy.questionPaper.pageImageFiles.find(
-        (p) => p.pageNumber === nextQpPageNum
-      );
-      if (nextQpPage) {
+      // Directly use driveFile.id for preloading
+      if (copy.questionPaper.driveFile?.id) {
+        // Ensure driveFile and its id exist
         const img = new Image();
         img.src = `/api/drive/page-image/${copy.questionPaper.driveFile.id}/${nextQpPageNum}`;
         qpNextImageRef.current = img;
@@ -192,6 +178,7 @@ export default function CopyChecker() {
 
   // Handler: save this page’s marks, then advance
   const handleSavePage = async () => {
+    if (isSaving) return; // Prevent multiple submissions while saving
     setIsSaving(true);
     try {
       if (marks === "" || isNaN(Number(marks))) {
@@ -233,18 +220,14 @@ export default function CopyChecker() {
   };
 
   // Get the current page image URL for Question Paper
-  const currentQpPage = copy.questionPaper.pageImageFiles.find(
-    (p) => p.pageNumber === qpCurrentPage
-  );
-  const qpImageUrl = currentQpPage
+  // Directly use copy.questionPaper.driveFile.id and qpCurrentPage
+  const qpImageUrl = copy.questionPaper?.driveFile?.id
     ? `/api/drive/page-image/${copy.questionPaper.driveFile.id}/${qpCurrentPage}`
     : "";
 
   // Get the current page image URL for Answer Copy
-  const currentAcPage = copy.pageImageFiles.find(
-    (p) => p.pageNumber === currentPage
-  );
-  const acImageUrl = currentAcPage
+  // Directly use copy.driveFile.id and currentPage
+  const acImageUrl = copy.driveFile?.id
     ? `/api/drive/page-image/${copy.driveFile.id}/${currentPage}`
     : "";
 
@@ -476,7 +459,7 @@ export default function CopyChecker() {
                 </button>
               </div>
             )}
-            <div className="relative w-full flex-grow aspect-w-3 aspect-h-4 rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+            <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isQpLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                   <svg
@@ -506,7 +489,7 @@ export default function CopyChecker() {
                 <img
                   src={qpImageUrl}
                   alt={`Question Paper Page ${qpCurrentPage}`}
-                  className="w-full h-full" // Removed object-contain to allow scaling naturally
+                  className="w-full h-full object-contain" // Added object-contain
                   style={{
                     transform: `scale(${qpZoomLevel})`,
                     transformOrigin: "center center",
@@ -585,7 +568,7 @@ export default function CopyChecker() {
                 Next
               </button>
             </div>
-            <div className="relative w-full flex-grow aspect-w-3 aspect-h-4 rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+            <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                   <svg
@@ -615,7 +598,7 @@ export default function CopyChecker() {
                 <img
                   src={acImageUrl}
                   alt={`Answer Copy Page ${currentPage}`}
-                  className="w-full h-full" // Removed object-contain
+                  className="w-full h-full object-contain" // Added object-contain
                   style={{
                     transform: `scale(${acZoomLevel})`,
                     transformOrigin: "center center",
