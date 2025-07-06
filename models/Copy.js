@@ -43,6 +43,7 @@ const CopySchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+    isReleasedToStudent: { type: Boolean, default: false }, // NEW: Track if copy is released to student
     createdAt: { type: Date, default: Date.now }
 });
 
