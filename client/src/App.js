@@ -8,7 +8,9 @@ import AdminPanel from './routes/AdminPanel';
 import ExaminerPanel from './routes/ExaminerPanel';
 import StudentPanel from './routes/StudentPanel';
 import CopyChecker from './routes/CopyChecker';
-import ExaminerQueries from './routes/ExaminerQueries'; // NEW: Import ExaminerQueries
+import ExaminerQueries from './routes/ExaminerQueries';
+import StudentCopyViewer from './components/StudentCopyViewer';
+import ExaminerQueryViewer from './components/ExaminerQueryViewer'; // NEW: Import ExaminerQueryViewer
 
 export default function App() {
   const user = getUser();
@@ -46,7 +48,7 @@ export default function App() {
           />
 
           {/* Examiner Routes */}
-          {/* Note: The order of examiner routes matters. More specific paths first. */}
+          {/* More specific examiner routes first */}
           <Route
             path="/examiner/check/:copyId"
             element={
@@ -56,7 +58,15 @@ export default function App() {
             }
           />
           <Route
-            path="/examiner/queries" // NEW: Route for ExaminerQueries
+            path="/examiner/queries/view/:queryId" // NEW: Route for ExaminerQueryViewer
+            element={
+              <ProtectedRoute user={user} role="examiner">
+                <ExaminerQueryViewer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/examiner/queries"
             element={
               <ProtectedRoute user={user} role="examiner">
                 <ExaminerQueries />
@@ -64,7 +74,7 @@ export default function App() {
             }
           />
           <Route
-            path="/examiner/*" // This should be the last examiner route to catch general paths
+            path="/examiner/*" // General examiner dashboard route (catch-all for examiner)
             element={
               <ProtectedRoute user={user} role="examiner">
                 <ExaminerPanel />
@@ -72,6 +82,15 @@ export default function App() {
             }
           />
 
+          {/* Student Routes */}
+          <Route
+            path="/student/copy/:copyId"
+            element={
+              <ProtectedRoute user={user} role="student">
+                <StudentCopyViewer />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/student/*"
             element={
