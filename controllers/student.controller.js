@@ -8,7 +8,7 @@ exports.listCopies = async (req, res, next) => {
         // Students can only see copies that are completed AND released by admin
         const copies = await Copy.find({
             student: req.user._id,
-            status: 'completed',
+            status: 'evaluated',
             isReleasedToStudent: true // NEW: Filter by release status
         })
         .populate('questionPaper'); // Do NOT populate examiners here for student anonymity
@@ -26,6 +26,7 @@ exports.getCopy = async (req, res, next) => {
         if (!copy || copy.student.toString() !== req.user._id.toString()) {
             return res.status(404).json({ message: 'Copy not found or unauthorized.' });
         }
+        console.log('Copy retrieved:', copy.isReleasedToStudent);
         // Ensure the copy is released to the student
         if (!copy.isReleasedToStudent) {
             return res.status(403).json({ message: 'This copy has not been released yet.' });
@@ -71,3 +72,4 @@ exports.raiseQuery = async (req, res, next) => {
         next(err);
     }
 };
+
