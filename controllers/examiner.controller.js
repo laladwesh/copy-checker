@@ -88,7 +88,7 @@ exports.markPage = async (req, res, next) => {
       copy.pages.length === copy.totalPages &&
       copy.pages.every((p) => typeof p.marksAwarded === "number") // Corrected: Check marksAwarded
     ) {
-      copy.status = "evaluated"; // Set status to 'evaluated' when all pages are marked
+      copy.status = "pending"; // Set status to 'evaluated' when all pages are marked
     } else if (copy.status === "pending") {
       // If it's the first page being marked, change status to 'examining'
       copy.status = "examining";
@@ -125,11 +125,9 @@ exports.replyQuery = async (req, res, next) => {
     });
 
     if (!q.copy || !q.copy.examiners.includes(req.user._id)) {
-      return res
-        .status(403)
-        .json({
-          message: "Forbidden: You are not authorized to reply to this query.",
-        });
+      return res.status(403).json({
+        message: "Forbidden: You are not authorized to reply to this query.",
+      });
     }
 
     q.response = response;
@@ -178,3 +176,33 @@ exports.listQueries = async (req, res, next) => {
     next(err);
   }
 };
+exports.markCompleteCopy = async (req, res, next) => {
+  try {
+    const copy = await Copy.findById(req.params.id);
+
+    if (!copy) {
+      return res.status(404).json({ message: "Copy not found" });
+    }
+
+    // Ensure the examiner is assigned to this copy
+    if (!copy.examiners.includes(req.user._id)) {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: You are not assigned to this copy." });
+    }
+
+    // Set status to 'evaluated' when marking complete
+    copy.status = "evaluated";
+    await copy.save();
+
+    // Re-populate for response to ensure frontend has latest data including totalPages
+    const updatedCopy = await Copy.findById(req.params.id)
+      .populate("student")
+      .populate("questionPaper")
+      .populate("examiners"); // Also populate examiners if needed on frontend
+
+    res.json(updatedCopy);
+  } catch (err) {
+    next(err);
+  }
+}

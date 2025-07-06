@@ -167,12 +167,14 @@ export default function CopyChecker() {
 
   // Calculate running total of all saved pages
   const totalMarks = copy.pages.reduce(
-    (sum, p) => sum + (Number(p.marks) || 0),
+    (sum, p) => sum + (Number(p.marksAwarded) || 0),
     0
   );
 
   // Calculate completion percentage for the timeline
-  const markedPagesCount = copy.pages.length;
+  const markedPagesCount = copy.pages.filter(
+    (page) => page.lastAnnotatedBy != null
+  ).length;
   const completionPercentage =
     copy.totalPages > 0 ? (markedPagesCount / copy.totalPages) * 100 : 0;
 
@@ -232,10 +234,18 @@ export default function CopyChecker() {
     : "";
 
   const handleFinalSubmit = async () => {
-    showTemporaryToast(
-      "Final submission confirmed! Returning to dashboard.",
-      "success"
-    );
+    if (copy.status !== "evaluated") {
+      const res = await api.post(`/examiner/copies/${copyId}/complete`);
+      setCopy(res.data); // Update local copy state with new data from server
+      showTemporaryToast(
+        "All pages marked! You can now confirm final submission.",
+        "success"
+      );
+      setTimeout(() => {
+        navigate("/examiner"); // Navigate back to examiner dashboard
+      }, 500); // Give time for toast to be seen
+      return;
+    }
     setShowReviewModal(false);
     setTimeout(() => {
       navigate("/examiner"); // Navigate back to examiner dashboard
@@ -692,7 +702,7 @@ export default function CopyChecker() {
                       <p className="text-gray-700">
                         <strong>Marks:</strong>{" "}
                         <span className="font-semibold text-green-700">
-                          {page.marks ?? "N/A"}
+                          {page.marksAwarded ?? "N/A"}
                         </span>
                       </p>
                       <p className="text-gray-700">
@@ -715,13 +725,13 @@ export default function CopyChecker() {
             </button>
             <button
               onClick={handleFinalSubmit}
-              disabled={copy.status !== "completed"} // Only enable if all pages are marked
+              disabled={markedPagesCount !== copy.totalPages} // Only enable if all pages are marked
               className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm & Finish
             </button>
           </div>
-          {copy.status !== "completed" && (
+          {markedPagesCount !== copy.totalPages && (
             <p className="text-sm text-red-500 text-center mt-3">
               *You must mark all {copy.totalPages} pages before confirming final
               submission.

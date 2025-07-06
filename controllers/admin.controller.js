@@ -491,7 +491,7 @@ exports.toggleCopyRelease = async (req, res, next) => {
       return res.status(404).json({ message: "Copy not found." });
     }
 
-    if (copy.status !== "completed") {
+    if (copy.status !== "evaluated") {
       return res
         .status(400)
         .json({ message: "Only completed copies can be released/unreleased." });
