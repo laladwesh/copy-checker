@@ -1,4 +1,3 @@
-// controllers/student.controller.js
 const Copy = require('../models/Copy');
 const Query = require('../models/Query');
 const User = require('../models/User'); // Assuming you have a User model
@@ -46,12 +45,17 @@ exports.raiseQuery = async (req, res, next) => {
             return res.status(404).json({ message: 'Copy not found or unauthorized.' });
         }
 
+        // NEW: Check if the copy is evaluated and released before allowing a query
+        if (copy.status !== 'evaluated' || !copy.isReleasedToStudent) {
+            return res.status(403).json({ message: 'Cannot raise a query on an unevaluated or unreleased copy.' });
+        }
+
         const q = new Query({
             copy: req.params.id,
             pageNumber,
             text,
             raisedBy: req.user._id,
-            status: 'pending' // Default status for new queries
+            status: 'pending' // Default status for new queries, goes to admin first
         });
         await q.save();
 
@@ -73,3 +77,27 @@ exports.raiseQuery = async (req, res, next) => {
     }
 };
 
+// NEW: List queries for the logged-in student
+exports.listQueries = async (req, res, next) => {
+    try {
+        const studentId = req.user._id;
+        // Optionally, allow filtering by copyId if needed for StudentCopyViewer
+        const filter = { raisedBy: studentId };
+        if (req.query.copyId) {
+            filter.copy = req.query.copyId;
+        }
+
+        const queries = await Query.find(filter)
+            .populate('raisedBy', 'name email')
+            .populate({
+                path: 'copy',
+                populate: {
+                    path: 'questionPaper',
+                    select: 'title' // Only need title for display
+                }
+            });
+        res.json(queries);
+    } catch (err) {
+        next(err);
+    }
+};
