@@ -1,29 +1,33 @@
+// routes/examiner.routes.js
 const express = require('express');
 const {
   listPending,
   listHistory,
   getCopy,
   markPage,
-  replyQuery,
+  markCompleteCopy,
   listQueries,
-  getSingleQuery, // NEW: Import the new getSingleQuery function
-  markCompleteCopy
-} = require('../controllers/examiner.controller'); // Make sure this path is correct
-const { ensureRole } = require('../middleware/auth');
+  getSingleQuery,
+  replyQuery, // Re-added replyQuery
+} = require('../controllers/examiner.controller');
 const { verifyToken } = require('../middleware/jwtAuth');
+const { ensureRole } = require('../middleware/auth');
+const upload = require('../middleware/fileUpload'); // Assuming multer setup for file uploads
+
 const router = express.Router();
 
-// All routes in this router will use verifyToken and ensureRole('examiner')
 router.use(verifyToken, ensureRole('examiner'));
 
+// Copy Management
 router.get('/copies/pending', listPending);
 router.get('/copies/history', listHistory);
 router.get('/copies/:id', getCopy);
-router.post('/copies/:id/mark', markPage);
-router.post('/copies/:id/complete', markCompleteCopy); // Allow POST for marking copies complete
+router.patch('/copies/:id/mark-page', markPage);
+router.patch('/copies/:id/complete', markCompleteCopy); // Mark copy as fully evaluated
 
-router.post('/queries/:id/reply', replyQuery); // Existing route for replying to a query
-router.get('/queries', listQueries); // Route for listing all queries for the examiner
-router.get('/queries/:id', getSingleQuery); // NEW: Route for getting a single query by ID
+// Query Management
+router.get('/queries', listQueries); // Examiner sees queries approved by admin
+router.get('/queries/:id', getSingleQuery); // Examiner views a single query
+router.patch('/queries/:id/reply', replyQuery); // Examiner replies to a query
 
 module.exports = router;
