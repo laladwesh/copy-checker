@@ -4,7 +4,9 @@ import api from "../services/api";
 import {
   ArrowLeftIcon,
   EyeIcon, // For viewing copies
-  ArrowPathIcon, // For loading spinner
+  ArrowPathIcon, // For loading spinner and Release/Unrelease button
+  CheckCircleIcon, // For toast
+  ExclamationCircleIcon, // For toast
 } from "@heroicons/react/24/outline";
 
 export default function AdminExamDetails() {
@@ -14,27 +16,101 @@ export default function AdminExamDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // State for toast notifications
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState({
+    message: "",
+    type: "success",
+  });
+
+  // Function to fetch exam details and copies
+  const fetchExamDetailsAndCopies = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get(`/admin/exams/${examId}/copies`);
+      setExam(response.data.exam);
+      setCopies(response.data.copies);
+    } catch (err) {
+      console.error("Error fetching exam details or copies:", err);
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchExamDetails = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch exam details to get its title and other info
-        const examRes = await api.get(`/admin/exams/${examId}/copies`); // Assuming this endpoint exists or will be created
-        setExam(examRes.data);
+    fetchExamDetailsAndCopies();
+  }, [examId]); // Depend on examId to refetch if URL param changes
 
-        // Fetch all copies associated with this exam
-        const copiesRes = await api.get(`/admin/exams/${examId}/copies`); // NEW: Backend endpoint needed
-        setCopies(copiesRes.data);
-      } catch (err) {
-        console.error("Error fetching exam details or copies:", err);
-        setError(err.response?.data?.message || err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const handleToggleReleaseAllCopies = async () => {
+    try {
+      const evaluatedCopies = copies.filter(c => c.status === 'evaluated');
+      const anyEvaluatedAndReleased = evaluatedCopies.some(c => c.isReleasedToStudent);
 
-    fetchExamDetails();
-  }, [examId]);
+      const action = anyEvaluatedAndReleased ? "Unreleasing" : "Releasing";
+      setToastMessage({
+        message: `${action} all evaluated copies for this exam...`,
+        type: "info",
+      });
+      setShowToast(true);
+
+      const res = await api.patch(`/admin/copies/${examId}/toggle-release`);
+
+      setToastMessage({
+        message: res.data.message,
+        type: "success",
+      });
+      fetchExamDetailsAndCopies(); // Re-fetch data to reflect the changes
+    } catch (err) {
+      console.error("Error toggling release status for exam copies:", err);
+      setToastMessage({
+        message: `Failed to toggle release status: ${err.response?.data?.message || err.message}`,
+        type: "error",
+      });
+    } finally {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000); // Hide toast after 3 seconds
+    }
+  };
+
+  // NEW: Function to toggle release status for a single copy
+  const handleToggleSingleCopyRelease = async (copyId, currentReleaseStatus) => {
+    try {
+      setToastMessage({
+        message: `${currentReleaseStatus ? 'Unreleasing' : 'Releasing'} single copy...`,
+        type: "info",
+      });
+      setShowToast(true);
+
+      const res = await api.patch(`/admin/copies/single/${copyId}/toggle-release`);
+
+      setToastMessage({
+        message: res.data.message,
+        type: "success",
+      });
+      // Update the specific copy's release status in the local state
+      setCopies(prevCopies => prevCopies.map(copy =>
+        copy._id === copyId ? { ...copy, isReleasedToStudent: !currentReleaseStatus } : copy
+      ));
+
+    } catch (err) {
+      console.error("Error toggling single copy release status:", err);
+      setToastMessage({
+        message: `Failed to toggle single copy release: ${err.response?.data?.message || err.message}`,
+        type: "error",
+      });
+    } finally {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000); // Hide toast after 3 seconds
+    }
+  };
+
+
+  // Determine the overall release status for the bulk button text
+  const evaluatedCopiesForExam = copies.filter(c => c.status === 'evaluated');
+  const allEvaluatedCopiesReleased = evaluatedCopiesForExam.length > 0 && evaluatedCopiesForExam.every(c => c.isReleasedToStudent);
+  const anyEvaluatedCopies = evaluatedCopiesForExam.length > 0;
+
 
   if (isLoading) {
     return (
@@ -78,8 +154,21 @@ export default function AdminExamDetails() {
       </h1>
 
       <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">
-          All Answer Copies
+        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
+          <span>All Answer Copies</span>
+          {anyEvaluatedCopies && ( // Only show bulk button if there are evaluated copies
+            <button
+              onClick={handleToggleReleaseAllCopies}
+              className={`px-4 py-2 rounded-md text-white font-medium transition duration-150 flex items-center ${
+                allEvaluatedCopiesReleased
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-green-500 hover:bg-green-600"
+              }`}
+            >
+              <ArrowPathIcon className="h-5 w-5 inline-block mr-2" />
+              {allEvaluatedCopiesReleased ? "Unrelease All" : "Release All"}
+            </button>
+          )}
         </h2>
         {copies.length === 0 ? (
           <p className="text-gray-600 text-center py-4">
@@ -163,9 +252,25 @@ export default function AdminExamDetails() {
                         {copy.isReleasedToStudent ? "Yes" : "No"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end space-x-2">
+                      {copy.status === "evaluated" && ( // Only show if copy is evaluated
+                        <button
+                          onClick={() =>
+                            handleToggleSingleCopyRelease(copy._id, copy.isReleasedToStudent)
+                          }
+                          className={`px-3 py-1.5 rounded-md text-white font-medium transition duration-150 flex items-center ${
+                            copy.isReleasedToStudent
+                              ? "bg-red-500 hover:bg-red-600"
+                              : "bg-green-500 hover:bg-green-600"
+                          }`}
+                          title={copy.isReleasedToStudent ? "Unrelease this copy" : "Release this copy"}
+                        >
+                          <ArrowPathIcon className="h-4 w-4 inline-block mr-1" />
+                          {copy.isReleasedToStudent ? "Unrelease" : "Release"}
+                        </button>
+                      )}
                       <Link
-                        to={`/admin/copies/view/${copy._id}`} // Link to the new AdminCopyViewer page
+                        to={`/admin/copies/view/${copy._id}`}
                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" /> View Copy
@@ -178,6 +283,28 @@ export default function AdminExamDetails() {
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div
+          className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-xl flex items-center space-x-3 ${
+            toastMessage.type === "success"
+              ? "bg-green-500"
+              : toastMessage.type === "info"
+              ? "bg-blue-500"
+              : "bg-red-500"
+          } text-white transition-all duration-300 transform`}
+        >
+          {toastMessage.type === "success" ? (
+            <CheckCircleIcon className="h-6 w-6" />
+          ) : toastMessage.type === "info" ? (
+            <ArrowPathIcon className="h-6 w-6 animate-spin" />
+          ) : (
+            <ExclamationCircleIcon className="h-6 w-6" />
+          )}
+          <p className="font-semibold">{toastMessage.message}</p>
+        </div>
+      )}
     </div>
   );
 }
