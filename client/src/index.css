@@ -16,3 +16,11 @@ code {
 }
 
 body { @apply bg-gray-50 text-gray-800; }
+
+.no-scrollbar{
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
