@@ -671,3 +671,37 @@ exports.uploadScannedCopy = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getCopiesByExam = async (req, res, next) => {
+    try {
+        const { examId } = req.params;
+        const copies = await Copy.find({ questionPaper: examId })
+            .populate('student', 'name email') // Populate student name and email
+            .populate('examiners', 'name email'); // Populate examiner names and emails
+
+        res.json(copies);
+    } catch (err) {
+        next(err);
+    }
+};
+
+// NEW: Get a single copy's details for admin viewing (read-only)
+exports.getAdminCopyDetails = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const copy = await Copy.findById(id)
+            .populate('student', 'name email')
+            .populate({
+                path: 'questionPaper',
+                select: 'title totalPages driveFile.id totalMarks' // Ensure driveFile.id and totalMarks are selected
+            })
+            .populate('examiners', 'name email'); // Populate examiners for display
+
+        if (!copy) {
+            return res.status(404).json({ message: 'Copy not found.' });
+        }
+        res.json(copy);
+    } catch (err) {
+        next(err);
+    }
+};
