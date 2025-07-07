@@ -31,12 +31,6 @@ exports.getCopy = async (req, res, next) => {
       .populate("student") // Populate student details
       .populate("questionPaper"); // Populate questionPaper details
 
-    // Note: If 'driveFile' and 'totalPages' are nested deeply within questionPaper
-    // or are not default populated, you might need to adjust the questionPaper schema
-    // or use deeper populate options here.
-    // However, for typical schemas, `.populate("questionPaper")` should fetch
-    // all its direct fields, including driveFile and totalPages if they are direct.
-
     res.json(copy);
   } catch (err) {
     next(err);
@@ -79,19 +73,12 @@ exports.markPage = async (req, res, next) => {
 
     copy.pages.sort((a, b) => a.pageNumber - b.pageNumber);
 
-    // Update copy status based on evaluation progress
     if (
       copy.pages.length === copy.totalPages &&
       copy.pages.every((p) => typeof p.marksAwarded === "number")
     ) {
-      // If all pages are marked and have marks, change status to 'pending' (ready for final review/completion)
-      // This logic depends on your workflow. If marking a page means it's ready for completion,
-      // and 'evaluated' is the final state, 'pending' here might be 'examining' or simply keep current.
-      // Given your `markCompleteCopy` sets to 'evaluated', this should likely be 'examining' or no change if it's not the final step.
-      // I'll keep it as 'pending' based on your original intention, but be mindful of your workflow.
       copy.status = "pending";
     } else if (copy.status === "pending" || copy.status === "assigned") {
-      // If it's the first page being marked, change status to 'examining'
       copy.status = "examining";
     }
 
@@ -122,15 +109,14 @@ exports.replyQuery = async (req, res, next) => {
       select: "examiners",
     });
 
-    // Ensure the examiner responding is assigned to the copy related to this query
-    if (!q.copy || !q.copy.examiners.includes(req.user._id.toString())) { // Convert to string for comparison
+    if (!q.copy || !q.copy.examiners.includes(req.user._id.toString())) {
       return res.status(403).json({
         message: "Forbidden: You are not authorized to reply to this query.",
       });
     }
 
     q.response = response;
-    q.status = "resolved"; // Mark query as resolved upon reply
+    q.status = "resolved_by_examiner"; // Use a distinct status for examiner resolution
     await q.save();
 
     const updatedQuery = await Query.findById(queryId)
@@ -151,27 +137,28 @@ exports.replyQuery = async (req, res, next) => {
 
 exports.listQueries = async (req, res, next) => {
   try {
+    // Find all queries that are either 'approved_by_admin' or 'resolved_by_examiner'
+    // and then filter them by the examiner's ID after populating the copy.
     const queries = await Query.find({
-      status: "pending", // Only show pending queries by default for the examiner
+      $or: [
+        { status: "approved_by_admin" },
+        { status: "resolved_by_examiner" }
+      ]
     })
       .populate("raisedBy", "email")
       .populate({
         path: "copy",
-        // Using `match` here effectively filters the *parent* Query document
-        // if the populated `copy` field doesn't match the condition.
-        // This is efficient.
-        match: { examiners: req.user._id },
+        select: "examiners questionPaper", // Select examiners and questionPaper for filtering and display
         populate: {
           path: "questionPaper",
           select: "title",
         },
       });
 
-    // Filter out queries where the copy was not found (due to the match condition)
-    // `queries.filter((q) => q.copy !== null)` is correct because `match`
-    // on a populated field causes documents not matching the `match` criteria
-    // to have that populated field as `null`.
-    const examinerQueries = queries.filter((q) => q.copy !== null);
+    // Manually filter queries where the associated copy is assigned to the current examiner
+    const examinerQueries = queries.filter(q => 
+      q.copy && q.copy.examiners.includes(req.user._id.toString())
+    );
 
     res.json(examinerQueries);
   } catch (err) {
@@ -193,7 +180,6 @@ exports.markCompleteCopy = async (req, res, next) => {
         .json({ message: "Forbidden: You are not assigned to this copy." });
     }
 
-    // Ensure all pages are marked before marking the copy complete
     if (copy.pages.length !== copy.totalPages || !copy.pages.every((p) => typeof p.marksAwarded === "number")) {
         return res.status(400).json({ message: "All pages must be marked before completing the copy." });
     }
@@ -212,7 +198,6 @@ exports.markCompleteCopy = async (req, res, next) => {
   }
 }
 
-// NEW: Controller function to get a single query by ID
 exports.getSingleQuery = async (req, res, next) => {
   try {
     const query = await Query.findById(req.params.id)
@@ -229,8 +214,6 @@ exports.getSingleQuery = async (req, res, next) => {
       return res.status(404).json({ message: 'Query not found.' });
     }
 
-    // IMPORTANT: Ensure the examiner is authorized to view this query
-    // The query.copy.examiners array must contain req.user._id
     const isAuthorized = query.copy?.examiners?.includes(req.user._id.toString());
 
     if (!isAuthorized) {
@@ -242,5 +225,3 @@ exports.getSingleQuery = async (req, res, next) => {
     next(err);
   }
 };
-
-// Removed `exports.replyToQuery` as `exports.replyQuery` is already defined and used.
