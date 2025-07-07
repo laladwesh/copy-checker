@@ -12,7 +12,7 @@ import {
   UsersIcon, // For assigning examiners to exam
   CheckCircleIcon, // For toast
   ExclamationCircleIcon, // For toast
-  PaperAirplaneIcon, // For toast
+  PaperAirplaneIcon, // For toast (used for info toast)
   EyeIcon, // For viewing exam details
 } from "@heroicons/react/24/outline"; // Make sure you have these icons or similar
 
@@ -28,7 +28,6 @@ export default function AdminPanel() {
     isAssignExaminersToExamModalOpen,
     setIsAssignExaminersToExamModalOpen,
   ] = useState(false); // NEW: For assigning examiners to an exam
-  // const [isCopiesModalOpen, setIsCopiesModalOpen] = useState(false); // REMOVED: No longer using modal for all copies
   const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
 
   // Form states for adding user/QP/assigning examiner
@@ -36,13 +35,11 @@ export default function AdminPanel() {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("student");
   const [newExamTitle, setNewExamTitle] = useState(""); // For QP title
-  // NEW: State variables for new exam details
   const [newExamCourse, setNewExamCourse] = useState("");
   const [newExamExamType, setNewExamExamType] = useState("");
   const [newExamDate, setNewExamDate] = useState("");
   const [newExamTotalMarks, setNewExamTotalMarks] = useState("");
 
-  // MODIFIED: To handle either a single PDF or multiple images
   const [newExamFiles, setNewExamFiles] = useState([]); // Array to hold files
   const [newExamFileType, setNewExamFileType] = useState(null); // 'pdf' or 'images'
 
@@ -52,6 +49,9 @@ export default function AdminPanel() {
   ] = useState(null); // The exam object selected for examiner assignment
   const [selectedExaminerIds, setSelectedExaminerIds] = useState([]); // Examiner IDs for assignment (multi-select)
   const [availableExaminers, setAvailableExaminers] = useState([]); // List of examiners for dropdown
+
+  // NEW: State for exam search filter
+  const [examSearchTerm, setExamSearchTerm] = useState("");
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState({
@@ -208,10 +208,19 @@ export default function AdminPanel() {
 
   const openAssignExaminersModal = (exam) => {
     setSelectedExamForExaminerAssignment(exam);
+    // When opening, pre-select current examiners assigned to this exam
     setSelectedExaminerIds(
       exam ? exam.assignedExaminers.map((ex) => ex._id) : []
     );
     setIsAssignExaminersToExamModalOpen(true);
+  };
+
+  const handleExaminerCheckboxChange = (examinerId) => {
+    setSelectedExaminerIds((prev) =>
+      prev.includes(examinerId)
+        ? prev.filter((id) => id !== examinerId)
+        : [...prev, examinerId]
+    );
   };
 
   const handleAssignExaminersToExam = async () => {
@@ -242,28 +251,6 @@ export default function AdminPanel() {
         `Error assigning examiners: ${
           err.response?.data?.message || err.message
         }`,
-        "error"
-      );
-    }
-  };
-
-  const handleToggleRelease = async (copyId) => {
-    try {
-      const res = await api.patch(`/admin/copies/${copyId}/toggle-release`);
-      showTemporaryToast(res.data.message, "success");
-      setCopies((prevCopies) =>
-        prevCopies.map((copy) =>
-          copy._id === copyId
-            ? {
-                ...copy,
-                isReleasedToStudent: res.data.copy.isReleasedToStudent,
-              }
-            : copy
-        )
-      );
-    } catch (err) {
-      showTemporaryToast(
-        `Error toggling release: ${err.response?.data?.message || err.message}`,
         "error"
       );
     }
@@ -302,21 +289,24 @@ export default function AdminPanel() {
     }
 
     examCopies.forEach((copy) => {
-      copy.examiners.forEach((examiner) => {
-        const examinerId = examiner._id; // Assuming examiner is populated
-        if (!progress[examinerId]) {
-          progress[examinerId] = {
-            name: examiner.name || examiner.email,
-            assigned: 0,
-            evaluated: 0,
-          };
-        }
-        progress[examinerId].assigned++;
-        if (copy.status === "evaluated") {
-          progress[examinerId].evaluated++;
-          totalEvaluated++;
-        }
-      });
+      // Ensure copy.examiners is an array before iterating
+      if (Array.isArray(copy.examiners)) {
+        copy.examiners.forEach((examiner) => {
+          const examinerId = examiner._id; // Assuming examiner is populated
+          if (!progress[examinerId]) {
+            progress[examinerId] = {
+              name: examiner.name || examiner.email,
+              assigned: 0,
+              evaluated: 0,
+            };
+          }
+          progress[examinerId].assigned++;
+          if (copy.status === "evaluated") {
+            progress[examinerId].evaluated++;
+            totalEvaluated++;
+          }
+        });
+      }
     });
 
     let overallStatus = "Pending Assignment";
@@ -335,6 +325,17 @@ export default function AdminPanel() {
     return { status: overallStatus, progress };
   };
 
+  // Filter exams for the "Assign Examiners to Exam Pool" modal
+  // Only show exams that have no examiners assigned yet
+  const unassignedExamsForModal = exams.filter(
+    (exam) => !exam.assignedExaminers || exam.assignedExaminers.length === 0
+  );
+
+  // Filter exams for the main "Exam Overview & Progress" section based on search term
+  const filteredExams = exams.filter((exam) =>
+    exam.title.toLowerCase().includes(examSearchTerm.toLowerCase())
+  );
+
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
       {/* Toast Notification */}
@@ -345,7 +346,7 @@ export default function AdminPanel() {
               ? "bg-green-500"
               : toastMessage.type === "error"
               ? "bg-red-500"
-              : "bg-blue-500"
+              : "bg-blue-500" // For 'info' type
           } ${
             showToast
               ? "translate-x-0 opacity-100"
@@ -442,10 +443,22 @@ export default function AdminPanel() {
 
       {/* NEW: Exam Overview Section (replaces "Manage All Copies" modal content) */}
       <section className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-10">
-        <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3">
-          Exam Overview & Progress
+        <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
+          <span>Exam Overview & Progress</span>
+          {/* Search Bar for Exams */}
+          <input
+            type="text"
+            placeholder="Search exams by title..."
+            className="w-1/3 text-sm p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={examSearchTerm}
+            onChange={(e) => setExamSearchTerm(e.target.value)}
+          />
         </h2>
-        {exams.length === 0 ? (
+        {filteredExams.length === 0 && exams.length > 0 ? (
+          <p className="text-gray-600 text-center py-4">
+            No exams found matching your search criteria.
+          </p>
+        ) : filteredExams.length === 0 && exams.length === 0 ? (
           <p className="text-gray-600 text-center py-4">
             No exams created yet. Create an exam to see its progress.
           </p>
@@ -499,7 +512,7 @@ export default function AdminPanel() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {exams.map((exam) => {
+                {filteredExams.map((exam) => {
                   const { status: overallStatus, progress: examinerProgress } =
                     getExamProgressSummary(exam._id);
                   const totalCopiesForExam = copies.filter(
@@ -569,7 +582,7 @@ export default function AdminPanel() {
         )}
       </section>
 
-      {/* Modals for Admin Actions (unchanged) */}
+      {/* Modals for Admin Actions */}
 
       {/* Manage Users Modal */}
       <Modal
@@ -668,7 +681,7 @@ export default function AdminPanel() {
               required
             />
           </div>
-          {/* NEW: Course Input */}
+          {/* Course Input */}
           <div>
             <label
               htmlFor="examCourse"
@@ -686,7 +699,7 @@ export default function AdminPanel() {
               required
             />
           </div>
-          {/* NEW: Exam Type Input */}
+          {/* Exam Type Input */}
           <div>
             <label
               htmlFor="examType"
@@ -704,7 +717,7 @@ export default function AdminPanel() {
               required
             />
           </div>
-          {/* NEW: Date Input */}
+          {/* Date Input */}
           <div>
             <label
               htmlFor="examDate"
@@ -721,7 +734,7 @@ export default function AdminPanel() {
               required
             />
           </div>
-          {/* NEW: Total Marks Input */}
+          {/* Total Marks Input */}
           <div>
             <label
               htmlFor="totalMarks"
@@ -782,7 +795,7 @@ export default function AdminPanel() {
               htmlFor="selectExam"
               className="block text-sm font-medium text-gray-700"
             >
-              Select Exam:
+              Select Exam (Only unassigned exams shown):
             </label>
             <select
               id="selectExam"
@@ -797,51 +810,57 @@ export default function AdminPanel() {
                 )
               }
               className="w-full p-2 border rounded mt-1"
+              disabled={unassignedExamsForModal.length === 0} // Disable if no exams to assign
             >
               <option value="">-- Choose an Exam --</option>
-              {exams.map((exam) => (
+              {unassignedExamsForModal.map((exam) => (
                 <option key={exam._id} value={exam._id}>
                   {exam.title} ({exam.totalPages || "N/A"} pages)
                 </option>
               ))}
             </select>
+            {unassignedExamsForModal.length === 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                All exams are currently assigned to examiners or no exams exist.
+              </p>
+            )}
           </div>
           {selectedExamForExaminerAssignment && (
             <div>
               <label
                 htmlFor="selectExaminers"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Assign Examiners (Select multiple):
               </label>
-              <select
-                id="selectExaminers"
-                multiple
-                value={selectedExaminerIds}
-                onChange={(e) =>
-                  setSelectedExaminerIds(
-                    Array.from(e.target.options)
-                      .filter((option) => option.selected)
-                      .map((option) => option.value)
-                  )
-                }
-                className="w-full p-2 border rounded mt-1 h-32" // Increased height for multi-select
-              >
+              <div className="border rounded p-3 max-h-40 overflow-y-auto bg-gray-50">
                 {availableExaminers.length === 0 ? (
-                  <option value="" disabled>
-                    No examiners available
-                  </option>
+                  <p className="text-gray-500 text-sm">
+                    No examiners available.
+                  </p>
                 ) : (
                   availableExaminers.map((examiner) => (
-                    <option key={examiner._id} value={examiner._id}>
-                      {examiner.name} ({examiner.email})
-                    </option>
+                    <div key={examiner._id} className="flex items-center mb-1">
+                      <input
+                        type="checkbox"
+                        id={`examiner-${examiner._id}`}
+                        value={examiner._id}
+                        checked={selectedExaminerIds.includes(examiner._id)}
+                        onChange={() =>
+                          handleExaminerCheckboxChange(examiner._id)
+                        }
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <label
+                        htmlFor={`examiner-${examiner._id}`}
+                        className="ml-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        {examiner.name} ({examiner.email})
+                      </label>
+                    </div>
                   ))
                 )}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Hold Ctrl/Cmd to select multiple examiners.
-              </p>
+              </div>
             </div>
           )}
           <button
