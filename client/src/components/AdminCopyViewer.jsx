@@ -196,7 +196,7 @@ export default function AdminCopyViewer() {
                 <button
                   onClick={() => {
                     setQpCurrentPage((p) => Math.max(1, p - 1));
-                    setIsLoading(true); // Indicate loading for image change
+                    setIsQpLoading(true); // Indicate loading for image change
                   }}
                   disabled={qpCurrentPage === 1}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
