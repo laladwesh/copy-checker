@@ -13,12 +13,13 @@ import {
   CheckCircleIcon, // For toast
   ExclamationCircleIcon, // For toast
   PaperAirplaneIcon, // For toast
+  EyeIcon, // For viewing exam details
 } from "@heroicons/react/24/outline"; // Make sure you have these icons or similar
 
 export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [exams, setExams] = useState([]); // Renamed from questionPapers for clarity ("pool where all exams should be there")
-  const [copies, setCopies] = useState([]);
+  const [copies, setCopies] = useState([]); // Still fetch all copies to calculate overall progress
 
   // Modals
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
@@ -27,7 +28,7 @@ export default function AdminPanel() {
     isAssignExaminersToExamModalOpen,
     setIsAssignExaminersToExamModalOpen,
   ] = useState(false); // NEW: For assigning examiners to an exam
-  const [isCopiesModalOpen, setIsCopiesModalOpen] = useState(false);
+  // const [isCopiesModalOpen, setIsCopiesModalOpen] = useState(false); // REMOVED: No longer using modal for all copies
   const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
 
   // Form states for adding user/QP/assigning examiner
@@ -73,7 +74,7 @@ export default function AdminPanel() {
       ]);
       setUsers(usersRes.data);
       setExams(examsRes.data);
-      setCopies(copiesRes.data);
+      setCopies(copiesRes.data); // Keep all copies to calculate progress
       setAvailableExaminers(examinersRes.data);
     } catch (error) {
       console.error("Error fetching initial data:", error);
@@ -111,7 +112,6 @@ export default function AdminPanel() {
     }
   };
 
-  // MODIFIED: Handles "admin can create an exam and right now at that time he have to upload question paper"
   const handleCreateExam = async (e) => {
     e.preventDefault();
     if (!newExamTitle || newExamFiles.length === 0) {
@@ -124,17 +124,16 @@ export default function AdminPanel() {
 
     const formData = new FormData();
     formData.append("title", newExamTitle);
-    formData.append("course", newExamCourse); // NEW
-    formData.append("examType", newExamExamType); // NEW
-    formData.append("date", newExamDate); // NEW
-    formData.append("totalMarks", newExamTotalMarks); // NEW
-
+    formData.append("course", newExamCourse);
+    formData.append("examType", newExamExamType);
+    formData.append("date", newExamDate);
+    formData.append("totalMarks", newExamTotalMarks);
 
     if (newExamFileType === "pdf") {
-      formData.append("paper", newExamFiles[0]); // Backend expects 'paper' for PDF
+      formData.append("paper", newExamFiles[0]);
     } else if (newExamFileType === "images") {
-      newExamFiles.forEach((file, index) => {
-        formData.append(`images`, file); // Backend expects 'images' array for images
+      newExamFiles.forEach((file) => {
+        formData.append(`images`, file);
       });
     }
 
@@ -146,12 +145,12 @@ export default function AdminPanel() {
       });
       showTemporaryToast("Exam created successfully!", "success");
       setNewExamTitle("");
-      setNewExamCourse(""); // NEW
-      setNewExamExamType(""); // NEW
-      setNewExamDate(""); // NEW
-      setNewExamTotalMarks(""); // NEW
-      setNewExamFiles([]); // Reset files
-      setNewExamFileType(null); // Reset file type
+      setNewExamCourse("");
+      setNewExamExamType("");
+      setNewExamDate("");
+      setNewExamTotalMarks("");
+      setNewExamFiles([]);
+      setNewExamFileType(null);
       setIsCreateExamModalOpen(false);
       fetchInitialData(); // Refresh exams list
     } catch (err) {
@@ -162,7 +161,6 @@ export default function AdminPanel() {
     }
   };
 
-  // MODIFIED: Handle file input change for exam creation
   const handleExamFileChange = (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) {
@@ -171,19 +169,17 @@ export default function AdminPanel() {
       return;
     }
 
-    // Check if the first file is a PDF
     if (files[0].type === "application/pdf") {
       if (files.length > 1) {
         showTemporaryToast("Please select only one PDF file.", "error");
         setNewExamFiles([]);
         setNewExamFileType(null);
-        e.target.value = null; // Clear the input
+        e.target.value = null;
         return;
       }
       setNewExamFiles(files);
       setNewExamFileType("pdf");
     } else if (files[0].type.startsWith("image/")) {
-      // Check if all selected files are images
       const allAreImages = files.every((file) =>
         file.type.startsWith("image/")
       );
@@ -197,7 +193,7 @@ export default function AdminPanel() {
         );
         setNewExamFiles([]);
         setNewExamFileType(null);
-        e.target.value = null; // Clear the input
+        e.target.value = null;
       }
     } else {
       showTemporaryToast(
@@ -206,22 +202,18 @@ export default function AdminPanel() {
       );
       setNewExamFiles([]);
       setNewExamFileType(null);
-      e.target.value = null; // Clear the input
+      e.target.value = null;
     }
   };
 
-  // NEW: Open assign examiners modal for a specific exam
   const openAssignExaminersModal = (exam) => {
     setSelectedExamForExaminerAssignment(exam);
-    // Pre-select already assigned examiners for the chosen exam
     setSelectedExaminerIds(
       exam ? exam.assignedExaminers.map((ex) => ex._id) : []
     );
     setIsAssignExaminersToExamModalOpen(true);
   };
 
-  // NEW: Handle assigning examiners to an exam and distributing copies
-  // This addresses "ek exam me 4 examiner assign kar die and then all them will get equal copies"
   const handleAssignExaminersToExam = async () => {
     if (!selectedExamForExaminerAssignment) {
       showTemporaryToast("Please select an exam.", "error");
@@ -282,6 +274,65 @@ export default function AdminPanel() {
     setIsScanUploadModalOpen(false);
     fetchInitialData(); // Refresh copies list
   };
+
+  // Helper function to calculate exam status and examiner progress
+  const getExamProgressSummary = (examId) => {
+    const examCopies = copies.filter(copy => copy.questionPaper?._id === examId);
+    const totalCopies = examCopies.length;
+
+    if (totalCopies === 0) {
+      return { status: "No Copies Uploaded", progress: {} };
+    }
+
+    const progress = {};
+    let totalEvaluated = 0;
+
+    // Initialize progress for all assigned examiners
+    const exam = exams.find(e => e._id === examId);
+    if (exam && exam.assignedExaminers) {
+      exam.assignedExaminers.forEach(examiner => {
+        progress[examiner._id] = {
+          name: examiner.name || examiner.email,
+          assigned: 0,
+          evaluated: 0,
+        };
+      });
+    }
+
+    examCopies.forEach(copy => {
+      copy.examiners.forEach(examiner => {
+        const examinerId = examiner._id; // Assuming examiner is populated
+        if (!progress[examinerId]) {
+          progress[examinerId] = {
+            name: examiner.name || examiner.email,
+            assigned: 0,
+            evaluated: 0,
+          };
+        }
+        progress[examinerId].assigned++;
+        if (copy.status === 'evaluated') {
+          progress[examinerId].evaluated++;
+          totalEvaluated++;
+        }
+      });
+    });
+
+    let overallStatus = "Pending Assignment";
+    if (totalCopies > 0 && Object.keys(progress).length > 0) {
+      if (totalEvaluated === totalCopies) {
+        overallStatus = "Completed";
+      } else if (totalEvaluated > 0) {
+        overallStatus = "In Progress";
+      } else {
+        overallStatus = "Assigned, Not Started";
+      }
+    } else if (totalCopies > 0) {
+      overallStatus = "Copies Uploaded, Unassigned";
+    }
+
+    return { status: overallStatus, progress };
+  };
+
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
@@ -370,23 +421,6 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        {/* Manage All Copies Card */}
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <ClipboardDocumentListIcon className="h-16 w-16 text-green-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Manage All Copies
-          </h2>
-          <p className="text-gray-600 mb-6">
-            View and manage all answer copies in the system.
-          </p>
-          <button
-            onClick={() => setIsCopiesModalOpen(true)}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
-          >
-            View All Copies ({copies.length})
-          </button>
-        </div>
-
         {/* Scan & Upload Copy Card - "pahle student ki saari copies upload ho jae" */}
         <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
           <CloudArrowUpIcon className="h-16 w-16 text-orange-500 mb-4" />
@@ -405,9 +439,105 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* Modals for Admin Actions */}
+      {/* NEW: Exam Overview Section (replaces "Manage All Copies" modal content) */}
+      <section className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-10">
+        <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3">
+          Exam Overview & Progress
+        </h2>
+        {exams.length === 0 ? (
+          <p className="text-gray-600 text-center py-4">
+            No exams created yet. Create an exam to see its progress.
+          </p>
+        ) : (
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Exam Title
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Course
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Exam Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Copies
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Overall Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Examiner Progress
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {exams.map((exam) => {
+                  const { status: overallStatus, progress: examinerProgress } = getExamProgressSummary(exam._id);
+                  const totalCopiesForExam = copies.filter(c => c.questionPaper?._id === exam._id).length;
 
-      {/* Manage Users Modal (unchanged from previous) */}
+                  return (
+                    <tr key={exam._id} className="hover:bg-gray-50 transition-colors duration-150">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {exam.title}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {exam.course || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {exam.date ? new Date(exam.date).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {totalCopiesForExam}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          overallStatus === "Completed" ? "bg-green-100 text-green-800" :
+                          overallStatus.includes("Progress") || overallStatus.includes("Assigned") ? "bg-yellow-100 text-yellow-800" :
+                          "bg-gray-100 text-gray-800"
+                        }`}>
+                          {overallStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {Object.keys(examinerProgress).length > 0 ? (
+                          <ul className="list-disc list-inside space-y-0.5">
+                            {Object.values(examinerProgress).map((p, idx) => (
+                              <li key={idx}>
+                                {p.name}: {p.evaluated}/{p.assigned}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          "No examiners assigned or no copies yet."
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link
+                          to={`/admin/exams/${exam._id}`} // Link to the new AdminExamDetails page
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                        >
+                          <EyeIcon className="h-4 w-4 mr-1" /> View Details
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+
+      {/* Modals for Admin Actions (unchanged) */}
+
+      {/* Manage Users Modal */}
       <Modal
         isOpen={isUsersModalOpen}
         onClose={() => setIsUsersModalOpen(false)}
@@ -480,7 +610,7 @@ export default function AdminPanel() {
         </div>
       </Modal>
 
-      {/* Create Exam Modal (Upload Question Paper) - MODIFIED */}
+      {/* Create Exam Modal (Upload Question Paper) */}
       <Modal
         isOpen={isCreateExamModalOpen}
         onClose={() => setIsCreateExamModalOpen(false)}
@@ -585,9 +715,7 @@ export default function AdminPanel() {
             <input
               type="file"
               id="examFile"
-              // MODIFIED: Accept PDF and common image formats
               accept=".pdf, .jpg, .jpeg, .png, .gif"
-              // MODIFIED: Allow multiple files for images
               multiple={newExamFileType === "images"}
               onChange={handleExamFileChange}
               className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1"
@@ -639,7 +767,7 @@ export default function AdminPanel() {
               <option value="">-- Choose an Exam --</option>
               {exams.map((exam) => (
                 <option key={exam._id} value={exam._id}>
-                  {exam.title} ({exam.totalPages} pages)
+                  {exam.title} ({exam.totalPages || 'N/A'} pages)
                 </option>
               ))}
             </select>
@@ -684,7 +812,6 @@ export default function AdminPanel() {
           )}
           <button
             onClick={handleAssignExaminersToExam}
-            // Disable if no exam is selected or no examiners are selected
             disabled={
               !selectedExamForExaminerAssignment ||
               selectedExaminerIds.length === 0
@@ -694,116 +821,6 @@ export default function AdminPanel() {
             Assign Examiners & Distribute Copies
           </button>
         </div>
-      </Modal>
-
-      {/* Manage All Copies Modal (Updated to show unassigned copies and assigned examiners) */}
-      <Modal
-        isOpen={isCopiesModalOpen}
-        onClose={() => setIsCopiesModalOpen(false)}
-        title="Manage All Answer Copies"
-      >
-        {copies.length === 0 ? (
-          <p className="text-gray-600 text-center py-4">
-            No answer copies in the system.
-          </p>
-        ) : (
-          <div className="overflow-x-auto max-h-96 overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Exam Title
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Student Name (Email)
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Assigned Examiner(s)
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Released to Student
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {copies.map((c) => (
-                  <tr key={c._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {c.questionPaper?.title || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {c.student?.name || "N/A"} ({c.student?.email || "N/A"})
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          c.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {c.examiners && c.examiners.length > 0
-                        ? c.examiners.map((e) => e.name || e.email).join(", ")
-                        : "Unassigned"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          c.isReleasedToStudent
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {c.isReleasedToStudent ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleToggleRelease(c._id)}
-                        className={`px-3 py-1 rounded-md text-white font-medium transition duration-150 ${
-                          c.isReleasedToStudent
-                            ? "bg-red-500 hover:bg-red-600"
-                            : "bg-green-500 hover:bg-green-600"
-                        }`}
-                      >
-                        <ArrowPathIcon className="h-4 w-4 inline-block mr-1" />
-                        {c.isReleasedToStudent ? "Unrelease" : "Release"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Modal>
 
       {/* Scan & Upload Copy Modal (requires `questionPapers` and `students` props) */}
