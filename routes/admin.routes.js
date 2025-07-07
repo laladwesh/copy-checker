@@ -14,7 +14,9 @@ const {
     approveQuery,
     rejectQuery,
     toggleCopyRelease,
-    uploadScannedCopy
+    uploadScannedCopy,
+    getCopiesByExam,
+    getAdminCopyDetails
 } = require('../controllers/admin.controller');
 const { verifyToken } = require('../middleware/jwtAuth');
 const { ensureRole } = require('../middleware/auth');
@@ -61,7 +63,8 @@ router.get('/copies', listCopies);
 router.get('/queries', listQueries);
 router.patch('/queries/:id/approve', approveQuery);
 router.patch('/queries/:id/reject', rejectQuery);
-
+router.get('/exams/:examId/copies', getCopiesByExam); // Get all copies for a specific exam
+router.get('/copies/view/:id', getAdminCopyDetails); // Get details of a single copy for admin viewing
 // Admin Features
 router.patch('/copies/:id/toggle-release', toggleCopyRelease);
 // Assuming 'uploadScannedCopy' handles multiple images or a single PDF for answer sheets
