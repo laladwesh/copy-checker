@@ -277,7 +277,9 @@ export default function AdminPanel() {
 
   // Helper function to calculate exam status and examiner progress
   const getExamProgressSummary = (examId) => {
-    const examCopies = copies.filter(copy => copy.questionPaper?._id === examId);
+    const examCopies = copies.filter(
+      (copy) => copy.questionPaper?._id === examId
+    );
     const totalCopies = examCopies.length;
 
     if (totalCopies === 0) {
@@ -288,9 +290,9 @@ export default function AdminPanel() {
     let totalEvaluated = 0;
 
     // Initialize progress for all assigned examiners
-    const exam = exams.find(e => e._id === examId);
+    const exam = exams.find((e) => e._id === examId);
     if (exam && exam.assignedExaminers) {
-      exam.assignedExaminers.forEach(examiner => {
+      exam.assignedExaminers.forEach((examiner) => {
         progress[examiner._id] = {
           name: examiner.name || examiner.email,
           assigned: 0,
@@ -299,8 +301,8 @@ export default function AdminPanel() {
       });
     }
 
-    examCopies.forEach(copy => {
-      copy.examiners.forEach(examiner => {
+    examCopies.forEach((copy) => {
+      copy.examiners.forEach((examiner) => {
         const examinerId = examiner._id; // Assuming examiner is populated
         if (!progress[examinerId]) {
           progress[examinerId] = {
@@ -310,7 +312,7 @@ export default function AdminPanel() {
           };
         }
         progress[examinerId].assigned++;
-        if (copy.status === 'evaluated') {
+        if (copy.status === "evaluated") {
           progress[examinerId].evaluated++;
           totalEvaluated++;
         }
@@ -332,7 +334,6 @@ export default function AdminPanel() {
 
     return { status: overallStatus, progress };
   };
-
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
@@ -453,54 +454,88 @@ export default function AdminPanel() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Exam Title
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Course
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Exam Date
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Total Copies
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Overall Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Examiner Progress
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {exams.map((exam) => {
-                  const { status: overallStatus, progress: examinerProgress } = getExamProgressSummary(exam._id);
-                  const totalCopiesForExam = copies.filter(c => c.questionPaper?._id === exam._id).length;
+                  const { status: overallStatus, progress: examinerProgress } =
+                    getExamProgressSummary(exam._id);
+                  const totalCopiesForExam = copies.filter(
+                    (c) => c.questionPaper?._id === exam._id
+                  ).length;
 
                   return (
-                    <tr key={exam._id} className="hover:bg-gray-50 transition-colors duration-150">
+                    <tr
+                      key={exam._id}
+                      className="hover:bg-gray-50 transition-colors duration-150"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {exam.title}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {exam.course || 'N/A'}
+                        {exam.course || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {exam.date ? new Date(exam.date).toLocaleDateString() : 'N/A'}
+                        {exam.date
+                          ? new Date(exam.date).toLocaleDateString()
+                          : "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {totalCopiesForExam}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          overallStatus === "Completed" ? "bg-green-100 text-green-800" :
-                          overallStatus.includes("Progress") || overallStatus.includes("Assigned") ? "bg-yellow-100 text-yellow-800" :
-                          "bg-gray-100 text-gray-800"
-                        }`}>
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            overallStatus === "Completed"
+                              ? "bg-green-100 text-green-800"
+                              : overallStatus.includes("Progress") ||
+                                overallStatus.includes("Assigned")
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
                           {overallStatus}
                         </span>
                       </td>
@@ -533,7 +568,6 @@ export default function AdminPanel() {
           </div>
         )}
       </section>
-
 
       {/* Modals for Admin Actions (unchanged) */}
 
@@ -767,7 +801,7 @@ export default function AdminPanel() {
               <option value="">-- Choose an Exam --</option>
               {exams.map((exam) => (
                 <option key={exam._id} value={exam._id}>
-                  {exam.title} ({exam.totalPages || 'N/A'} pages)
+                  {exam.title} ({exam.totalPages || "N/A"} pages)
                 </option>
               ))}
             </select>
