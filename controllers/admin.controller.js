@@ -1,4 +1,3 @@
-// controllers/admin.controller.js
 const User = require("../models/User");
 const Copy = require("../models/Copy");
 const Paper = require("../models/Paper"); // Your Question Paper model
@@ -452,10 +451,11 @@ exports.listCopies = async (req, res, next) => {
   }
 };
 
-// 4. Query Management (No changes needed here for this request)
+// 4. Query Management
 exports.listQueries = async (req, res, next) => {
   try {
-    const qs = await Query.find({ status: "pending" })
+    // Admin should see all queries regardless of status
+    const qs = await Query.find({})
       .populate({
         path: "copy",
         populate: [
@@ -470,32 +470,66 @@ exports.listQueries = async (req, res, next) => {
   }
 };
 
+// MODIFIED: Admin approves query (forwards to examiner)
 exports.approveQuery = async (req, res, next) => {
   try {
-    const q = await Query.findByIdAndUpdate(
-      req.params.id,
-      { status: "approved" },
-      { new: true }
-    );
+    const q = await Query.findById(req.params.id);
     if (!q) {
       return res.status(404).json({ message: "Query not found." });
     }
+    // Only allow approval if status is pending
+    if (q.status !== 'pending') {
+      return res.status(400).json({ message: `Query cannot be approved from status: ${q.status}.` });
+    }
+
+    q.status = "approved_by_admin";
+    await q.save();
     res.json(q);
   } catch (err) {
     next(err);
   }
 };
 
+// MODIFIED: Admin rejects query
 exports.rejectQuery = async (req, res, next) => {
   try {
-    const q = await Query.findByIdAndUpdate(
-      req.params.id,
-      { status: "rejected" },
-      { new: true }
-    );
+    const q = await Query.findById(req.params.id);
     if (!q) {
       return res.status(404).json({ message: "Query not found." });
     }
+    // Only allow rejection if status is pending or approved_by_admin
+    if (q.status !== 'pending' && q.status !== 'approved_by_admin') {
+      return res.status(400).json({ message: `Query cannot be rejected from status: ${q.status}.` });
+    }
+
+    q.status = "rejected_by_admin";
+    await q.save();
+    res.json(q);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// NEW: Admin resolves query by adding a response
+exports.resolveQueryByAdmin = async (req, res, next) => {
+  try {
+    const { responseText } = req.body;
+    if (!responseText) {
+      return res.status(400).json({ message: "Response text is required." });
+    }
+
+    const q = await Query.findById(req.params.id);
+    if (!q) {
+      return res.status(404).json({ message: "Query not found." });
+    }
+    // Only allow resolution if status is pending or approved_by_admin
+    if (q.status !== 'pending' && q.status !== 'approved_by_admin') {
+      return res.status(400).json({ message: `Query cannot be resolved from status: ${q.status}.` });
+    }
+
+    q.status = "resolved_by_admin";
+    q.response = responseText;
+    await q.save();
     res.json(q);
   } catch (err) {
     next(err);
