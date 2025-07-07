@@ -12,7 +12,9 @@ const { PDFDocument } = require("pdf-lib");
 
 // Utility function to sanitize folder names (replace invalid characters)
 const sanitizeFolderName = (name) => {
-    return String(name).replace(/[^a-zA-Z0-9-_. ]/g, '_').substring(0, 100); // Limit length
+  return String(name)
+    .replace(/[^a-zA-Z0-9-_. ]/g, "_")
+    .substring(0, 100); // Limit length
 };
 
 // 1. User Management (No changes needed here for this request)
@@ -156,9 +158,11 @@ exports.createExam = async (req, res, next) => {
     // Sanitize title for folder name
     const sanitizedTitle = sanitizeFolderName(title);
     // Combine title and a timestamp/random string for uniqueness if titles can repeat
-    const examFolderName = `${sanitizedTitle}_${Date.now()}`; 
+    const examFolderName = `${sanitizedTitle}_${Date.now()}`;
     const examFolderId = await getOrCreateFolder(examFolderName, examsRootId);
-    console.log(`[Admin] Exam folder created/found: '${examFolderName}' with ID: ${examFolderId}`);
+    console.log(
+      `[Admin] Exam folder created/found: '${examFolderName}' with ID: ${examFolderId}`
+    );
 
     // 3. Upload the question paper PDF directly into this exam's folder
     console.log(
@@ -350,7 +354,7 @@ exports.uploadCopy = async (req, res, next) => {
         .status(404)
         .json({ message: "Student not found or invalid user role." });
     }
-    
+
     // --- NEW LOGIC FOR FOLDER STRUCTURE FOR COPIES ---
     const questionPaper = await Paper.findById(paperId);
     if (!questionPaper) {
@@ -358,22 +362,39 @@ exports.uploadCopy = async (req, res, next) => {
     }
     // Check if the question paper has a driveFolderId stored
     if (!questionPaper.driveFolderId) {
-        console.error(`[Copy Upload Error] Question Paper (ID: ${paperId}) does not have a driveFolderId. Cannot organize copy.`);
-        return res.status(500).json({ message: "Associated exam folder not found on Google Drive. Please re-upload the question paper or check its settings." });
+      console.error(
+        `[Copy Upload Error] Question Paper (ID: ${paperId}) does not have a driveFolderId. Cannot organize copy.`
+      );
+      return res
+        .status(500)
+        .json({
+          message:
+            "Associated exam folder not found on Google Drive. Please re-upload the question paper or check its settings.",
+        });
     }
 
     const examFolderId = questionPaper.driveFolderId;
-    console.log(`[Copy] Found exam folder ID: ${examFolderId} for QPID: ${paperId}`);
+    console.log(
+      `[Copy] Found exam folder ID: ${examFolderId} for QPID: ${paperId}`
+    );
 
     // Create/get "answer_copies" subfolder within the specific exam's folder
-    const answerCopiesFolderId = await getOrCreateFolder("answer_copies", examFolderId);
-    console.log(`[Copy] Answer Copies folder ID: ${answerCopiesFolderId} within exam folder.`);
+    const answerCopiesFolderId = await getOrCreateFolder(
+      "answer_copies",
+      examFolderId
+    );
+    console.log(
+      `[Copy] Answer Copies folder ID: ${answerCopiesFolderId} within exam folder.`
+    );
 
     // Continue with batch and student folders inside "answer_copies"
     const batchFolderName = student.batch
       ? sanitizeFolderName(student.batch)
       : "unassigned_batch";
-    const batchFolderId = await getOrCreateFolder(batchFolderName, answerCopiesFolderId);
+    const batchFolderId = await getOrCreateFolder(
+      batchFolderName,
+      answerCopiesFolderId
+    );
     console.log(`[Copy] Batch folder ID: ${batchFolderId}`);
 
     const stuFolderId = await getOrCreateFolder(
@@ -482,29 +503,44 @@ exports.rejectQuery = async (req, res, next) => {
 };
 
 // 5. Admin Control for Student Copy Visibility (No changes needed here for this request)
-exports.toggleCopyRelease = async (req, res, next) => {
+exports.toggleExamCopyRelease = async (req, res, next) => {
   try {
-    const copyId = req.params.id;
-    const copy = await Copy.findById(copyId);
+    const { examId } = req.params;
 
-    if (!copy) {
-      return res.status(404).json({ message: "Copy not found." });
-    }
+    // Find all copies for this exam that are 'evaluated'
+    const copiesToUpdate = await Copy.find({
+      questionPaper: examId,
+      status: "evaluated",
+    });
 
-    if (copy.status !== "evaluated") {
+    if (copiesToUpdate.length === 0) {
       return res
-        .status(400)
-        .json({ message: "Only completed copies can be released/unreleased." });
+        .status(404)
+        .json({
+          message:
+            "No evaluated copies found for this exam to toggle release status.",
+        });
     }
 
-    copy.isReleasedToStudent = !copy.isReleasedToStudent;
-    await copy.save();
+    // Determine the target release status:
+    // If ANY of the evaluated copies are currently released, the action will be to UNRELEASE ALL.
+    // Otherwise (if all are unreleased), the action will be to RELEASE ALL.
+    const anyReleased = copiesToUpdate.some((copy) => copy.isReleasedToStudent);
+    const newReleaseStatus = !anyReleased; // If any are released, new status is false; otherwise true.
+
+    // Update all relevant copies
+    await Copy.updateMany(
+      { questionPaper: examId, status: "evaluated" },
+      { $set: { isReleasedToStudent: newReleaseStatus } }
+    );
 
     res.json({
-      message: `Copy release status updated to ${
-        copy.isReleasedToStudent ? "released" : "unreleased"
+      message: `All evaluated copies for exam ${examId} successfully ${
+        newReleaseStatus ? "released to students" : "unreleased"
       }.`,
-      copy: copy,
+      // Optionally, you might refetch and send the updated copies,
+      // but for a bulk update, a message is often sufficient.
+      // The frontend will likely refetch the list.
     });
   } catch (err) {
     next(err);
@@ -515,7 +551,7 @@ exports.toggleCopyRelease = async (req, res, next) => {
 exports.uploadScannedCopy = async (req, res, next) => {
   try {
     const { studentEmail, questionPaperId } = req.body;
-    const uploadedFiles = req.files; 
+    const uploadedFiles = req.files;
 
     if (!studentEmail || !questionPaperId || !uploadedFiles) {
       return res.status(400).json({
@@ -530,10 +566,15 @@ exports.uploadScannedCopy = async (req, res, next) => {
       fileToProcess = uploadedFiles.scannedPdf[0];
       isPdfUpload = true;
       console.log("[ScanCopy] Processing PDF from 'scannedPdf' field.");
-    } else if (uploadedFiles.scannedImages && uploadedFiles.scannedImages.length > 0) {
+    } else if (
+      uploadedFiles.scannedImages &&
+      uploadedFiles.scannedImages.length > 0
+    ) {
       fileToProcess = uploadedFiles.scannedImages;
       isPdfUpload = false;
-      console.log(`[ScanCopy] Processing images from 'scannedImages' field. Total: ${fileToProcess.length}`);
+      console.log(
+        `[ScanCopy] Processing images from 'scannedImages' field. Total: ${fileToProcess.length}`
+      );
     } else {
       return res.status(400).json({
         message: "No scanned PDF or image files provided.",
@@ -560,22 +601,39 @@ exports.uploadScannedCopy = async (req, res, next) => {
     // --- NEW LOGIC FOR FOLDER STRUCTURE FOR SCANNED COPIES ---
     // Retrieve the exam's dedicated folder ID
     if (!questionPaper.driveFolderId) {
-        console.error(`[ScanCopy Error] Question Paper (ID: ${questionPaperId}) does not have a driveFolderId. Cannot organize scanned copy.`);
-        return res.status(500).json({ message: "Associated exam folder not found on Google Drive. Please ensure the question paper was uploaded correctly." });
+      console.error(
+        `[ScanCopy Error] Question Paper (ID: ${questionPaperId}) does not have a driveFolderId. Cannot organize scanned copy.`
+      );
+      return res
+        .status(500)
+        .json({
+          message:
+            "Associated exam folder not found on Google Drive. Please ensure the question paper was uploaded correctly.",
+        });
     }
 
     const examFolderId = questionPaper.driveFolderId;
-    console.log(`[ScanCopy] Found exam folder ID: ${examFolderId} for QPID: ${questionPaperId}`);
+    console.log(
+      `[ScanCopy] Found exam folder ID: ${examFolderId} for QPID: ${questionPaperId}`
+    );
 
     // Create/get "answer_copies" subfolder within the specific exam's folder
-    const answerCopiesFolderId = await getOrCreateFolder("answer_copies", examFolderId);
-    console.log(`[ScanCopy] Answer Copies folder ID: ${answerCopiesFolderId} within exam folder.`);
+    const answerCopiesFolderId = await getOrCreateFolder(
+      "answer_copies",
+      examFolderId
+    );
+    console.log(
+      `[ScanCopy] Answer Copies folder ID: ${answerCopiesFolderId} within exam folder.`
+    );
 
     // Continue with batch and student folders inside "answer_copies"
     const batchFolderName = student.batch
       ? sanitizeFolderName(student.batch)
       : "unassigned_batch";
-    const batchFolderId = await getOrCreateFolder(batchFolderName, answerCopiesFolderId);
+    const batchFolderId = await getOrCreateFolder(
+      batchFolderName,
+      answerCopiesFolderId
+    );
     console.log(`[ScanCopy] Batch folder ID: ${batchFolderId}`);
 
     const stuFolderId = await getOrCreateFolder(
@@ -673,35 +731,72 @@ exports.uploadScannedCopy = async (req, res, next) => {
 };
 
 exports.getCopiesByExam = async (req, res, next) => {
-    try {
-        const { examId } = req.params;
-        const copies = await Copy.find({ questionPaper: examId })
-            .populate('student', 'name email') // Populate student name and email
-            .populate('examiners', 'name email'); // Populate examiner names and emails
-
-        res.json(copies);
-    } catch (err) {
-        next(err);
+  try {
+    const { examId } = req.params;
+    // Fetch the exam details
+    const exam = await Paper.findById(examId);
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found." });
     }
+
+    // Fetch copies for that exam
+    const copies = await Copy.find({ questionPaper: examId })
+      .populate("student", "name email") // Populate student name and email
+      .populate("examiners", "name email"); // Populate examiner names and emails
+
+    // Return both exam and copies in an object
+    res.json({ exam, copies });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // NEW: Get a single copy's details for admin viewing (read-only)
 exports.getAdminCopyDetails = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const copy = await Copy.findById(id)
-            .populate('student', 'name email')
-            .populate({
-                path: 'questionPaper',
-                select: 'title totalPages driveFile.id totalMarks' // Ensure driveFile.id and totalMarks are selected
-            })
-            .populate('examiners', 'name email'); // Populate examiners for display
+  try {
+    const { id } = req.params;
+    const copy = await Copy.findById(id)
+      .populate("student", "name email")
+      .populate({
+        path: "questionPaper",
+        select: "title totalPages driveFile.id totalMarks", // Ensure driveFile.id and totalMarks are selected
+      })
+      .populate("examiners", "name email"); // Populate examiners for display
 
-        if (!copy) {
-            return res.status(404).json({ message: 'Copy not found.' });
-        }
-        res.json(copy);
-    } catch (err) {
-        next(err);
+    if (!copy) {
+      return res.status(404).json({ message: "Copy not found." });
     }
+    res.json(copy);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.toggleCopyRelease = async (req, res, next) => {
+  try {
+    const copyId = req.params.id;
+    const copy = await Copy.findById(copyId);
+
+    if (!copy) {
+      return res.status(404).json({ message: "Copy not found." });
+    }
+
+    if (copy.status !== "evaluated") {
+      return res
+        .status(400)
+        .json({ message: "Only completed copies can be released/unreleased." });
+    }
+
+    copy.isReleasedToStudent = !copy.isReleasedToStudent;
+    await copy.save();
+
+    res.json({
+      message: `Copy release status updated to ${
+        copy.isReleasedToStudent ? "released" : "unreleased"
+      }.`,
+      copy: copy,
+    });
+  } catch (err) {
+    next(err);
+  }
 };
