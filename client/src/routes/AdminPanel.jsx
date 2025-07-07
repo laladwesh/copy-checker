@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api"; // Your Axios instance
 import Modal from "../components/Modal"; // Assuming you have a generic Modal component
 import ScanCopyUploadModal from "../components/ScanCopyUploadModal"; // Assuming you have this component
+import AdminQueryViewerModal from "../components/AdminQueryViewerModal"; // NEW: Import the dedicated query viewer modal
 import {
   UserGroupIcon,
   ClipboardDocumentListIcon,
@@ -15,6 +16,9 @@ import {
   PaperAirplaneIcon, // For toast (used for info toast)
   EyeIcon, // For viewing exam details
   QuestionMarkCircleIcon, // For Queries section
+  MagnifyingGlassPlusIcon, // For zoom in
+  MagnifyingGlassMinusIcon, // For zoom out
+  ArrowsPointingInIcon, // For reset zoom
 } from "@heroicons/react/24/outline";
 
 export default function AdminPanel() {
@@ -46,6 +50,8 @@ export default function AdminPanel() {
   const [newExamFiles, setNewExamFiles] = useState([]); // Array to hold files
   const [newExamFileType, setNewExamFileType] = useState(null); // 'pdf' or 'images'
 
+  const [querySearchTerm, setQuerySearchTerm] = useState(""); // Search term for queries
+
   const [
     selectedExamForExaminerAssignment,
     setSelectedExamForExaminerAssignment,
@@ -71,6 +77,27 @@ export default function AdminPanel() {
   const [isViewQueryModalOpen, setIsViewQueryModalOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [isSubmittingQueryAction, setIsSubmittingQueryAction] = useState(false);
+
+  // NEW: States for Query Viewer Modal (for displaying copy)
+  const [selectedCopyForQueryView, setSelectedCopyForQueryView] = useState(null);
+  const [queryViewerCurrentPage, setQueryViewerCurrentPage] = useState(1);
+  const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1);
+  const [isQueryViewerAcLoading, setIsQueryViewerAcLoading] = useState(true);
+
+  // NEW: States for Question Paper within Query Viewer Modal
+  const [queryViewerQpCurrentPage, setQueryViewerQpCurrentPage] = useState(1);
+  const [queryViewerQpZoomLevel, setQueryViewerQpZoomLevel] = useState(1);
+  const [isQueryViewerQpLoading, setIsQueryViewerQpLoading] = useState(true);
+
+
+  const ZOOM_STEP = 0.25;
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 3;
+
+  // NEW: States for Query Management Modal (exam selection and tabs)
+  const [selectedExamForQueryView, setSelectedExamForQueryView] = useState(''); // Exam ID for filtering queries
+  const [activeQueryTab, setActiveQueryTab] = useState('pending'); // 'pending', 'approved_by_admin', 'rejected_by_admin', 'resolved_by_admin'
+
 
   useEffect(() => {
     fetchInitialData();
@@ -409,16 +436,46 @@ export default function AdminPanel() {
   );
 
   // Query Management Handlers
-  const handleOpenQueryModal = (query) => {
+  const handleOpenQueryModal = async (query) => {
     setSelectedQuery(query);
     setReplyText(query.response || ""); // Pre-fill if already replied
     setIsViewQueryModalOpen(true);
+    setQueryViewerCurrentPage(query.pageNumber); // Set initial AC page to query page
+    setQueryViewerZoomLevel(1); // Reset AC zoom
+    setQueryViewerQpCurrentPage(1); // Set initial QP page to 1
+    setQueryViewerQpZoomLevel(1); // Reset QP zoom
+
+    // Fetch the full copy details for display
+    if (query.copy?._id) {
+      try {
+        setIsQueryViewerAcLoading(true);
+        setIsQueryViewerQpLoading(true); // Start loading for QP as well
+        const copyDetailsRes = await api.get(`/admin/copies/view/${query.copy._id}`);
+        setSelectedCopyForQueryView(copyDetailsRes.data);
+      } catch (err) {
+        console.error("Error fetching copy details for query view:", err);
+        showTemporaryToast("Failed to load copy details for query.", "error");
+        setSelectedCopyForQueryView(null); // Clear if error
+      } finally {
+        setIsQueryViewerAcLoading(false);
+        setIsQueryViewerQpLoading(false);
+      }
+    } else {
+      setSelectedCopyForQueryView(null);
+      setIsQueryViewerAcLoading(false);
+      setIsQueryViewerQpLoading(false);
+    }
   };
 
   const handleCloseQueryModal = () => {
     setSelectedQuery(null);
     setReplyText("");
     setIsViewQueryModalOpen(false);
+    setSelectedCopyForQueryView(null); // Clear copy details
+    setQueryViewerCurrentPage(1); // Reset AC page
+    setQueryViewerZoomLevel(1); // Reset AC zoom
+    setQueryViewerQpCurrentPage(1); // Reset QP page
+    setQueryViewerQpZoomLevel(1); // Reset QP zoom
   };
 
   const handleApproveQuery = async () => {
@@ -483,15 +540,73 @@ export default function AdminPanel() {
     }
   };
 
-  // Filter queries based on search term (optional, but good for admin)
-  const [querySearchTerm, setQuerySearchTerm] = useState("");
-  const filteredQueries = queries.filter(query =>
-    query.raisedBy?.name?.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
-    query.raisedBy?.email?.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
-    query.copy?.questionPaper?.title?.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
-    query.text.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
-    query.status.toLowerCase().includes(querySearchTerm.toLowerCase())
-  );
+  // Handler for zooming images within the query viewer modal
+  const handleQueryViewerZoom = (type, action) => {
+    if (type === "ac") {
+      setQueryViewerZoomLevel((prevZoom) => {
+        let newZoom = prevZoom;
+        if (action === "in") {
+          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
+        } else if (action === "out") {
+          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
+        } else if (action === "reset") {
+          newZoom = MIN_ZOOM;
+        }
+        return parseFloat(newZoom.toFixed(2));
+      });
+    } else if (type === "qp") {
+      setQueryViewerQpZoomLevel((prevZoom) => {
+        let newZoom = prevZoom;
+        if (action === "in") {
+          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
+        } else if (action === "out") {
+          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
+        } else if (action === "reset") {
+          newZoom = MIN_ZOOM;
+        }
+        return parseFloat(newZoom.toFixed(2));
+      });
+    }
+  };
+
+  // Filter queries based on selected exam and active tab
+  const getFilteredQueries = () => {
+    let filtered = queries;
+
+    if (selectedExamForQueryView) {
+      filtered = filtered.filter(query => query.copy?.questionPaper?._id === selectedExamForQueryView);
+    }
+
+    if (activeQueryTab === 'pending') {
+      filtered = filtered.filter(query => query.status === 'pending');
+    } else if (activeQueryTab === 'approved_by_admin') {
+      filtered = filtered.filter(query => query.status === 'approved_by_admin');
+    } else if (activeQueryTab === 'rejected_by_admin') {
+      filtered = filtered.filter(query => query.status === 'rejected_by_admin');
+    } else if (activeQueryTab === 'resolved_by_admin') {
+      filtered = filtered.filter(query => query.status === 'resolved_by_admin');
+    }
+    // No specific tab for "responded by examiner" as admin resolves it.
+    // If there was a distinct status for examiner response before admin resolution, it would go here.
+
+    // Apply search term if any
+    const searchTermLower = querySearchTerm.toLowerCase();
+    if (searchTermLower) {
+      filtered = filtered.filter(query =>
+        query.raisedBy?.name?.toLowerCase().includes(searchTermLower) ||
+        query.raisedBy?.email?.toLowerCase().includes(searchTermLower) ||
+        query.text.toLowerCase().includes(searchTermLower)
+      );
+    }
+
+    return filtered;
+  };
+
+
+  const uniqueExamTitlesWithIds = exams.map(exam => ({
+    _id: exam._id,
+    title: exam.title
+  }));
 
 
   return (
@@ -1107,19 +1222,83 @@ export default function AdminPanel() {
       {/* Manage Queries Modal */}
       <Modal isOpen={isQueriesModalOpen} onClose={() => setIsQueriesModalOpen(false)} large>
         <h2 className="text-2xl font-bold mb-4 text-gray-800">Manage Student Queries</h2>
+
+        {/* Exam Selection for Queries */}
+        <div className="mb-4">
+          <label htmlFor="selectExamForQueries" className="block text-sm font-medium text-gray-700 mb-2">
+            Filter by Exam:
+          </label>
+          <select
+            id="selectExamForQueries"
+            value={selectedExamForQueryView}
+            onChange={(e) => setSelectedExamForQueryView(e.target.value)}
+            className="w-full p-2 border rounded mt-1"
+          >
+            <option value="">All Exams</option>
+            {uniqueExamTitlesWithIds.map(exam => (
+              <option key={exam._id} value={exam._id}>{exam.title}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Query Status Tabs */}
+        <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeQueryTab === 'pending'
+                ? 'border-b-2 border-indigo-500 text-indigo-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveQueryTab('pending')}
+          >
+            Pending ({getFilteredQueries().filter(q => q.status === 'pending').length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeQueryTab === 'approved_by_admin'
+                ? 'border-b-2 border-indigo-500 text-indigo-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveQueryTab('approved_by_admin')}
+          >
+            Approved (Sent to Examiner) ({getFilteredQueries().filter(q => q.status === 'approved_by_admin').length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeQueryTab === 'rejected_by_admin'
+                ? 'border-b-2 border-indigo-500 text-indigo-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveQueryTab('rejected_by_admin')}
+          >
+            Rejected ({getFilteredQueries().filter(q => q.status === 'rejected_by_admin').length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeQueryTab === 'resolved_by_admin'
+                ? 'border-b-2 border-indigo-500 text-indigo-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveQueryTab('resolved_by_admin')}
+          >
+            Resolved ({getFilteredQueries().filter(q => q.status === 'resolved_by_admin').length})
+          </button>
+        </div>
+
         {/* Search bar for queries within the modal */}
         <div className="mb-4">
           <input
             type="text"
-            placeholder="Search queries by student, exam, or status..."
+            placeholder="Search queries by student, or query text..."
             className="w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={querySearchTerm}
             onChange={(e) => setQuerySearchTerm(e.target.value)}
           />
         </div>
+
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto"> {/* Added max-height and overflow for scrollability */}
-          {filteredQueries.length === 0 ? (
-            <p className="text-gray-600 text-center py-4">No student queries to manage.</p>
+          {getFilteredQueries().length === 0 ? (
+            <p className="text-gray-600 text-center py-4">No student queries to manage in this category.</p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -1133,7 +1312,7 @@ export default function AdminPanel() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredQueries.map((query) => (
+                {getFilteredQueries().map((query) => (
                   <tr key={query._id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.raisedBy?.name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.copy?.questionPaper?.title || 'N/A'}</td>
@@ -1174,96 +1353,30 @@ export default function AdminPanel() {
         </div>
       </Modal>
 
-      {/* View/Action Query Modal (Admin) */}
-      <Modal isOpen={isViewQueryModalOpen} onClose={handleCloseQueryModal}>
-        {selectedQuery && (
-          <>
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Query Details</h2>
-            <div className="mb-4 p-4 border rounded-md bg-gray-50">
-              <p className="text-sm text-gray-600 mb-2"><strong>From:</strong> {selectedQuery.raisedBy?.name} ({selectedQuery.raisedBy?.email})</p>
-              <p className="text-sm text-gray-600 mb-2"><strong>Exam:</strong> {selectedQuery.copy?.questionPaper?.title}</p>
-              <p className="text-sm text-gray-600 mb-2"><strong>Page Number:</strong> {selectedQuery.pageNumber}</p>
-              <p className="text-sm text-gray-600 mb-2"><strong>Status:</strong>{" "}
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  selectedQuery.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  selectedQuery.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
-                  selectedQuery.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
-                  selectedQuery.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {selectedQuery.status.replace(/_/g, ' ')}
-                </span>
-              </p>
-              <p className="text-gray-700 mt-3"><strong>Query:</strong> {selectedQuery.text}</p>
-              {selectedQuery.response && (
-                <div className="mt-4 p-3 border-t border-gray-200">
-                  <p className="text-gray-700"><strong>Admin's Response:</strong> {selectedQuery.response}</p>
-                </div>
-              )}
-            </div>
-
-            {selectedQuery.status === 'resolved_by_admin' || selectedQuery.status === 'rejected_by_admin' ? (
-              <p className="text-center text-sm text-gray-600 mt-4">
-                This query has been {selectedQuery.status.replace(/_/g, ' ')}. No further actions available.
-              </p>
-            ) : (
-              <div className="mt-6">
-                <h3 className="text-xl font-semibold mb-3">Admin Actions</h3>
-                {selectedQuery.status === 'pending' && (
-                  <div className="mb-4">
-                    <label htmlFor="adminReply" className="block text-gray-700 text-sm font-bold mb-2">
-                      Reply and Resolve Query:
-                    </label>
-                    <textarea
-                      id="adminReply"
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      rows="4"
-                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500 resize-y"
-                      placeholder="Type your response here to resolve this query..."
-                    ></textarea>
-                    <button
-                      onClick={handleResolveQuery}
-                      disabled={isSubmittingQueryAction || !replyText.trim()}
-                      className="mt-3 bg-green-600 text-white p-2 rounded w-full hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSubmittingQueryAction ? "Resolving..." : "Reply & Resolve"}
-                    </button>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-3 mt-4 border-t pt-4">
-                  {selectedQuery.status === 'pending' && (
-                    <>
-                      <button
-                        onClick={handleApproveQuery}
-                        disabled={isSubmittingQueryAction}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSubmittingQueryAction ? "Approving..." : "Approve (Forward to Examiner)"}
-                      </button>
-                      <button
-                        onClick={handleRejectQuery}
-                        disabled={isSubmittingQueryAction}
-                        className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSubmittingQueryAction ? "Rejecting..." : "Reject Query"}
-                      </button>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleCloseQueryModal}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Modal>
+      {/* View/Action Query Modal (Admin) - Now using AdminQueryViewerModal */}
+      <AdminQueryViewerModal
+        isOpen={isViewQueryModalOpen}
+        onClose={handleCloseQueryModal}
+        selectedQuery={selectedQuery}
+        selectedCopyForQueryView={selectedCopyForQueryView}
+        queryViewerCurrentPage={queryViewerCurrentPage}
+        setQueryViewerCurrentPage={setQueryViewerCurrentPage}
+        queryViewerZoomLevel={queryViewerZoomLevel}
+        queryViewerQpCurrentPage={queryViewerQpCurrentPage}
+        setQueryViewerQpCurrentPage={setQueryViewerQpCurrentPage}
+        queryViewerQpZoomLevel={queryViewerQpZoomLevel}
+        isQueryViewerAcLoading={isQueryViewerAcLoading}
+        setIsQueryViewerAcLoading={setIsQueryViewerAcLoading}
+        isQueryViewerQpLoading={isQueryViewerQpLoading}
+        setIsQueryViewerQpLoading={setIsQueryViewerQpLoading}
+        handleQueryViewerZoom={handleQueryViewerZoom}
+        replyText={replyText}
+        setReplyText={setReplyText}
+        isSubmittingQueryAction={isSubmittingQueryAction}
+        handleApproveQuery={handleApproveQuery}
+        handleRejectQuery={handleRejectQuery}
+        handleResolveQuery={handleResolveQuery}
+      />
     </div>
   );
 }
