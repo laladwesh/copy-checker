@@ -435,7 +435,6 @@ export default function AdminPanel() {
   );
 
   // Helper to get unique exam titles for the query filter dropdown
-  // This declaration was duplicated, keeping the one that filters based on 'queries'
   const uniqueExamTitlesWithIds = Array.from(
     new Map(
       queries
@@ -1255,7 +1254,7 @@ export default function AdminPanel() {
             }`}
             onClick={() => setActiveQueryTab('pending')}
           >
-            Pending ({getFilteredQueries().filter(q => q.status === 'pending').length})
+            Pending ({queries.filter(q => q.status === 'pending' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
@@ -1265,7 +1264,7 @@ export default function AdminPanel() {
             }`}
             onClick={() => setActiveQueryTab('approved_by_admin')}
           >
-            Approved (Sent to Examiner) ({getFilteredQueries().filter(q => q.status === 'approved_by_admin').length})
+            Approved (Sent to Examiner) ({queries.filter(q => q.status === 'approved_by_admin' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
@@ -1275,7 +1274,7 @@ export default function AdminPanel() {
             }`}
             onClick={() => setActiveQueryTab('rejected_by_admin')}
           >
-            Rejected ({getFilteredQueries().filter(q => q.status === 'rejected_by_admin').length})
+            Rejected ({queries.filter(q => q.status === 'rejected_by_admin' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
@@ -1285,7 +1284,7 @@ export default function AdminPanel() {
             }`}
             onClick={() => setActiveQueryTab('resolved_by_admin')}
           >
-            Resolved by Admin ({getFilteredQueries().filter(q => q.status === 'resolved_by_admin').length})
+            Resolved by Admin ({queries.filter(q => q.status === 'resolved_by_admin' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
@@ -1295,7 +1294,7 @@ export default function AdminPanel() {
             }`}
             onClick={() => setActiveQueryTab('resolved_by_examiner')}
           >
-            Resolved by Examiner ({getFilteredQueries().filter(q => q.status === 'resolved_by_examiner').length})
+            Resolved by Examiner ({queries.filter(q => q.status === 'resolved_by_examiner' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
           </button>
         </div>
 
