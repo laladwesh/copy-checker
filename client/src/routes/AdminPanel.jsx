@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react"; // Added useCallback
 import { Link } from "react-router-dom";
 import api from "../services/api"; // Your Axios instance
 import Modal from "../components/Modal"; // Assuming you have a generic Modal component
@@ -6,9 +6,7 @@ import ScanCopyUploadModal from "../components/ScanCopyUploadModal"; // Assuming
 import AdminQueryViewerModal from "../components/AdminQueryViewerModal"; // NEW: Import the dedicated query viewer modal
 import {
   UserGroupIcon,
-  ClipboardDocumentListIcon,
   BookOpenIcon,
-  ArrowPathIcon,
   CloudArrowUpIcon,
   UsersIcon, // For assigning examiners to exam
   CheckCircleIcon, // For toast
@@ -16,9 +14,7 @@ import {
   PaperAirplaneIcon, // For toast (used for info toast)
   EyeIcon, // For viewing exam details
   QuestionMarkCircleIcon, // For Queries section
-  MagnifyingGlassPlusIcon, // For zoom in
-  MagnifyingGlassMinusIcon, // For zoom out
-  ArrowsPointingInIcon, // For reset zoom
+  // Removed unused icons: MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, ArrowsPointingInIcon, ClipboardDocumentListIcon, ArrowPathIcon
 } from "@heroicons/react/24/outline";
 
 export default function AdminPanel() {
@@ -96,14 +92,22 @@ export default function AdminPanel() {
 
   // NEW: States for Query Management Modal (exam selection and tabs)
   const [selectedExamForQueryView, setSelectedExamForQueryView] = useState(''); // Exam ID for filtering queries
-  const [activeQueryTab, setActiveQueryTab] = useState('pending'); // 'pending', 'approved_by_admin', 'rejected_by_admin', 'resolved_by_admin'
+  const [activeQueryTab, setActiveQueryTab] = useState('pending'); // 'pending', 'approved_by_admin', 'rejected_by_admin', 'resolved_by_admin', 'resolved_by_examiner'
+
+  // Made showTemporaryToast stable using useCallback
+  const showTemporaryToast = useCallback((msg, type = "success") => {
+    setToastMessage({ message: msg, type: type });
+    setShowToast(true);
+    const timer = setTimeout(() => {
+      setShowToast(false);
+      setToastMessage({ message: "", type: "success" });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [setToastMessage, setShowToast]);
 
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  const fetchInitialData = async () => {
+  // Made fetchInitialData stable using useCallback
+  const fetchInitialData = useCallback(async () => {
     try {
       const [usersRes, examsRes, copiesRes, examinersRes, queriesRes] = await Promise.all([
         api.get("/admin/users"),
@@ -121,17 +125,12 @@ export default function AdminPanel() {
       console.error("Error fetching initial data:", error);
       showTemporaryToast("Failed to load initial data.", "error");
     }
-  };
+  }, [showTemporaryToast]); // Added showTemporaryToast to dependencies
 
-  const showTemporaryToast = (msg, type = "success") => {
-    setToastMessage({ message: msg, type: type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 5000);
-    return () => clearTimeout(timer);
-  };
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]); // Added fetchInitialData to dependencies
 
   const handleAddUser = async () => {
     try {
@@ -435,6 +434,16 @@ export default function AdminPanel() {
     </div>
   );
 
+  // Helper to get unique exam titles for the query filter dropdown
+  // This declaration was duplicated, keeping the one that filters based on 'queries'
+  const uniqueExamTitlesWithIds = Array.from(
+    new Map(
+      queries
+        .filter(q => q.copy?.questionPaper?.title && q.copy?.questionPaper?._id)
+        .map(q => [q.copy.questionPaper._id, { _id: q.copy.questionPaper._id, title: q.copy.questionPaper.title }])
+    ).values()
+  );
+
   // Query Management Handlers
   const handleOpenQueryModal = async (query) => {
     setSelectedQuery(query);
@@ -585,6 +594,8 @@ export default function AdminPanel() {
       filtered = filtered.filter(query => query.status === 'rejected_by_admin');
     } else if (activeQueryTab === 'resolved_by_admin') {
       filtered = filtered.filter(query => query.status === 'resolved_by_admin');
+    } else if (activeQueryTab === 'resolved_by_examiner') { // New filter for examiner resolved
+      filtered = filtered.filter(query => query.status === 'resolved_by_examiner');
     }
     // No specific tab for "responded by examiner" as admin resolves it.
     // If there was a distinct status for examiner response before admin resolution, it would go here.
@@ -601,13 +612,6 @@ export default function AdminPanel() {
 
     return filtered;
   };
-
-
-  const uniqueExamTitlesWithIds = exams.map(exam => ({
-    _id: exam._id,
-    title: exam.title
-  }));
-
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
@@ -1281,7 +1285,17 @@ export default function AdminPanel() {
             }`}
             onClick={() => setActiveQueryTab('resolved_by_admin')}
           >
-            Resolved ({getFilteredQueries().filter(q => q.status === 'resolved_by_admin').length})
+            Resolved by Admin ({getFilteredQueries().filter(q => q.status === 'resolved_by_admin').length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeQueryTab === 'resolved_by_examiner'
+                ? 'border-b-2 border-indigo-500 text-indigo-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveQueryTab('resolved_by_examiner')}
+          >
+            Resolved by Examiner ({getFilteredQueries().filter(q => q.status === 'resolved_by_examiner').length})
           </button>
         </div>
 
@@ -1324,6 +1338,7 @@ export default function AdminPanel() {
                         query.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
                         query.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
                         query.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
+                        query.status === 'resolved_by_examiner' ? 'bg-purple-100 text-purple-800' : // New color for examiner resolved
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {query.status.replace(/_/g, ' ')}
