@@ -10,7 +10,10 @@ import StudentPanel from './routes/StudentPanel';
 import CopyChecker from './routes/CopyChecker';
 import ExaminerQueries from './routes/ExaminerQueries';
 import StudentCopyViewer from './components/StudentCopyViewer';
-import ExaminerQueryViewer from './components/ExaminerQueryViewer'; // NEW: Import ExaminerQueryViewer
+import ExaminerQueryViewer from './components/ExaminerQueryViewer';
+// NEW IMPORTS for Admin's detailed views
+import AdminExamDetails from './components/AdminExamDetails';
+import AdminCopyViewer from './components/AdminCopyViewer';
 
 export default function App() {
   const user = getUser();
@@ -38,8 +41,25 @@ export default function App() {
 
           <Route path="/auth/success" element={<LoginSuccess />} />
 
+          {/* Admin Routes - More specific routes first */}
           <Route
-            path="/admin/*"
+            path="/admin/exams/:examId" // NEW: Route for AdminExamDetails
+            element={
+              <ProtectedRoute user={user} role="admin">
+                <AdminExamDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/copies/view/:copyId" // NEW: Route for AdminCopyViewer
+            element={
+              <ProtectedRoute user={user} role="admin">
+                <AdminCopyViewer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/*" // General admin panel route (catch-all for admin)
             element={
               <ProtectedRoute user={user} role="admin">
                 <AdminPanel />
@@ -47,8 +67,7 @@ export default function App() {
             }
           />
 
-          {/* Examiner Routes */}
-          {/* More specific examiner routes first */}
+          {/* Examiner Routes - More specific routes first */}
           <Route
             path="/examiner/check/:copyId"
             element={
@@ -58,7 +77,7 @@ export default function App() {
             }
           />
           <Route
-            path="/examiner/queries/view/:queryId" // NEW: Route for ExaminerQueryViewer
+            path="/examiner/queries/view/:queryId"
             element={
               <ProtectedRoute user={user} role="examiner">
                 <ExaminerQueryViewer />
