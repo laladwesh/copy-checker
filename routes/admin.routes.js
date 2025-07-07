@@ -18,6 +18,7 @@ const {
   getCopiesByExam,
   getAdminCopyDetails,
   toggleCopyRelease,
+  resolveQueryByAdmin, // NEW
 } = require("../controllers/admin.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -34,24 +35,18 @@ router.get("/students", getStudentsByBatch);
 router.get("/examiners", getExaminers);
 
 // Exam (Question Paper) Management - "pool where all exams should be there"
-// MODIFIED: To accept either a single 'paper' (PDF) or multiple 'images' for a question paper
 router.post(
   "/exams",
   upload.fields([
     { name: "paper", maxCount: 1 }, // For a single PDF question paper
-    { name: "images", maxCount: 50 }, // For multiple image question paper (adjust maxCount)
+    { name: "images", maxCount: 5 }, // For image uploads, max 5 images
   ]),
-  createExam // Your controller will now correctly receive req.files.paper or req.files.images
+  createExam
 );
-router.get("/exams", listPapers); // List all exams (papers)
-
-// NEW: Assign examiners to an exam (paper) and distribute copies
+router.get("/exams", listPapers);
 router.post("/exams/:id/assign-examiners", assignExaminersToExam);
 
-// Answer Copy Management (Manual Uploads) - "pahle student ki saari copies upload ho jae"
-// Assuming 'uploadCopy' also needs to handle both, if it's for scanned answer copies.
-// If this route is *only* for PDF copies, then 'upload.single('copyPdf')' is fine.
-// If it's for scanned copies, you should use the same logic as 'uploadScannedCopy'.
+// Answer Copy Management (Manual Uploads)
 router.post(
   "/copies",
   upload.fields([
@@ -66,18 +61,18 @@ router.get("/copies", listCopies);
 router.get("/queries", listQueries);
 router.patch("/queries/:id/approve", approveQuery);
 router.patch("/queries/:id/reject", rejectQuery);
+router.patch("/queries/:id/resolve", resolveQueryByAdmin); // NEW ROUTE for admin to resolve
 router.get("/exams/:examId/copies", getCopiesByExam); // Get all copies for a specific exam
 router.get("/copies/view/:id", getAdminCopyDetails); // Get details of a single copy for admin viewing
+
 // Admin Features
 router.patch("/copies/single/:id/toggle-release", toggleCopyRelease);
 router.patch("/copies/:examId/toggle-release", toggleExamCopyRelease);
-router;
-// Assuming 'uploadScannedCopy' handles multiple images or a single PDF for answer sheets
 router.post(
   "/upload/scanned-copy",
   upload.fields([
-    { name: "scannedPdf", maxCount: 1 }, // For single PDF scanned copy
-    { name: "scannedImages", maxCount: 50 }, // For multiple image scanned copies
+    { name: "scannedPdf", maxCount: 1 },
+    { name: "scannedImages", maxCount: 50 },
   ]),
   uploadScannedCopy
 );
