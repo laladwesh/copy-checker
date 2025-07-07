@@ -143,7 +143,7 @@ export default function AdminCopyViewer() {
       <nav className="bg-white shadow-sm py-4 px-8 border-b border-gray-200 flex justify-between items-center w-full">
         <div className="flex items-center space-x-4">
           <Link
-            to={`/copies/view/${copy.questionPaper._id}`} // Link back to the specific exam details
+            to={`/admin/exams/${copy.questionPaper._id}`} // Link back to the specific exam details
             className="text-gray-700 hover:text-indigo-600 flex items-center font-medium transition duration-200"
           >
             <ArrowLeftIcon className="w-5 h-5 mr-2" /> Back to Exam Copies
