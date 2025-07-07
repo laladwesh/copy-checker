@@ -14,12 +14,14 @@ import {
   ExclamationCircleIcon, // For toast
   PaperAirplaneIcon, // For toast (used for info toast)
   EyeIcon, // For viewing exam details
-} from "@heroicons/react/24/outline"; // Make sure you have these icons or similar
+  QuestionMarkCircleIcon, // For Queries section
+} from "@heroicons/react/24/outline";
 
 export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [exams, setExams] = useState([]); // Renamed from questionPapers for clarity ("pool where all exams should be there")
   const [copies, setCopies] = useState([]); // Still fetch all copies to calculate overall progress
+  const [queries, setQueries] = useState([]); // State for queries
 
   // Modals
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
@@ -27,8 +29,9 @@ export default function AdminPanel() {
   const [
     isAssignExaminersToExamModalOpen,
     setIsAssignExaminersToExamModalOpen,
-  ] = useState(false); // NEW: For assigning examiners to an exam
-  const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
+  ] = useState(false); // For assigning examiners to an exam
+  const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false); // For scanning and uploading copies
+  const [isQueriesModalOpen, setIsQueriesModalOpen] = useState(false); // For Queries Modal
 
   // Form states for adding user/QP/assigning examiner
   const [newUserName, setNewUserName] = useState("");
@@ -50,10 +53,10 @@ export default function AdminPanel() {
   const [selectedExaminerIds, setSelectedExaminerIds] = useState([]); // Examiner IDs for assignment (multi-select)
   const [availableExaminers, setAvailableExaminers] = useState([]); // List of examiners for dropdown
 
-  // NEW: State for exam search filter
+  // State for exam search filter
   const [examSearchTerm, setExamSearchTerm] = useState("");
 
-  // NEW: States for Manage Users Modal tabs and search
+  // States for Manage Users Modal tabs and search
   const [activeUserTab, setActiveUserTab] = useState("all"); // 'all', 'student', 'examiner', 'admin'
   const [userSearchTerm, setUserSearchTerm] = useState(""); // Search term for users modal
 
@@ -63,26 +66,33 @@ export default function AdminPanel() {
     type: "success",
   });
 
+  // Query Management Modal State
+  const [selectedQuery, setSelectedQuery] = useState(null);
+  const [isViewQueryModalOpen, setIsViewQueryModalOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [isSubmittingQueryAction, setIsSubmittingQueryAction] = useState(false);
+
   useEffect(() => {
     fetchInitialData();
   }, []);
 
   const fetchInitialData = async () => {
     try {
-      // Fetch all necessary data for the admin panel
-      const [usersRes, examsRes, copiesRes, examinersRes] = await Promise.all([
+      const [usersRes, examsRes, copiesRes, examinersRes, queriesRes] = await Promise.all([
         api.get("/admin/users"),
-        api.get("/admin/exams"), // Fetch exams (papers) including populated assignedExaminers
-        api.get("/admin/copies"), // Fetch all copies including populated student, questionPaper, and examiners
-        api.get("/admin/examiners"), // Fetch all examiners for assignment dropdown
+        api.get("/admin/exams"),
+        api.get("/admin/copies"),
+        api.get("/admin/examiners"),
+        api.get("/admin/queries"), // Fetch all queries
       ]);
       setUsers(usersRes.data);
       setExams(examsRes.data);
-      setCopies(copiesRes.data); // Keep all copies to calculate progress
+      setCopies(copiesRes.data);
       setAvailableExaminers(examinersRes.data);
+      setQueries(queriesRes.data); // Set the fetched queries
     } catch (error) {
       console.error("Error fetching initial data:", error);
-      showTemporaryToast(`Error loading data: ${error.message}`, "error");
+      showTemporaryToast("Failed to load initial data.", "error");
     }
   };
 
@@ -92,7 +102,7 @@ export default function AdminPanel() {
     const timer = setTimeout(() => {
       setShowToast(false);
       setToastMessage({ message: "", type: "success" });
-    }, 4000);
+    }, 5000);
     return () => clearTimeout(timer);
   };
 
@@ -220,12 +230,13 @@ export default function AdminPanel() {
   };
 
   const handleExaminerCheckboxChange = (examinerId) => {
-    setSelectedExaminerIds((prev) =>
+    setSelectedExaminerIds(prev =>
       prev.includes(examinerId)
-        ? prev.filter((id) => id !== examinerId)
+        ? prev.filter(id => id !== examinerId)
         : [...prev, examinerId]
     );
   };
+
 
   const handleAssignExaminersToExam = async () => {
     if (!selectedExamForExaminerAssignment) {
@@ -340,7 +351,7 @@ export default function AdminPanel() {
     exam.title.toLowerCase().includes(examSearchTerm.toLowerCase())
   );
 
-  // NEW: Filter users for Manage Users Modal based on active tab and search term
+  // Filter users for Manage Users Modal based on active tab and search term
   const getFilteredUsers = (role) => {
     let filtered = users;
     if (role !== "all") {
@@ -396,6 +407,92 @@ export default function AdminPanel() {
       </table>
     </div>
   );
+
+  // Query Management Handlers
+  const handleOpenQueryModal = (query) => {
+    setSelectedQuery(query);
+    setReplyText(query.response || ""); // Pre-fill if already replied
+    setIsViewQueryModalOpen(true);
+  };
+
+  const handleCloseQueryModal = () => {
+    setSelectedQuery(null);
+    setReplyText("");
+    setIsViewQueryModalOpen(false);
+  };
+
+  const handleApproveQuery = async () => {
+    if (!selectedQuery) return;
+    setIsSubmittingQueryAction(true);
+    try {
+      await api.patch(`/admin/queries/${selectedQuery._id}/approve`);
+      showTemporaryToast("Query approved and forwarded to examiner!", "success");
+      handleCloseQueryModal();
+      fetchInitialData(); // Re-fetch queries to update status
+    } catch (error) {
+      console.error("Error approving query:", error);
+      showTemporaryToast(
+        `Error approving query: ${error.response?.data?.message || error.message}`,
+        "error"
+      );
+    } finally {
+      setIsSubmittingQueryAction(false);
+    }
+  };
+
+  const handleRejectQuery = async () => {
+    if (!selectedQuery) return;
+    setIsSubmittingQueryAction(true);
+    try {
+      await api.patch(`/admin/queries/${selectedQuery._id}/reject`);
+      showTemporaryToast("Query rejected!", "success");
+      handleCloseQueryModal();
+      fetchInitialData(); // Re-fetch queries to update status
+    } catch (error) {
+      console.error("Error rejecting query:", error);
+      showTemporaryToast(
+        `Error rejecting query: ${error.response?.data?.message || error.message}`,
+        "error"
+      );
+    } finally {
+      setIsSubmittingQueryAction(false);
+    }
+  };
+
+  const handleResolveQuery = async () => {
+    if (!selectedQuery || !replyText.trim()) {
+      showTemporaryToast("Please provide a response to resolve the query.", "error");
+      return;
+    }
+    setIsSubmittingQueryAction(true);
+    try {
+      await api.patch(`/admin/queries/${selectedQuery._id}/resolve`, {
+        responseText: replyText,
+      });
+      showTemporaryToast("Query resolved successfully with your reply!", "success");
+      handleCloseQueryModal();
+      fetchInitialData(); // Re-fetch queries to update status
+    } catch (error) {
+      console.error("Error resolving query:", error);
+      showTemporaryToast(
+        `Error resolving query: ${error.response?.data?.message || error.message}`,
+        "error"
+      );
+    } finally {
+      setIsSubmittingQueryAction(false);
+    }
+  };
+
+  // Filter queries based on search term (optional, but good for admin)
+  const [querySearchTerm, setQuerySearchTerm] = useState("");
+  const filteredQueries = queries.filter(query =>
+    query.raisedBy?.name?.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
+    query.raisedBy?.email?.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
+    query.copy?.questionPaper?.title?.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
+    query.text.toLowerCase().includes(querySearchTerm.toLowerCase()) ||
+    query.status.toLowerCase().includes(querySearchTerm.toLowerCase())
+  );
+
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
@@ -500,9 +597,26 @@ export default function AdminPanel() {
             Upload Scanned Copy
           </button>
         </div>
+
+        {/* NEW: Manage Queries Card */}
+        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
+          <QuestionMarkCircleIcon className="h-16 w-16 text-red-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            Manage Student Queries
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Review, approve, reject, or resolve student queries.
+          </p>
+          <button
+            onClick={() => setIsQueriesModalOpen(true)}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+          >
+            Manage Queries ({queries.filter(q => q.status === 'pending').length} Pending)
+          </button>
+        </div>
       </div>
 
-      {/* NEW: Exam Overview Section (replaces "Manage All Copies" modal content) */}
+      {/* Exam Overview Section (replaces "Manage All Copies" modal content) */}
       <section className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-10">
         <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
           <span>Exam Overview & Progress</span>
@@ -888,7 +1002,7 @@ export default function AdminPanel() {
         </form>
       </Modal>
 
-      {/* NEW: Assign Examiners to Exam Modal */}
+      {/* Assign Examiners to Exam Modal */}
       <Modal
         isOpen={isAssignExaminersToExamModalOpen}
         onClose={() => setIsAssignExaminersToExamModalOpen(false)}
@@ -935,7 +1049,7 @@ export default function AdminPanel() {
               <label
                 htmlFor="selectExaminers"
                 className="block text-sm font-medium text-gray-700 mb-2"
-              >
+                >
                 Assign Examiners (Select multiple):
               </label>
               <div className="border rounded p-3 max-h-40 overflow-y-auto bg-gray-50">
@@ -989,6 +1103,167 @@ export default function AdminPanel() {
         questionPapers={exams} // Pass exams (question papers) for dropdown
         students={users.filter((u) => u.role === "student")} // Pass students for dropdown
       />
+
+      {/* Manage Queries Modal */}
+      <Modal isOpen={isQueriesModalOpen} onClose={() => setIsQueriesModalOpen(false)} large>
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">Manage Student Queries</h2>
+        {/* Search bar for queries within the modal */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search queries by student, exam, or status..."
+            className="w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={querySearchTerm}
+            onChange={(e) => setQuerySearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto"> {/* Added max-height and overflow for scrollability */}
+          {filteredQueries.length === 0 ? (
+            <p className="text-gray-600 text-center py-4">No student queries to manage.</p>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Query Text</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredQueries.map((query) => (
+                  <tr key={query._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.raisedBy?.name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.copy?.questionPaper?.title || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.pageNumber}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 truncate max-w-xs">{query.text}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        query.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        query.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
+                        query.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
+                        query.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {query.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleOpenQueryModal(query)}
+                        className="text-indigo-600 hover:text-indigo-900 ml-4"
+                      >
+                        View / Action
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={() => setIsQueriesModalOpen(false)}
+            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
+          >
+            Close
+          </button>
+        </div>
+      </Modal>
+
+      {/* View/Action Query Modal (Admin) */}
+      <Modal isOpen={isViewQueryModalOpen} onClose={handleCloseQueryModal}>
+        {selectedQuery && (
+          <>
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">Query Details</h2>
+            <div className="mb-4 p-4 border rounded-md bg-gray-50">
+              <p className="text-sm text-gray-600 mb-2"><strong>From:</strong> {selectedQuery.raisedBy?.name} ({selectedQuery.raisedBy?.email})</p>
+              <p className="text-sm text-gray-600 mb-2"><strong>Exam:</strong> {selectedQuery.copy?.questionPaper?.title}</p>
+              <p className="text-sm text-gray-600 mb-2"><strong>Page Number:</strong> {selectedQuery.pageNumber}</p>
+              <p className="text-sm text-gray-600 mb-2"><strong>Status:</strong>{" "}
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  selectedQuery.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  selectedQuery.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
+                  selectedQuery.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
+                  selectedQuery.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {selectedQuery.status.replace(/_/g, ' ')}
+                </span>
+              </p>
+              <p className="text-gray-700 mt-3"><strong>Query:</strong> {selectedQuery.text}</p>
+              {selectedQuery.response && (
+                <div className="mt-4 p-3 border-t border-gray-200">
+                  <p className="text-gray-700"><strong>Admin's Response:</strong> {selectedQuery.response}</p>
+                </div>
+              )}
+            </div>
+
+            {selectedQuery.status === 'resolved_by_admin' || selectedQuery.status === 'rejected_by_admin' ? (
+              <p className="text-center text-sm text-gray-600 mt-4">
+                This query has been {selectedQuery.status.replace(/_/g, ' ')}. No further actions available.
+              </p>
+            ) : (
+              <div className="mt-6">
+                <h3 className="text-xl font-semibold mb-3">Admin Actions</h3>
+                {selectedQuery.status === 'pending' && (
+                  <div className="mb-4">
+                    <label htmlFor="adminReply" className="block text-gray-700 text-sm font-bold mb-2">
+                      Reply and Resolve Query:
+                    </label>
+                    <textarea
+                      id="adminReply"
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      rows="4"
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500 resize-y"
+                      placeholder="Type your response here to resolve this query..."
+                    ></textarea>
+                    <button
+                      onClick={handleResolveQuery}
+                      disabled={isSubmittingQueryAction || !replyText.trim()}
+                      className="mt-3 bg-green-600 text-white p-2 rounded w-full hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmittingQueryAction ? "Resolving..." : "Reply & Resolve"}
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 mt-4 border-t pt-4">
+                  {selectedQuery.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={handleApproveQuery}
+                        disabled={isSubmittingQueryAction}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSubmittingQueryAction ? "Approving..." : "Approve (Forward to Examiner)"}
+                      </button>
+                      <button
+                        onClick={handleRejectQuery}
+                        disabled={isSubmittingQueryAction}
+                        className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSubmittingQueryAction ? "Rejecting..." : "Reject Query"}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleCloseQueryModal}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }
