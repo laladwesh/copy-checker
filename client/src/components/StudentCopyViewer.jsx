@@ -11,6 +11,7 @@ import {
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
   QuestionMarkCircleIcon, // For Raise Query button
+  ChatBubbleLeftRightIcon, // For displaying queries
 } from "@heroicons/react/24/outline";
 
 export default function StudentCopyViewer() {
@@ -22,6 +23,7 @@ export default function StudentCopyViewer() {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1); // Current page of the Answer Copy
   const [qpCurrentPage, setQpCurrentPage] = useState(1); // Current page of the Question Paper
+  const [studentQueries, setStudentQueries] = useState([]); // NEW: State for student's queries on this copy
 
   // Toast Notification states
   const [showToast, setShowToast] = useState(false);
@@ -48,24 +50,29 @@ export default function StudentCopyViewer() {
   const [queryText, setQueryText] = useState("");
   const [isSubmittingQuery, setIsSubmittingQuery] = useState(false);
 
-  // 1) Load the copy once on mount
+  // 1) Load the copy and its queries once on mount
   useEffect(() => {
-    const fetchCopy = async () => {
+    const fetchCopyAndQueries = async () => {
       try {
-        const res = await api.get(`/student/copies/${copyId}`);
-        setCopy(res.data);
+        const copyRes = await api.get(`/student/copies/${copyId}`);
+        setCopy(copyRes.data);
         // Set both Answer Copy and Question Paper to page 1 on load
         setCurrentPage(1);
         setQpCurrentPage(1);
+
+        // NEW: Fetch queries related to this copy
+        const queriesRes = await api.get(`/student/queries?copyId=${copyId}`);
+        setStudentQueries(queriesRes.data);
+
       } catch (err) {
         setError(err.response?.data?.error || err.message);
         showTemporaryToast(
-          `Error loading copy: ${err.response?.data?.message || err.message}`,
+          `Error loading copy or queries: ${err.response?.data?.message || err.message}`,
           "error"
         );
       }
     };
-    fetchCopy();
+    fetchCopyAndQueries();
   }, [copyId]);
 
   // 2) Reset zoom when current page of answer copy changes
@@ -151,12 +158,15 @@ export default function StudentCopyViewer() {
 
     setIsSubmittingQuery(true);
     try {
-      await api.post(`/student/copies/${copyId}/query`, {
+      await api.post(`/student/copies/${copyId}/queries`, { // Corrected endpoint to /queries
         pageNumber: Number(queryPage),
         text: queryText.trim(),
       });
       showTemporaryToast("Query submitted successfully!", "success");
       closeQueryModal();
+      // Re-fetch queries after submission to update the list
+      const updatedQueriesRes = await api.get(`/student/queries?copyId=${copyId}`);
+      setStudentQueries(updatedQueriesRes.data);
     } catch (err) {
       showTemporaryToast(
         `Error submitting query: ${err.response?.data?.message || err.message}`,
@@ -537,6 +547,55 @@ export default function StudentCopyViewer() {
             <QuestionMarkCircleIcon className="h-6 w-6 mr-3" /> Raise Query for this Page
           </button>
         </div>
+
+        {/* NEW: Display Raised Queries Section */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 w-full max-w-full mx-auto mb-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+            <ChatBubbleLeftRightIcon className="h-6 w-6 mr-2 text-gray-600" /> Your Raised Queries for this Copy
+          </h3>
+          {studentQueries.length === 0 ? (
+            <p className="text-gray-600 text-center py-4">
+              No queries have been raised for this copy yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto max-h-80 overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Your Query</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {studentQueries.map((query) => (
+                    <tr key={query._id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.pageNumber}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{query.text}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          query.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          query.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
+                          query.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
+                          query.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {query.status.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                        {query.response || 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+
       </div>
 
       {/* Raise Query Modal */}
