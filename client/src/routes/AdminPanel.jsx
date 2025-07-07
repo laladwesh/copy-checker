@@ -53,6 +53,10 @@ export default function AdminPanel() {
   // NEW: State for exam search filter
   const [examSearchTerm, setExamSearchTerm] = useState("");
 
+  // NEW: States for Manage Users Modal tabs and search
+  const [activeUserTab, setActiveUserTab] = useState("all"); // 'all', 'student', 'examiner', 'admin'
+  const [userSearchTerm, setUserSearchTerm] = useState(""); // Search term for users modal
+
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState({
     message: "",
@@ -336,6 +340,63 @@ export default function AdminPanel() {
     exam.title.toLowerCase().includes(examSearchTerm.toLowerCase())
   );
 
+  // NEW: Filter users for Manage Users Modal based on active tab and search term
+  const getFilteredUsers = (role) => {
+    let filtered = users;
+    if (role !== "all") {
+      filtered = users.filter((user) => user.role === role);
+    }
+    if (userSearchTerm) {
+      filtered = filtered.filter((user) =>
+        user.email.toLowerCase().includes(userSearchTerm.toLowerCase())
+      );
+    }
+    return filtered;
+  };
+
+  const renderUsersTable = (usersToDisplay) => (
+    <div className="overflow-x-auto no-scrollbar max-h-60 overflow-y-auto mt-4">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Name
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Email
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Role
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {usersToDisplay.length === 0 ? (
+            <tr>
+              <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
+                No users found.
+              </td>
+            </tr>
+          ) : (
+            usersToDisplay.map((user) => (
+              <tr key={user._id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {user.name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {user.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {user.role}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
       {/* Toast Notification */}
@@ -449,7 +510,7 @@ export default function AdminPanel() {
           <input
             type="text"
             placeholder="Search exams by title..."
-            className="w-1/3 text-sm p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-1/3 p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={examSearchTerm}
             onChange={(e) => setExamSearchTerm(e.target.value)}
           />
@@ -622,39 +683,83 @@ export default function AdminPanel() {
             Add User
           </button>
         </div>
+
+        {/* Tabs for Existing Users */}
         <h3 className="text-xl font-bold mb-4">Existing Users</h3>
-        <div className="overflow-x-auto max-h-60 overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.role}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex border-b border-gray-200 mb-4 no-scrollbar">
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeUserTab === "all"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => {
+              setActiveUserTab("all");
+              setUserSearchTerm(""); // Clear search when changing tabs
+            }}
+          >
+            All Users ({getFilteredUsers("all").length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeUserTab === "student"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => {
+              setActiveUserTab("student");
+              setUserSearchTerm("");
+            }}
+          >
+            Students ({getFilteredUsers("student").length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeUserTab === "examiner"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => {
+              setActiveUserTab("examiner");
+              setUserSearchTerm("");
+            }}
+          >
+            Examiners ({getFilteredUsers("examiner").length})
+          </button>
+          <button
+            className={`py-2 px-4 text-sm font-medium ${
+              activeUserTab === "admin"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => {
+              setActiveUserTab("admin");
+              setUserSearchTerm("");
+            }}
+          >
+            Admins ({getFilteredUsers("admin").length})
+          </button>
         </div>
+
+        {/* Search Bar for Users */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder={`Search by email in ${activeUserTab}s...`}
+            value={userSearchTerm}
+            onChange={(e) => setUserSearchTerm(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+
+        {/* Render Table based on active tab and search term */}
+        {activeUserTab === "all" && renderUsersTable(getFilteredUsers("all"))}
+        {activeUserTab === "student" &&
+          renderUsersTable(getFilteredUsers("student"))}
+        {activeUserTab === "examiner" &&
+          renderUsersTable(getFilteredUsers("examiner"))}
+        {activeUserTab === "admin" &&
+          renderUsersTable(getFilteredUsers("admin"))}
       </Modal>
 
       {/* Create Exam Modal (Upload Question Paper) */}
