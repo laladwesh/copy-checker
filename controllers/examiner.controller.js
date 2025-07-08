@@ -142,8 +142,8 @@ exports.listQueries = async (req, res, next) => {
     const queries = await Query.find({
       $or: [
         { status: "approved_by_admin" },
-        { status: "resolved_by_examiner" }
-      ]
+        { status: "resolved_by_examiner" },
+      ],
     })
       .populate("raisedBy", "email")
       .populate({
@@ -156,8 +156,8 @@ exports.listQueries = async (req, res, next) => {
       });
 
     // Manually filter queries where the associated copy is assigned to the current examiner
-    const examinerQueries = queries.filter(q => 
-      q.copy && q.copy.examiners.includes(req.user._id.toString())
+    const examinerQueries = queries.filter(
+      (q) => q.copy && q.copy.examiners.includes(req.user._id.toString())
     );
 
     res.json(examinerQueries);
@@ -180,8 +180,15 @@ exports.markCompleteCopy = async (req, res, next) => {
         .json({ message: "Forbidden: You are not assigned to this copy." });
     }
 
-    if (copy.pages.length !== copy.totalPages || !copy.pages.every((p) => typeof p.marksAwarded === "number")) {
-        return res.status(400).json({ message: "All pages must be marked before completing the copy." });
+    if (
+      copy.pages.length !== copy.totalPages ||
+      !copy.pages.every((p) => typeof p.marksAwarded === "number")
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: "All pages must be marked before completing the copy.",
+        });
     }
 
     copy.status = "evaluated"; // Set status to 'evaluated' when marking complete
@@ -196,28 +203,32 @@ exports.markCompleteCopy = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-}
+};
 
 exports.getSingleQuery = async (req, res, next) => {
   try {
     const query = await Query.findById(req.params.id)
-      .populate('raisedBy', 'email name')
+      .populate("raisedBy", "email name")
       .populate({
-        path: 'copy',
+        path: "copy",
         populate: {
-          path: 'questionPaper',
-          select: 'title totalPages driveFile.id' // Select necessary fields for frontend
-        }
+          path: "questionPaper",
+          select: "title totalPages driveFile.id", // Select necessary fields for frontend
+        },
       });
 
     if (!query) {
-      return res.status(404).json({ message: 'Query not found.' });
+      return res.status(404).json({ message: "Query not found." });
     }
 
-    const isAuthorized = query.copy?.examiners?.includes(req.user._id.toString());
+    const isAuthorized = query.copy?.examiners?.includes(
+      req.user._id.toString()
+    );
 
     if (!isAuthorized) {
-      return res.status(403).json({ message: 'Unauthorized to view this query.' });
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to view this query." });
     }
 
     res.json(query);
