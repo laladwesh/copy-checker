@@ -1,20 +1,16 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 // Called after successful passport.authenticate()
 // req.user is the Mongo user object from your strategy
 exports.googleCallback = (req, res) => {
   // 1) Build payload
   const payload = {
-    sub:  req.user._id,
-    role: req.user.role
+    sub: req.user._id,
+    role: req.user.role,
   };
 
   // 2) Sign token
-  const token = jwt.sign(
-    payload,
-    process.env.JWT_SECRET,
-    { expiresIn: '2h' }
-  );
+  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "2h" });
 
   // 3) Redirect back to your React app with the token
   //    e.g. http://localhost:3000/auth/success?token=…
