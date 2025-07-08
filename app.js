@@ -1,10 +1,10 @@
 // app.js
 require("dotenv").config();
-const path      = require("path");
-const express   = require("express");
+const path = require("path");
+const express = require("express");
 const connectDB = require("./config/db");
-const morgan    = require("morgan");
-const passport  = require("passport");
+const morgan = require("morgan");
+const passport = require("passport");
 const errorHandler = require("./middleware/errorMiddleware");
 
 // Passport (Google OAuth) config
@@ -33,11 +33,11 @@ app.get("/api", (req, res) => {
 });
 
 // Mount feature routers
-app.use("/api/auth",     require("./routes/auth.routes"));
-app.use("/api/admin",    require("./routes/admin.routes"));
+app.use("/api/auth", require("./routes/auth.routes"));
+app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/examiner", require("./routes/examiner.routes"));
-app.use("/api/student",  require("./routes/student.routes"));
-app.use('/api/drive', require('./routes/drive.routes'));
+app.use("/api/student", require("./routes/student.routes"));
+app.use("/api/drive", require("./routes/drive.routes"));
 
 // Serve React build in production
 if (process.env.NODE_ENV === "production") {
