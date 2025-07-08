@@ -364,12 +364,10 @@ exports.uploadCopy = async (req, res, next) => {
       console.error(
         `[Copy Upload Error] Question Paper (ID: ${paperId}) does not have a driveFolderId. Cannot organize copy.`
       );
-      return res
-        .status(500)
-        .json({
-          message:
-            "Associated exam folder not found on Google Drive. Please re-upload the question paper or check its settings.",
-        });
+      return res.status(500).json({
+        message:
+          "Associated exam folder not found on Google Drive. Please re-upload the question paper or check its settings.",
+      });
     }
 
     const examFolderId = questionPaper.driveFolderId;
@@ -478,8 +476,12 @@ exports.approveQuery = async (req, res, next) => {
       return res.status(404).json({ message: "Query not found." });
     }
     // Only allow approval if status is pending
-    if (q.status !== 'pending') {
-      return res.status(400).json({ message: `Query cannot be approved from status: ${q.status}.` });
+    if (q.status !== "pending") {
+      return res
+        .status(400)
+        .json({
+          message: `Query cannot be approved from status: ${q.status}.`,
+        });
     }
 
     q.status = "approved_by_admin";
@@ -498,8 +500,12 @@ exports.rejectQuery = async (req, res, next) => {
       return res.status(404).json({ message: "Query not found." });
     }
     // Only allow rejection if status is pending or approved_by_admin
-    if (q.status !== 'pending' && q.status !== 'approved_by_admin') {
-      return res.status(400).json({ message: `Query cannot be rejected from status: ${q.status}.` });
+    if (q.status !== "pending" && q.status !== "approved_by_admin") {
+      return res
+        .status(400)
+        .json({
+          message: `Query cannot be rejected from status: ${q.status}.`,
+        });
     }
 
     q.status = "rejected_by_admin";
@@ -523,8 +529,12 @@ exports.resolveQueryByAdmin = async (req, res, next) => {
       return res.status(404).json({ message: "Query not found." });
     }
     // Only allow resolution if status is pending or approved_by_admin
-    if (q.status !== 'pending' && q.status !== 'approved_by_admin') {
-      return res.status(400).json({ message: `Query cannot be resolved from status: ${q.status}.` });
+    if (q.status !== "pending" && q.status !== "approved_by_admin") {
+      return res
+        .status(400)
+        .json({
+          message: `Query cannot be resolved from status: ${q.status}.`,
+        });
     }
 
     q.status = "resolved_by_admin";
@@ -548,12 +558,10 @@ exports.toggleExamCopyRelease = async (req, res, next) => {
     });
 
     if (copiesToUpdate.length === 0) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "No evaluated copies found for this exam to toggle release status.",
-        });
+      return res.status(404).json({
+        message:
+          "No evaluated copies found for this exam to toggle release status.",
+      });
     }
 
     // Determine the target release status:
@@ -638,12 +646,10 @@ exports.uploadScannedCopy = async (req, res, next) => {
       console.error(
         `[ScanCopy Error] Question Paper (ID: ${questionPaperId}) does not have a driveFolderId. Cannot organize scanned copy.`
       );
-      return res
-        .status(500)
-        .json({
-          message:
-            "Associated exam folder not found on Google Drive. Please ensure the question paper was uploaded correctly.",
-        });
+      return res.status(500).json({
+        message:
+          "Associated exam folder not found on Google Drive. Please ensure the question paper was uploaded correctly.",
+      });
     }
 
     const examFolderId = questionPaper.driveFolderId;
