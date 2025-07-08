@@ -1,12 +1,15 @@
-const { google } = require('googleapis');
+const { google } = require("googleapis");
 const { OAuth2 } = google.auth;
-const { Readable } = require('stream');
-const { promises: fs } = require('fs');
-const path = require('path');
-const PDFPoppler = require('pdf-poppler'); // <<< CHANGE HERE
+const { Readable } = require("stream");
+const { promises: fs } = require("fs");
+const path = require("path");
+const PDFPoppler = require("pdf-poppler"); // <<< CHANGE HERE
 
 // Import Google Drive utility functions
-const { getOrCreateFolder, uploadFileToFolder } = require('../config/googleDrive');
+const {
+  getOrCreateFolder,
+  uploadFileToFolder,
+} = require("../config/googleDrive");
 
 // Set up your OAuth2 client exactly as in config/googleDrive.js
 const oauth2Client = new OAuth2(
@@ -14,9 +17,10 @@ const oauth2Client = new OAuth2(
   process.env.GOOGLE_DRIVE_CLIENT_SECRET,
   process.env.GOOGLE_DRIVE_REDIRECT_URI
 );
-oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_DRIVE_REFRESH_TOKEN });
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
-
+oauth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
+});
+const drive = google.drive({ version: "v3", auth: oauth2Client });
 
 /**
  * Downloads a file from Google Drive as a Buffer.
@@ -25,16 +29,16 @@ const drive = google.drive({ version: 'v3', auth: oauth2Client });
  */
 async function downloadFileFromDrive(fileId) {
   const driveRes = await drive.files.get(
-    { fileId: fileId, alt: 'media' },
-    { responseType: 'stream' }
+    { fileId: fileId, alt: "media" },
+    { responseType: "stream" }
   );
 
   return new Promise((resolve, reject) => {
     const chunks = [];
     driveRes.data
-      .on('data', chunk => chunks.push(chunk))
-      .on('end', () => resolve(Buffer.concat(chunks)))
-      .on('error', err => reject(err));
+      .on("data", (chunk) => chunks.push(chunk))
+      .on("end", () => resolve(Buffer.concat(chunks)))
+      .on("error", (err) => reject(err));
   });
 }
 
@@ -49,11 +53,11 @@ async function convertPdfToImages(pdfBuffer, tempDir) {
   const inputPdfPath = path.join(tempDir, `temp_input_${Date.now()}.pdf`);
   await fs.writeFile(inputPdfPath, pdfBuffer);
 
-  const outputPath = path.join(tempDir, 'page'); // Output prefix for images
+  const outputPath = path.join(tempDir, "page"); // Output prefix for images
   const options = {
-    format: 'jpeg', // Output format (png, jpeg, etc.)
+    format: "jpeg", // Output format (png, jpeg, etc.)
     out_dir: tempDir,
-    out_prefix: 'page',
+    out_prefix: "page",
     page: null, // Process all pages
   };
 
@@ -63,12 +67,14 @@ async function convertPdfToImages(pdfBuffer, tempDir) {
 
   // Read generated image files
   const files = await fs.readdir(tempDir);
-  const imageFiles = files.filter(file => file.startsWith('page-') && file.endsWith('.jpg'))
-                          .sort((a, b) => { // Sort numerically
-                              const numA = parseInt(a.match(/page-(\d+)\.jpg/)[1]);
-                              const numB = parseInt(b.match(/page-(\d+)\.jpg/)[1]);
-                              return numA - numB;
-                          });
+  const imageFiles = files
+    .filter((file) => file.startsWith("page-") && file.endsWith(".jpg"))
+    .sort((a, b) => {
+      // Sort numerically
+      const numA = parseInt(a.match(/page-(\d+)\.jpg/)[1]);
+      const numB = parseInt(b.match(/page-(\d+)\.jpg/)[1]);
+      return numA - numB;
+    });
 
   const imageBuffers = [];
   for (const file of imageFiles) {
@@ -80,7 +86,6 @@ async function convertPdfToImages(pdfBuffer, tempDir) {
 
   return { buffers: imageBuffers, totalPages: imageBuffers.length };
 }
-
 
 /**
  * Processes a PDF file from Google Drive:
@@ -94,18 +99,26 @@ async function convertPdfToImages(pdfBuffer, tempDir) {
  * @returns {Promise<{pageImageFiles: Array<{pageNumber: number, id: string, viewLink: string, contentLink: string}>, totalPages: number}>}
  */
 async function processPdfForPageImages(pdfDriveId, parentFolderId, prefix) {
-  const tempDir = path.join(__dirname, '..', 'temp', `pdf_process_${Date.now()}`);
+  const tempDir = path.join(
+    __dirname,
+    "..",
+    "temp",
+    `pdf_process_${Date.now()}`
+  );
   await fs.mkdir(tempDir, { recursive: true });
 
   try {
     const pdfBuffer = await downloadFileFromDrive(pdfDriveId);
-    const { buffers: imageBuffers, totalPages } = await convertPdfToImages(pdfBuffer, tempDir);
+    const { buffers: imageBuffers, totalPages } = await convertPdfToImages(
+      pdfBuffer,
+      tempDir
+    );
 
     const pageImageFiles = [];
     for (let i = 0; i < imageBuffers.length; i++) {
       const pageNumber = i + 1;
       const filename = `${prefix}_page_${pageNumber}.jpeg`;
-      const mimeType = 'image/jpeg';
+      const mimeType = "image/jpeg";
 
       const uploadedFile = await uploadFileToFolder(
         imageBuffers[i],
@@ -113,11 +126,15 @@ async function processPdfForPageImages(pdfDriveId, parentFolderId, prefix) {
         mimeType,
         parentFolderId
       );
-      pageImageFiles.push({ pageNumber, id: uploadedFile.id, viewLink: uploadedFile.viewLink, contentLink: uploadedFile.contentLink });
+      pageImageFiles.push({
+        pageNumber,
+        id: uploadedFile.id,
+        viewLink: uploadedFile.viewLink,
+        contentLink: uploadedFile.contentLink,
+      });
     }
 
     return { pageImageFiles, totalPages };
-
   } finally {
     // Clean up the temporary directory
     if (await fs.stat(tempDir).catch(() => false)) {
