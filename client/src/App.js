@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { getUser, clearToken } from './utils/auth';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -11,12 +11,27 @@ import CopyChecker from './routes/CopyChecker';
 import ExaminerQueries from './routes/ExaminerQueries';
 import StudentCopyViewer from './components/StudentCopyViewer';
 import ExaminerQueryViewer from './components/ExaminerQueryViewer';
+import { setToken }      from './utils/auth';
 // NEW IMPORTS for Admin's detailed views
 import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
 
 export default function App() {
   const user = getUser();
+  const location = useLocation();
+
+  // run once every time the URL changes:
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token  = params.get('token');
+    if (token) {
+      setToken(token);
+
+      // drop ?token=… so it’s not visible anymore
+      const cleanPath = location.pathname + location.hash;
+      window.history.replaceState({}, '', cleanPath);
+    }
+  }, [location]);
 
   const handleLogout = () => {
     clearToken();
