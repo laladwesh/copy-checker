@@ -10,8 +10,8 @@ async function seed() {
 
   // 2) define your users
   const users = [
-    // { email: 'guptaavinash302@gmail.com', role: 'admin' },
-    // { email: 'laladwesh@gmail.com',      role: 'examiner' },
+    { email: 'guptaavinash302@gmail.com', role: 'admin' },
+    { email: 'laladwesh@gmail.com',      role: 'examiner' },
     {
       email: 'testgupta85@gmail.com',
       role: 'student',
