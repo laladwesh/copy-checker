@@ -51,7 +51,7 @@ export default function LoginSuccess() {
     <div className="flex flex-col items-center justify-center h-full mt-20 space-y-4">
       <p className="text-gray-700">Looks like you’re not signed in.</p>
       <a
-        href="http://localhost:5000/api/auth/google"
+        href='/api/auth/google'
         className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
       >
         Sign in with Google
