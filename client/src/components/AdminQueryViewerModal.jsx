@@ -1,6 +1,15 @@
-import React, { Fragment } from 'react';
+import React, { Fragment, useState, useEffect, useCallback } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, ArrowsPointingInIcon } from '@heroicons/react/24/outline';
+
+// Import react-pdf components
+import { Document, Page, pdfjs } from "react-pdf";
+import 'react-pdf/dist/Page/AnnotationLayer.css'; // Essential for annotations like links
+import 'react-pdf/dist/Page/TextLayer.css'; // Essential for selectable text
+
+// Set worker source for react-pdf
+// This is crucial for react-pdf to work correctly.
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 // This is a dedicated modal component for viewing queries in the Admin Panel.
 // It is designed to be full-width and display the Answer Copy, Question Paper,
@@ -32,6 +41,45 @@ export default function AdminQueryViewerModal({
   const ZOOM_STEP = 0.25; // Define zoom steps locally or pass as props
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
+
+  const [numAcPages, setNumAcPages] = useState(null);
+  const [numQpPages, setNumQpPages] = useState(null);
+
+  // Handlers for when PDF documents load successfully
+  const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
+    setNumAcPages(numPages);
+    setIsQueryViewerAcLoading(false);
+  }, [setIsQueryViewerAcLoading]);
+
+  const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
+    setNumQpPages(numPages);
+    setIsQueryViewerQpLoading(false);
+  }, [setIsQueryViewerQpLoading]);
+
+  // Handlers for when PDF documents fail to load
+  const onAcDocumentLoadError = useCallback((error) => {
+    console.error("Error loading Answer Copy PDF:", error);
+    setNumAcPages(0);
+    setIsQueryViewerAcLoading(false);
+  }, [setIsQueryViewerAcLoading]);
+
+  const onQpDocumentLoadError = useCallback((error) => {
+    console.error("Error loading Question Paper PDF:", error);
+    setNumQpPages(0);
+    setIsQueryViewerQpLoading(false);
+  }, [setIsQueryViewerQpLoading]);
+
+
+  useEffect(() => {
+    if (isOpen) {
+      // Reset loading states when modal opens or selectedCopyForQueryView changes
+      setIsQueryViewerAcLoading(true);
+      setIsQueryViewerQpLoading(true);
+      setNumAcPages(null);
+      setNumQpPages(null);
+    }
+  }, [isOpen, selectedCopyForQueryView, setIsQueryViewerAcLoading, setIsQueryViewerQpLoading]);
+
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -79,7 +127,7 @@ export default function AdminQueryViewerModal({
                   {/* Left Column: Answer Copy Viewer */}
                   <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
                     <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">
-                      Answer Copy (Page {queryViewerCurrentPage} of {selectedCopyForQueryView?.totalPages || 'N/A'})
+                      Answer Copy (Page {queryViewerCurrentPage} of {numAcPages || 'N/A'})
                     </h3>
                     <div className="flex justify-between items-center w-full mb-3 space-x-2">
                       <button
@@ -93,14 +141,14 @@ export default function AdminQueryViewerModal({
                         Prev
                       </button>
                       <span className="text-md font-bold text-gray-800">
-                        Page {queryViewerCurrentPage} / {selectedCopyForQueryView?.totalPages || 'N/A'}
+                        Page {queryViewerCurrentPage} / {numAcPages || 'N/A'}
                       </span>
                       <button
                         onClick={() => {
-                          setQueryViewerCurrentPage((p) => Math.min(selectedCopyForQueryView?.totalPages || 1, p + 1));
+                          setQueryViewerCurrentPage((p) => Math.min(numAcPages || 1, p + 1));
                           setIsQueryViewerAcLoading(true);
                         }}
-                        disabled={queryViewerCurrentPage === (selectedCopyForQueryView?.totalPages || 1)}
+                        disabled={queryViewerCurrentPage === (numAcPages || 1)}
                         className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
                       >
                         Next
@@ -121,18 +169,20 @@ export default function AdminQueryViewerModal({
                           <span className="ml-2 text-gray-700">Loading Copy Page...</span>
                         </div>
                       )}
-                      {selectedCopyForQueryView?.driveFile?.id ? (
-                        <img
-                          src={`/api/drive/page-image/${selectedCopyForQueryView.driveFile.id}/${queryViewerCurrentPage}`}
-                          alt={`Answer Copy Page ${queryViewerCurrentPage}`}
-                          className="w-full h-full object-contain"
-                          style={{
-                            transform: `scale(${queryViewerZoomLevel})`,
-                            transformOrigin: "center center",
-                          }}
-                          onLoad={() => setIsQueryViewerAcLoading(false)}
-                          onError={() => setIsQueryViewerAcLoading(false)}
-                        />
+                      {selectedCopyForQueryView?.driveFile?.directDownloadLink ? (
+                        <Document
+                          file={selectedCopyForQueryView.driveFile.directDownloadLink}
+                          onLoadSuccess={onAcDocumentLoadSuccess}
+                          onLoadError={onAcDocumentLoadError}
+                          className="w-full h-full flex justify-center items-center"
+                        >
+                          <Page
+                            pageNumber={queryViewerCurrentPage}
+                            scale={queryViewerZoomLevel}
+                            renderAnnotationLayer={true}
+                            renderTextLayer={true}
+                          />
+                        </Document>
                       ) : (
                         <div className="text-gray-500 text-center p-4">
                           Answer Copy Not Available.
@@ -142,7 +192,7 @@ export default function AdminQueryViewerModal({
                     <div className="flex items-center justify-center mt-4 space-x-2">
                       <button
                         onClick={() => handleQueryViewerZoom("ac", "out")}
-                        disabled={queryViewerZoomLevel === MIN_ZOOM}
+                        disabled={queryViewerZoomLevel <= MIN_ZOOM}
                         className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         title="Zoom Out"
                       >
@@ -150,7 +200,7 @@ export default function AdminQueryViewerModal({
                       </button>
                       <button
                         onClick={() => handleQueryViewerZoom("ac", "in")}
-                        disabled={queryViewerZoomLevel === MAX_ZOOM}
+                        disabled={queryViewerZoomLevel >= MAX_ZOOM}
                         className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         title="Zoom In"
                       >
@@ -173,7 +223,7 @@ export default function AdminQueryViewerModal({
                   {/* Middle Column: Question Paper Viewer */}
                   <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
                     <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">
-                      Question Paper (Page {queryViewerQpCurrentPage} of {selectedCopyForQueryView?.questionPaper?.totalPages || 'N/A'})
+                      Question Paper (Page {queryViewerQpCurrentPage} of {numQpPages || 'N/A'})
                     </h3>
                     <div className="flex justify-between items-center w-full mb-3 space-x-2">
                       <button
@@ -187,14 +237,14 @@ export default function AdminQueryViewerModal({
                         Prev
                       </button>
                       <span className="text-md font-bold text-gray-800">
-                        Page {queryViewerQpCurrentPage} / {selectedCopyForQueryView?.questionPaper?.totalPages || 'N/A'}
+                        Page {queryViewerQpCurrentPage} / {numQpPages || 'N/A'}
                       </span>
                       <button
                         onClick={() => {
-                          setQueryViewerQpCurrentPage((p) => Math.min(selectedCopyForQueryView?.questionPaper?.totalPages || 1, p + 1));
+                          setQueryViewerQpCurrentPage((p) => Math.min(numQpPages || 1, p + 1));
                           setIsQueryViewerQpLoading(true);
                         }}
-                        disabled={queryViewerQpCurrentPage === (selectedCopyForQueryView?.questionPaper?.totalPages || 1)}
+                        disabled={queryViewerQpCurrentPage === (numQpPages || 1)}
                         className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
                       >
                         Next
@@ -215,18 +265,20 @@ export default function AdminQueryViewerModal({
                           <span className="ml-2 text-gray-700">Loading Question Paper Page...</span>
                         </div>
                       )}
-                      {selectedCopyForQueryView?.questionPaper?.driveFile?.id ? (
-                        <img
-                          src={`/api/drive/page-image/${selectedCopyForQueryView.questionPaper.driveFile.id}/${queryViewerQpCurrentPage}`}
-                          alt={`Question Paper Page ${queryViewerQpCurrentPage}`}
-                          className="w-full h-full object-contain"
-                          style={{
-                            transform: `scale(${queryViewerQpZoomLevel})`,
-                            transformOrigin: "center center",
-                          }}
-                          onLoad={() => setIsQueryViewerQpLoading(false)}
-                          onError={() => setIsQueryViewerQpLoading(false)}
-                        />
+                      {selectedCopyForQueryView?.questionPaper?.driveFile?.directDownloadLink ? (
+                        <Document
+                          file={selectedCopyForQueryView.questionPaper.driveFile.directDownloadLink}
+                          onLoadSuccess={onQpDocumentLoadSuccess}
+                          onLoadError={onQpDocumentLoadError}
+                          className="w-full h-full flex justify-center items-center"
+                        >
+                          <Page
+                            pageNumber={queryViewerQpCurrentPage}
+                            scale={queryViewerQpZoomLevel}
+                            renderAnnotationLayer={true}
+                            renderTextLayer={true}
+                          />
+                        </Document>
                       ) : (
                         <div className="text-gray-500 text-center p-4">
                           Question Paper Not Available.
@@ -236,7 +288,7 @@ export default function AdminQueryViewerModal({
                     <div className="flex items-center justify-center mt-4 space-x-2">
                       <button
                         onClick={() => handleQueryViewerZoom("qp", "out")}
-                        disabled={queryViewerQpZoomLevel === MIN_ZOOM}
+                        disabled={queryViewerQpZoomLevel <= MIN_ZOOM}
                         className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         title="Zoom Out"
                       >
@@ -244,7 +296,7 @@ export default function AdminQueryViewerModal({
                       </button>
                       <button
                         onClick={() => handleQueryViewerZoom("qp", "in")}
-                        disabled={queryViewerQpZoomLevel === MAX_ZOOM}
+                        disabled={queryViewerQpZoomLevel >= MAX_ZOOM}
                         className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         title="Zoom In"
                       >
