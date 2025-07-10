@@ -15,6 +15,7 @@ import { setToken }      from './utils/auth';
 // NEW IMPORTS for Admin's detailed views
 import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
+import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 
 export default function App() {
   const user = getUser();
@@ -78,6 +79,14 @@ export default function App() {
             element={
               <ProtectedRoute user={user} role="admin">
                 <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/examiner/copies/view/:copyId" // NEW: Route for AdminCopyViewer
+            element={
+              <ProtectedRoute user={user} role="examiner">
+                <ExaminerCopyViewer />
               </ProtectedRoute>
             }
           />
