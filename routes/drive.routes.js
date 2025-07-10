@@ -6,10 +6,15 @@ const fs = require("fs").promises;
 const os = require("os");
 const path = require("path");
 const router = express.Router();
+const adminController = require("../controllers/admin.controller");
 
 // Import Mongoose models
 const Paper = require("../models/Paper");
 const Copy = require("../models/Copy");
+
+
+router.get('/pdf/:fileId', adminController.serveDrivePdf);
+
 
 // Set up your OAuth2 client
 const oauth2Client = new OAuth2(
