@@ -16,10 +16,15 @@ import 'react-pdf/dist/Page/TextLayer.css'; // Essential for selectable text
 
 // Set worker source for react-pdf
 // This is crucial for react-pdf to work correctly.
-// Use process.env.PUBLIC_URL to ensure correctness in different environments.
-// CONFIRMED: From your previous screenshots, the file is in client/public
-// and the extension is .mjs.
-pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdf.worker.min.mjs`;
+// Using unpkg CDN for robustness. Make sure the pdfjs.version matches your installed react-pdf version.
+// You might need to run 'npm view react-pdf version' or 'yarn info react-pdf version' to get it.
+// As of my last knowledge update, a common version is around 5.x or 6.x.
+// If you face issues, replace 'pdfjs.version' with the exact version number you have (e.g., '6.2.2')
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// If the above doesn't work, try using a specific version, e.g.:
+// pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.mjs`;
+// Or if you specifically added the worker to public:
+// pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdf.worker.min.mjs`; // Keep this if you're sure about your public path
 
 export default function AdminCopyViewer() {
   const { copyId } = useParams();
@@ -59,6 +64,12 @@ export default function AdminCopyViewer() {
         setIsAcLoading(true);
         setIsQpLoading(true);
 
+        // Debugging logs for PDF URLs
+        // console.log("Fetched Copy Data:", res.data);
+        // console.log("QP PDF URL:", res.data.questionPaper?.driveFile?.directDownloadLink);
+        // console.log("AC PDF URL:", res.data.driveFile?.directDownloadLink);
+
+
       } catch (err) {
         console.error("Error fetching copy details:", err);
         setError(err.response?.data?.message || err.message || "Failed to fetch copy details.");
@@ -77,11 +88,13 @@ export default function AdminCopyViewer() {
   const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumAcPages(numPages);
     setIsAcLoading(false); // Mark Answer Copy PDF as loaded
+    console.log("Answer Copy PDF Loaded Successfully. Pages:", numPages);
   }, []);
 
   const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumQpPages(numPages);
     setIsQpLoading(false); // Mark Question Paper PDF as loaded
+    console.log("Question Paper PDF Loaded Successfully. Pages:", numPages);
   }, []);
 
   // Handlers for when PDF documents fail to load
@@ -271,7 +284,6 @@ export default function AdminCopyViewer() {
                   file={qpPdfUrl}
                   onLoadSuccess={onQpDocumentLoadSuccess}
                   onLoadError={onQpDocumentLoadError}
-                  className="w-full h-full flex justify-center items-center"
                 >
                   <Page
                     pageNumber={qpCurrentPage}
@@ -363,7 +375,6 @@ export default function AdminCopyViewer() {
                   file={acPdfUrl}
                   onLoadSuccess={onAcDocumentLoadSuccess}
                   onLoadError={onAcDocumentLoadError}
-                  className="w-full h-full flex justify-center items-center"
                 >
                   <Page
                     pageNumber={acCurrentPage}
