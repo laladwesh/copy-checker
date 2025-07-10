@@ -188,8 +188,7 @@ export default function ExaminerPanel() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <a
-                        href={c.driveFile.viewLink || '#'}
-                        target="_blank"
+                        href={`/examiner/copies/view/${c._id}` || '#'}
                         rel="noopener noreferrer"
                         className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
