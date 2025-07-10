@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
@@ -8,10 +8,20 @@ import {
   ClipboardDocumentCheckIcon,
   ExclamationCircleIcon,
   PaperAirplaneIcon,
-  MagnifyingGlassPlusIcon, // New icon for zoom in
-  MagnifyingGlassMinusIcon, // New icon for zoom out
-  ArrowsPointingInIcon, // New icon for reset zoom
+  MagnifyingGlassPlusIcon,
+  MagnifyingGlassMinusIcon,
+  ArrowsPointingInIcon,
 } from "@heroicons/react/24/outline";
+
+// Import react-pdf components
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css"; // Essential for annotations like links
+import "react-pdf/dist/Page/TextLayer.css"; // Essential for selectable text
+
+// Set worker source for react-pdf
+// This is crucial for react-pdf to work correctly.
+// Using unpkg CDN for robustness. Make sure the pdfjs.version matches your installed react-pdf version.
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function CopyChecker() {
   const { copyId } = useParams();
@@ -33,20 +43,22 @@ export default function CopyChecker() {
   });
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // For Save & Next button loading
-  const [isQpLoading, setIsQpLoading] = useState(true); // For QP image loading
-  const [isAcLoading, setIsAcLoading] = useState(true); // For AC image loading
+
+  // React-pdf states for Question Paper
+  const [qpNumPages, setQpNumPages] = useState(null);
+  const [isQpLoading, setIsQpLoading] = useState(true);
+
+  // React-pdf states for Answer Copy
+  const [acNumPages, setAcNumPages] = useState(null);
+  const [isAcLoading, setIsAcLoading] = useState(true);
 
   // Zoom States
   const [qpZoomLevel, setQpZoomLevel] = useState(1); // Initial zoom level for QP
   const [acZoomLevel, setAcZoomLevel] = useState(1); // Initial zoom level for AC
 
   const ZOOM_STEP = 0.25;
-  const MIN_ZOOM = 1;
+  const MIN_ZOOM = 0.5; // Adjusted min zoom for better flexibility
   const MAX_ZOOM = 3;
-
-  // Image preloading refs
-  const qpNextImageRef = useRef(null);
-  const acNextImageRef = useRef(null);
 
   // 1) Load the copy once on mount
   useEffect(() => {
@@ -57,19 +69,24 @@ export default function CopyChecker() {
         // Set both Answer Copy and Question Paper to page 1 on load
         setCurrentPage(1);
         setQpCurrentPage(1);
+        // Reset loading states after initial document fetch
+        setIsAcLoading(true); // Will be set to false by onRenderSuccessAC
+        setIsQpLoading(true); // Will be set to false by onRenderSuccessQP
       } catch (err) {
         setError(err.response?.data?.error || err.message);
         showTemporaryToast(
           `Error loading copy: ${err.response?.data?.message || err.message}`,
           "error"
         );
+        setIsAcLoading(false); // Ensure loading is off if there's an error
+        setIsQpLoading(false); // Ensure loading is off if there's an error
       }
     };
     fetchCopy();
   }, [copyId]);
 
   // 2) Prefill marks/comments when current page of answer copy changes or copy data changes
-  //    Also, preload next answer copy page and reset zoom for AC.
+  // Also, reset zoom for AC when page changes.
   useEffect(() => {
     if (!copy) return;
     const foundPageData = copy.pages.find((p) => p.pageNumber === currentPage);
@@ -81,42 +98,47 @@ export default function CopyChecker() {
       setComments("");
     }
 
-    // Preload next answer copy page
-    if (currentPage < copy.totalPages) {
-      const nextAcPageNum = currentPage + 1;
-      // Directly use driveFile.id for preloading
-      if (copy.driveFile?.id) {
-        // Ensure driveFile and its id exist
-        const img = new Image();
-        img.src = `/api/drive/page-image/${copy.driveFile.id}/${nextAcPageNum}`;
-        acNextImageRef.current = img;
-      }
-    } else {
-      acNextImageRef.current = null;
-    }
-
-    // Reset zoom when page changes
+    // Reset zoom when AC page changes, and set loading to true
     setAcZoomLevel(1);
+    setIsAcLoading(true);
   }, [currentPage, copy]);
 
-  // Preload next question paper page when QP page changes and reset zoom for QP.
+  // Reset zoom for QP when page changes, and set loading to true
   useEffect(() => {
     if (!copy || !copy.questionPaper) return;
-    if (qpCurrentPage < copy.questionPaper.totalPages) {
-      const nextQpPageNum = qpCurrentPage + 1;
-      // Directly use driveFile.id for preloading
-      if (copy.questionPaper.driveFile?.id) {
-        // Ensure driveFile and its id exist
-        const img = new Image();
-        img.src = `/api/drive/page-image/${copy.questionPaper.driveFile.id}/${nextQpPageNum}`;
-        qpNextImageRef.current = img;
-      }
-    } else {
-      qpNextImageRef.current = null;
-    }
-    // Reset zoom when page changes
     setQpZoomLevel(1);
+    setIsQpLoading(true);
   }, [qpCurrentPage, copy]);
+
+  const onDocumentLoadSuccessQP = useCallback(({ numPages }) => {
+    setQpNumPages(numPages);
+    setIsQpLoading(false); // Document loaded, but page rendering still needs to happen
+  }, []);
+
+  const onDocumentLoadErrorQP = useCallback((error) => {
+    console.error("Error loading QP document:", error);
+    setIsQpLoading(false);
+    setError("Failed to load Question Paper PDF.");
+  }, []);
+
+  const onRenderSuccessQP = useCallback(() => {
+    setIsQpLoading(false); // Page finished rendering
+  }, []);
+
+  const onDocumentLoadSuccessAC = useCallback(({ numPages }) => {
+    setAcNumPages(numPages);
+    setIsAcLoading(false); // Document loaded, but page rendering still needs to happen
+  }, []);
+
+  const onDocumentLoadErrorAC = useCallback((error) => {
+    console.error("Error loading AC document:", error);
+    setIsAcLoading(false);
+    setError("Failed to load Answer Copy PDF.");
+  }, []);
+
+  const onRenderSuccessAC = useCallback(() => {
+    setIsAcLoading(false); // Page finished rendering
+  }, []);
 
   // Toast Notification handler
   const showTemporaryToast = (message, type = "success") => {
@@ -183,21 +205,21 @@ export default function CopyChecker() {
     if (isSaving) return; // Prevent multiple submissions while saving
     setIsSaving(true);
     try {
-      if (marks === "" || isNaN(Number(marks))) {
+      if (marks === "" || isNaN(parseInt(marks))) {
         showTemporaryToast("Please enter a valid number for marks.", "error");
         return;
       }
-      if (Number(marks) < 0) {
+      if (parseInt(marks) < 0) {
         showTemporaryToast("Marks cannot be negative.", "error");
         return;
       }
 
       const payload = {
         pageNumber: currentPage,
-        marks: Number(marks),
+        marks: parseInt(marks), // Use parseInt here
         comments,
       };
-      const res = await api.post(`/examiner/copies/${copyId}/mark`, payload);
+      const res = await api.patch(`/examiner/copies/${copyId}/mark-page`, payload);
       setCopy(res.data); // Update local copy state with new data from server
       showTemporaryToast("Page marks saved successfully!", "success");
 
@@ -205,6 +227,9 @@ export default function CopyChecker() {
       if (currentPage < copy.totalPages) {
         setCurrentPage((p) => p + 1);
       } else {
+        setIsAcLoading(false); // Stop loading state if on last page
+        setIsQpLoading(false); // Stop loading state if on last page
+        setShowReviewModal(true); // Show review modal if on last page
         showTemporaryToast(
           "You've reached the last page. Please review and submit.",
           "info"
@@ -221,35 +246,41 @@ export default function CopyChecker() {
     }
   };
 
-  // Get the current page image URL for Question Paper
-  // Directly use copy.questionPaper.driveFile.id and qpCurrentPage
-  const qpImageUrl = copy.questionPaper?.driveFile?.id
-    ? `/api/drive/page-image/${copy.questionPaper.driveFile.id}/${qpCurrentPage}`
+  // Get the current page URL for Question Paper PDF
+  const qpPdfUrl = copy.questionPaper?.driveFile?.id
+    ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
     : "";
 
-  // Get the current page image URL for Answer Copy
-  // Directly use copy.driveFile.id and currentPage
-  const acImageUrl = copy.driveFile?.id
-    ? `/api/drive/page-image/${copy.driveFile.id}/${currentPage}`
+  // Get the current page URL for Answer Copy PDF
+  const acPdfUrl = copy.driveFile?.id
+    ? `/api/drive/pdf/${copy.driveFile.id}`
     : "";
 
   const handleFinalSubmit = async () => {
-    if (copy.status !== "evaluated") {
-      const res = await api.post(`/examiner/copies/${copyId}/complete`);
-      setCopy(res.data); // Update local copy state with new data from server
-      showTemporaryToast(
-        "All pages marked! You can now confirm final submission.",
-        "success"
-      );
+    try {
+      if (copy.status !== "evaluated") {
+        const res = await api.patch(`/examiner/copies/${copyId}/complete`);
+        setCopy(res.data); // Update local copy state with new data from server
+        showTemporaryToast(
+          "All pages marked! You can now confirm final submission.",
+          "success"
+        );
+        setTimeout(() => {
+          navigate("/examiner"); // Navigate back to examiner dashboard
+        }, 500); // Give time for toast to be seen
+        return;
+      }
+      setShowReviewModal(false);
       setTimeout(() => {
         navigate("/examiner"); // Navigate back to examiner dashboard
       }, 500); // Give time for toast to be seen
-      return;
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      showTemporaryToast(
+        `Error completing copy: ${err.response?.data?.message || err.message}`,
+        "error"
+      );
     }
-    setShowReviewModal(false);
-    setTimeout(() => {
-      navigate("/examiner"); // Navigate back to examiner dashboard
-    }, 500); // Give time for toast to be seen
   };
 
   // Handler for zooming images
@@ -262,7 +293,7 @@ export default function CopyChecker() {
         } else if (action === "out") {
           newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
         } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
+          newZoom = 1; // Reset to default 1x zoom
         }
         return parseFloat(newZoom.toFixed(2)); // To prevent floating point inaccuracies
       });
@@ -274,12 +305,14 @@ export default function CopyChecker() {
         } else if (action === "out") {
           newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
         } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
+          newZoom = 1; // Reset to default 1x zoom
         }
         return parseFloat(newZoom.toFixed(2));
       });
     }
   };
+
+  
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans relative">
@@ -439,13 +472,13 @@ export default function CopyChecker() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Question Paper
             </h2>
-            {copy.questionPaper.totalPages > 1 && (
+            {qpNumPages > 1 && (
               <div className="flex justify-between items-center w-full mb-4 space-x-4">
                 {/* Page navigation for QP */}
                 <button
                   onClick={() => {
                     setQpCurrentPage((p) => Math.max(1, p - 1));
-                    setIsQpLoading(true);
+                    // setIsQpLoading(true); // This is now handled by useEffect for qpCurrentPage
                   }}
                   disabled={qpCurrentPage === 1}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -453,16 +486,16 @@ export default function CopyChecker() {
                   Prev
                 </button>
                 <span className="text-lg font-bold text-gray-800">
-                  Page {qpCurrentPage} / {copy.questionPaper.totalPages}
+                  Page {qpCurrentPage} / {qpNumPages || "..."}
                 </span>
                 <button
                   onClick={() => {
                     setQpCurrentPage((p) =>
-                      Math.min(copy.questionPaper.totalPages, p + 1)
+                      Math.min(qpNumPages, p + 1)
                     );
-                    setIsQpLoading(true);
+                    // setIsQpLoading(true); // This is now handled by useEffect for qpCurrentPage
                   }}
-                  disabled={qpCurrentPage === copy.questionPaper.totalPages}
+                  disabled={qpCurrentPage === qpNumPages}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
                 >
                   Next
@@ -471,7 +504,7 @@ export default function CopyChecker() {
             )}
             <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isQpLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10 rounded-lg">
                   <svg
                     className="animate-spin h-8 w-8 text-indigo-500"
                     xmlns="http://www.w3.org/2000/svg"
@@ -495,21 +528,33 @@ export default function CopyChecker() {
                   <span className="ml-2 text-gray-700">Loading...</span>
                 </div>
               )}
-              {qpImageUrl ? (
-                <img
-                  src={qpImageUrl}
-                  alt={`Question Paper Page ${qpCurrentPage}`}
-                  className="w-full h-full object-contain" // Added object-contain
-                  style={{
-                    transform: `scale(${qpZoomLevel})`,
-                    transformOrigin: "center center",
-                  }}
-                  onLoad={() => setIsQpLoading(false)}
-                  onError={() => setIsQpLoading(false)} // Handle error case for loading
-                />
+              {qpPdfUrl ? (
+                <Document
+                  file={qpPdfUrl}
+                  onLoadSuccess={onDocumentLoadSuccessQP}
+                  onLoadError={onDocumentLoadErrorQP}
+                  className="w-full h-full flex justify-center items-center" // Center the document
+                >
+                  <Page
+                    pageNumber={qpCurrentPage}
+                    scale={qpZoomLevel}
+                    renderAnnotationLayer={true}
+                    renderTextLayer={true}
+                    onRenderSuccess={onRenderSuccessQP} // Add this
+                    customTextRenderer={({ str, itemIndex }) => (
+                      <span
+                        key={itemIndex}
+                        className="react-pdf__Page__textContent__text"
+                        style={{ opacity: 0 }}
+                      >
+                        {str}
+                      </span>
+                    )} // Hide text layer to prevent double text
+                  />
+                </Document>
               ) : (
                 <div className="text-gray-500 text-center p-4">
-                  Question Paper Page Not Found.
+                  Question Paper PDF Not Found.
                 </div>
               )}
             </div>
@@ -534,7 +579,7 @@ export default function CopyChecker() {
               </button>
               <button
                 onClick={() => handleZoom("qp", "reset")}
-                disabled={qpZoomLevel === MIN_ZOOM}
+                disabled={qpZoomLevel === 1}
                 className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 title="Reset Zoom"
               >
@@ -557,7 +602,7 @@ export default function CopyChecker() {
               <button
                 onClick={() => {
                   setCurrentPage((p) => Math.max(1, p - 1));
-                  setIsAcLoading(true);
+                  // setIsAcLoading(true); // This is now handled by useEffect for currentPage
                 }}
                 disabled={currentPage === 1}
                 className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -565,14 +610,14 @@ export default function CopyChecker() {
                 Prev
               </button>
               <span className="text-lg font-bold text-gray-800">
-                Page {currentPage} / {copy.totalPages}
+                Page {currentPage} / {acNumPages || "..."}
               </span>
               <button
                 onClick={() => {
-                  setCurrentPage((p) => Math.min(copy.totalPages, p + 1));
-                  setIsAcLoading(true);
+                  setCurrentPage((p) => Math.min(acNumPages, p + 1));
+                  // setIsAcLoading(true); // This is now handled by useEffect for currentPage
                 }}
-                disabled={currentPage === copy.totalPages}
+                disabled={currentPage === acNumPages}
                 className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
               >
                 Next
@@ -580,7 +625,7 @@ export default function CopyChecker() {
             </div>
             <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10 rounded-lg">
                   <svg
                     className="animate-spin h-8 w-8 text-indigo-500"
                     xmlns="http://www.w3.org/2000/svg"
@@ -604,21 +649,33 @@ export default function CopyChecker() {
                   <span className="ml-2 text-gray-700">Loading...</span>
                 </div>
               )}
-              {acImageUrl ? (
-                <img
-                  src={acImageUrl}
-                  alt={`Answer Copy Page ${currentPage}`}
-                  className="w-full h-full object-contain" // Added object-contain
-                  style={{
-                    transform: `scale(${acZoomLevel})`,
-                    transformOrigin: "center center",
-                  }}
-                  onLoad={() => setIsAcLoading(false)}
-                  onError={() => setIsAcLoading(false)} // Handle error case for loading
-                />
+              {acPdfUrl ? (
+                <Document
+                  file={acPdfUrl}
+                  onLoadSuccess={onDocumentLoadSuccessAC}
+                  onLoadError={onDocumentLoadErrorAC}
+                  className="w-full h-full flex justify-center items-center" // Center the document
+                >
+                  <Page
+                    pageNumber={currentPage}
+                    scale={acZoomLevel}
+                    renderAnnotationLayer={true}
+                    renderTextLayer={true}
+                    onRenderSuccess={onRenderSuccessAC} // Add this
+                    customTextRenderer={({ str, itemIndex }) => (
+                      <span
+                        key={itemIndex}
+                        className="react-pdf__Page__textContent__text"
+                        style={{ opacity: 0 }}
+                      >
+                        {str}
+                      </span>
+                    )} // Hide text layer to prevent double text
+                  />
+                </Document>
               ) : (
                 <div className="text-gray-500 text-center p-4">
-                  Answer Copy Page Not Found.
+                  Answer Copy PDF Not Found.
                 </div>
               )}
             </div>
@@ -643,7 +700,7 @@ export default function CopyChecker() {
               </button>
               <button
                 onClick={() => handleZoom("ac", "reset")}
-                disabled={acZoomLevel === MIN_ZOOM}
+                disabled={acZoomLevel === 1}
                 className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 title="Reset Zoom"
               >
@@ -669,7 +726,7 @@ export default function CopyChecker() {
           </button>
         </div>
         {/* Completion Status */}
-        {copy.status === "completed" && (
+        {copy.status === "evaluated" && ( // Changed from 'completed' to 'evaluated' based on examiner.controller.js
           <div className="text-center text-xl text-green-600 font-semibold bg-green-50 p-4 rounded-lg mt-6 max-w-4xl mx-auto border border-green-200">
             This copy has been fully marked. Ready for final review.
           </div>
@@ -717,6 +774,11 @@ export default function CopyChecker() {
             )}
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+            {/* Total marks showing*/}
+            <div className="text-lg font-semibold text-gray-800 pt-2">
+              Total Marks:{" "}
+              <span className="text-green-700">{totalMarks}</span>
+            </div>
             <button
               onClick={() => setShowReviewModal(false)}
               className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
