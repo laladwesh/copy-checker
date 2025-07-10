@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
@@ -13,6 +13,19 @@ import {
   QuestionMarkCircleIcon, // For Raise Query button
   ChatBubbleLeftRightIcon, // For displaying queries
 } from "@heroicons/react/24/outline";
+
+// Import react-pdf components
+import { Document, Page, pdfjs } from "react-pdf"; //
+import 'react-pdf/dist/Page/AnnotationLayer.css'; // Essential for annotations like links
+import 'react-pdf/dist/Page/TextLayer.css'; // Essential for selectable text
+
+// Set worker source for react-pdf
+// This is crucial for react-pdf to work correctly.
+// Using unpkg CDN for robustness. Make sure the pdfjs.version matches your installed react-pdf version.
+// You might need to run 'npm view react-pdf version' or 'yarn info react-pdf version' to get it.
+// As of my last knowledge update, a common version is around 5.x or 6.x.
+// If you face issues, replace 'pdfjs.version' with the exact version number you have (e.g., '6.2.2')
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`; //
 
 export default function StudentCopyViewer() {
   const { copyId } = useParams();
@@ -32,7 +45,7 @@ export default function StudentCopyViewer() {
     type: "success",
   });
 
-  // Loading states for images
+  // Loading states for PDFs
   const [isQpLoading, setIsQpLoading] = useState(true);
   const [isAcLoading, setIsAcLoading] = useState(true);
 
@@ -49,6 +62,21 @@ export default function StudentCopyViewer() {
   const [queryPage, setQueryPage] = useState("");
   const [queryText, setQueryText] = useState("");
   const [isSubmittingQuery, setIsSubmittingQuery] = useState(false);
+
+  // New states for react-pdf to track total pages
+  const [numQpPages, setNumQpPages] = useState(null);
+  const [numAcPages, setNumAcPages] = useState(null);
+
+  // Callback for successful PDF load
+  const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
+    setNumQpPages(numPages);
+    setIsQpLoading(false);
+  }, []);
+
+  const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
+    setNumAcPages(numPages);
+    setIsAcLoading(false);
+  }, []);
 
   // 1) Load the copy and its queries once on mount
   useEffect(() => {
@@ -226,14 +254,13 @@ export default function StudentCopyViewer() {
     0
   );
 
-  // Get the current page image URL for Question Paper
-  const qpImageUrl = copy.questionPaper?.driveFile?.id
-    ? `/api/drive/page-image/${copy.questionPaper.driveFile.id}/${qpCurrentPage}`
+  // Get the PDF URLs instead of image URLs
+  const qpPdfUrl = copy.questionPaper?.driveFile?.id
+    ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
     : "";
 
-  // Get the current page image URL for Answer Copy
-  const acImageUrl = copy.driveFile?.id
-    ? `/api/drive/page-image/${copy.driveFile.id}/${currentPage}`
+  const acPdfUrl = copy.driveFile?.id
+    ? `/api/drive/pdf/${copy.driveFile.id}`
     : "";
 
   return (
@@ -309,12 +336,13 @@ export default function StudentCopyViewer() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Question Paper
             </h2>
-            {copy.questionPaper.totalPages > 1 && (
+            {/* Page Navigation for Question Paper (using numQpPages) */}
+            {numQpPages > 1 && (
               <div className="flex justify-between items-center w-full mb-4 space-x-4">
                 <button
                   onClick={() => {
                     setQpCurrentPage((p) => Math.max(1, p - 1));
-                    setIsQpLoading(true);
+                    setIsQpLoading(true); // Set loading true on page change
                   }}
                   disabled={qpCurrentPage === 1}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -322,16 +350,16 @@ export default function StudentCopyViewer() {
                   Prev
                 </button>
                 <span className="text-lg font-bold text-gray-800">
-                  Page {qpCurrentPage} / {copy.questionPaper.totalPages}
+                  Page {qpCurrentPage} / {numQpPages || "..."}
                 </span>
                 <button
                   onClick={() => {
                     setQpCurrentPage((p) =>
-                      Math.min(copy.questionPaper.totalPages, p + 1)
+                      Math.min(numQpPages, p + 1)
                     );
-                    setIsQpLoading(true);
+                    setIsQpLoading(true); // Set loading true on page change
                   }}
-                  disabled={qpCurrentPage === copy.questionPaper.totalPages}
+                  disabled={qpCurrentPage === numQpPages}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
                 >
                   Next
@@ -364,21 +392,29 @@ export default function StudentCopyViewer() {
                   <span className="ml-2 text-gray-700">Loading...</span>
                 </div>
               )}
-              {qpImageUrl ? (
-                <img
-                  src={qpImageUrl}
-                  alt={`Question Paper Page ${qpCurrentPage}`}
-                  className="w-full h-full object-contain"
-                  style={{
-                    transform: `scale(${qpZoomLevel})`,
-                    transformOrigin: "center center",
+              {/* React-PDF Document and Page for Question Paper*/}
+              {qpPdfUrl ? (
+                <Document
+                  file={qpPdfUrl}
+                  onLoadSuccess={onQpDocumentLoadSuccess}
+                  onLoadError={(err) => {
+                    console.error("Error loading QP PDF:", err);
+                    setError("Failed to load Question Paper PDF.");
+                    setIsQpLoading(false);
                   }}
-                  onLoad={() => setIsQpLoading(false)}
-                  onError={() => setIsQpLoading(false)}
-                />
+                  className="w-full h-full flex items-center justify-center"
+                >
+                  <Page
+                    pageNumber={qpCurrentPage}
+                    scale={qpZoomLevel}
+                    renderAnnotationLayer={true}
+                    renderTextLayer={true}
+                    width={550} // Fixed width for better scaling control
+                  />
+                </Document>
               ) : (
                 <div className="text-gray-500 text-center p-4">
-                  Question Paper Page Not Found.
+                  Question Paper PDF Not Found.
                 </div>
               )}
             </div>
@@ -418,31 +454,34 @@ export default function StudentCopyViewer() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Answer Copy
             </h2>
-            <div className="flex justify-between items-center w-full mb-4 space-x-4">
-              <button
-                onClick={() => {
-                  setCurrentPage((p) => Math.max(1, p - 1));
-                  setIsAcLoading(true);
-                }}
-                disabled={currentPage === 1}
-                className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Prev
-              </button>
-              <span className="text-lg font-bold text-gray-800">
-                Page {currentPage} / {copy.totalPages}
-              </span>
-              <button
-                onClick={() => {
-                  setCurrentPage((p) => Math.min(copy.totalPages, p + 1));
-                  setIsAcLoading(true);
-                }}
-                disabled={currentPage === copy.totalPages}
-                className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Next
-              </button>
-            </div>
+            {/* Page Navigation for Answer Copy (using numAcPages) */}
+            {numAcPages > 1 && (
+              <div className="flex justify-between items-center w-full mb-4 space-x-4">
+                <button
+                  onClick={() => {
+                    setCurrentPage((p) => Math.max(1, p - 1));
+                    setIsAcLoading(true); // Set loading true on page change
+                  }}
+                  disabled={currentPage === 1}
+                  className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
+                >
+                  Prev
+                </button>
+                <span className="text-lg font-bold text-gray-800">
+                  Page {currentPage} / {numAcPages || "..."}
+                </span>
+                <button
+                  onClick={() => {
+                    setCurrentPage((p) => Math.min(numAcPages, p + 1));
+                    setIsAcLoading(true); // Set loading true on page change
+                  }}
+                  disabled={currentPage === numAcPages}
+                  className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
+                >
+                  Next
+                </button>
+              </div>
+            )}
             <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
@@ -469,21 +508,29 @@ export default function StudentCopyViewer() {
                   <span className="ml-2 text-gray-700">Loading...</span>
                 </div>
               )}
-              {acImageUrl ? (
-                <img
-                  src={acImageUrl}
-                  alt={`Answer Copy Page ${currentPage}`}
-                  className="w-full h-full object-contain"
-                  style={{
-                    transform: `scale(${acZoomLevel})`,
-                    transformOrigin: "center center",
+              {/* React-PDF Document and Page for Answer Copy */}
+              {acPdfUrl ? (
+                <Document
+                  file={acPdfUrl}
+                  onLoadSuccess={onAcDocumentLoadSuccess}
+                  onLoadError={(err) => {
+                    console.error("Error loading AC PDF:", err);
+                    setError("Failed to load Answer Copy PDF.");
+                    setIsAcLoading(false);
                   }}
-                  onLoad={() => setIsAcLoading(false)}
-                  onError={() => setIsAcLoading(false)}
-                />
+                  className="w-full h-full flex items-center justify-center"
+                >
+                  <Page
+                    pageNumber={currentPage}
+                    scale={acZoomLevel}
+                    renderAnnotationLayer={true}
+                    renderTextLayer={true}
+                    width={550} // Fixed width for better scaling control
+                  />
+                </Document>
               ) : (
                 <div className="text-gray-500 text-center p-4">
-                  Answer Copy Page Not Found.
+                  Answer Copy PDF Not Found.
                 </div>
               )}
             </div>
