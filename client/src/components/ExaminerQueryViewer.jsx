@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import {
@@ -14,6 +14,15 @@ import {
   ArrowPathIcon, // Added missing import for ArrowPathIcon
 } from "@heroicons/react/24/outline";
 
+// Import react-pdf components
+import { Document, Page, pdfjs } from "react-pdf";
+import 'react-pdf/dist/Page/AnnotationLayer.css'; // Essential for annotations like links
+import 'react-pdf/dist/Page/TextLayer.css'; // Essential for selectable text
+
+// Set worker source for react-pdf
+// This is crucial for react-pdf to work correctly.
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
 export default function ExaminerQueryViewer() {
   const { queryId } = useParams(); // Get queryId from URL
   const navigate = useNavigate();
@@ -27,11 +36,13 @@ export default function ExaminerQueryViewer() {
   const [currentPage, setCurrentPage] = useState(1); // Current page of the Answer Copy
   const [acZoomLevel, setAcZoomLevel] = useState(1);
   const [isAcLoading, setIsAcLoading] = useState(true);
+  const [acNumPages, setAcNumPages] = useState(null); // Total pages for AC
 
   // Page navigation states for Question Paper
   const [qpCurrentPage, setQpCurrentPage] = useState(1); // Current page of the Question Paper
   const [qpZoomLevel, setQpZoomLevel] = useState(1);
   const [isQpLoading, setIsQpLoading] = useState(true);
+  const [qpNumPages, setQpNumPages] = useState(null); // Total pages for QP
 
   // UI States (for toast messages and loading)
   const [showToast, setShowToast] = useState(false);
@@ -96,8 +107,9 @@ export default function ExaminerQueryViewer() {
           "error"
         );
       } finally {
-        setIsAcLoading(false);
-        setIsQpLoading(false);
+        // These will be set by react-pdf's onLoadSuccess
+        // setIsAcLoading(false);
+        // setIsQpLoading(false);
       }
     };
     fetchQueryAndCopy();
@@ -200,6 +212,23 @@ export default function ExaminerQueryViewer() {
     }
   };
 
+  // Handlers for react-pdf Document load success
+  const onDocumentLoadSuccessAC = useCallback(({ numPages }) => {
+    setAcNumPages(numPages);
+    setIsAcLoading(false);
+  }, []);
+
+  const onDocumentLoadSuccessQP = useCallback(({ numPages }) => {
+    setQpNumPages(numPages);
+    setIsQpLoading(false);
+  }, []);
+
+  const onDocumentError = useCallback((err) => {
+    console.error("Error loading PDF document:", err);
+    setError(`Failed to load PDF document: ${err.message}`);
+    setIsAcLoading(false); // Ensure loading is off on error
+    setIsQpLoading(false); // Ensure loading is off on error
+  }, []);
 
   if (error)
     return (
@@ -236,14 +265,14 @@ export default function ExaminerQueryViewer() {
       </div>
     );
 
-  const acImageUrl = copy.driveFile?.id
-    ? `/api/drive/page-image/${copy.driveFile.id}/${currentPage}`
-    : "";
+    // Construct the PDF URLs directly from driveFile.id
+    const acPdfUrl = copy.driveFile?.id
+      ? `/api/drive/pdf/${copy.driveFile.id}`
+      : null;
 
-  const qpImageUrl = copy.questionPaper?.driveFile?.id
-    ? `/api/drive/page-image/${copy.questionPaper.driveFile.id}/${qpCurrentPage}`
-    : "";
-
+    const qpPdfUrl = copy.questionPaper?.driveFile?.id
+      ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
+      : null;
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans relative p-8">
@@ -292,7 +321,7 @@ export default function ExaminerQueryViewer() {
         {/* Left Column: Answer Copy Viewer */}
         <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
           <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">
-            Answer Copy (Page {currentPage} of {copy.totalPages || 'N/A'})
+            Answer Copy (Page {currentPage} of {acNumPages || 'N/A'})
           </h3>
           <div className="flex justify-between items-center w-full mb-3 space-x-2">
             <button
@@ -306,14 +335,14 @@ export default function ExaminerQueryViewer() {
               Prev
             </button>
             <span className="text-md font-bold text-gray-800">
-              Page {currentPage} / {copy.totalPages || 'N/A'}
+              Page {currentPage} / {acNumPages || 'N/A'}
             </span>
             <button
               onClick={() => {
-                setCurrentPage((p) => Math.min(copy.totalPages || 1, p + 1));
+                setCurrentPage((p) => Math.min(acNumPages || 1, p + 1));
                 setIsAcLoading(true);
               }}
-              disabled={currentPage === (copy.totalPages || 1)}
+              disabled={currentPage === (acNumPages || 1)}
               className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
             >
               Next
@@ -334,18 +363,23 @@ export default function ExaminerQueryViewer() {
                 <span className="ml-2 text-gray-700">Loading Answer Copy Page...</span>
               </div>
             )}
-            {acImageUrl ? (
-              <img
-                src={acImageUrl}
-                alt={`Answer Copy Page ${currentPage}`}
-                className="w-full h-full object-contain"
-                style={{
-                  transform: `scale(${acZoomLevel})`,
-                  transformOrigin: "center center",
-                }}
-                onLoad={() => setIsAcLoading(false)}
-                onError={() => setIsAcLoading(false)}
-              />
+            {acPdfUrl ? (
+              <Document
+                file={acPdfUrl}
+                onLoadSuccess={onDocumentLoadSuccessAC}
+                onLoadError={onDocumentError}
+                loading={""} // Hide default loading text
+                className="w-full h-full flex justify-center items-center"
+              >
+                <Page
+                  pageNumber={currentPage}
+                  scale={acZoomLevel}
+                  renderAnnotationLayer={true}
+                  renderTextLayer={true}
+                  onRenderSuccess={() => setIsAcLoading(false)}
+                  onRenderError={() => setIsAcLoading(false)}
+                />
+              </Document>
             ) : (
               <div className="text-gray-500 text-center p-4">
                 Answer Copy Not Available.
@@ -386,7 +420,7 @@ export default function ExaminerQueryViewer() {
         {/* Middle Column: Question Paper Viewer */}
         <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
           <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">
-            Question Paper (Page {qpCurrentPage} of {copy.questionPaper?.totalPages || 'N/A'})
+            Question Paper (Page {qpCurrentPage} of {qpNumPages || 'N/A'})
           </h3>
           <div className="flex justify-between items-center w-full mb-3 space-x-2">
             <button
@@ -400,14 +434,14 @@ export default function ExaminerQueryViewer() {
               Prev
             </button>
             <span className="text-md font-bold text-gray-800">
-              Page {qpCurrentPage} / {copy.questionPaper?.totalPages || 'N/A'}
+              Page {qpCurrentPage} / {qpNumPages || 'N/A'}
             </span>
             <button
               onClick={() => {
-                setQpCurrentPage((p) => Math.min(copy.questionPaper?.totalPages || 1, p + 1));
+                setQpCurrentPage((p) => Math.min(qpNumPages || 1, p + 1));
                 setIsQpLoading(true);
               }}
-              disabled={qpCurrentPage === (copy.questionPaper?.totalPages || 1)}
+              disabled={qpCurrentPage === (qpNumPages || 1)}
               className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
             >
               Next
@@ -428,18 +462,23 @@ export default function ExaminerQueryViewer() {
                 <span className="ml-2 text-gray-700">Loading Question Paper Page...</span>
               </div>
             )}
-            {qpImageUrl ? (
-              <img
-                src={qpImageUrl}
-                alt={`Question Paper Page ${qpCurrentPage}`}
-                className="w-full h-full object-contain"
-                style={{
-                  transform: `scale(${qpZoomLevel})`,
-                  transformOrigin: "center center",
-                }}
-                onLoad={() => setIsQpLoading(false)}
-                onError={() => setIsQpLoading(false)}
-              />
+            {qpPdfUrl ? (
+              <Document
+                file={qpPdfUrl}
+                onLoadSuccess={onDocumentLoadSuccessQP}
+                onLoadError={onDocumentError}
+                loading={""} // Hide default loading text
+                className="w-full h-full flex justify-center items-center"
+              >
+                <Page
+                  pageNumber={qpCurrentPage}
+                  scale={qpZoomLevel}
+                  renderAnnotationLayer={true}
+                  renderTextLayer={true}
+                  onRenderSuccess={() => setIsQpLoading(false)}
+                  onRenderError={() => setIsQpLoading(false)}
+                />
+              </Document>
             ) : (
               <div className="text-gray-500 text-center p-4">
                 Question Paper Not Available.
