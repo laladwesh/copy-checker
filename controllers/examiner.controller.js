@@ -25,6 +25,58 @@ exports.listHistory = async (req, res, next) => {
   }
 };
 
+exports.getExaminerCopyDetails = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const copy = await Copy.findById(id)
+            .populate("student", "name email")
+            .populate({
+                path: "questionPaper",
+                select: "title totalPages driveFile.id totalMarks",
+            })
+            .populate("examiners", "name email");
+
+        if (!copy) {
+            return res.status(404).json({ message: "Copy not found." });
+        }
+
+        // --- MODIFIED LOGIC ---
+
+        // 1. Construct internal API endpoints for serving PDFs using the file IDs
+        // These URLs will point to your backend's new `serveDrivePdf` endpoint
+        const answerCopyDirectLink = copy.driveFile && copy.driveFile.id
+            ? `/api/drive/pdf/${copy.driveFile.id}` // Frontend will request this URL
+            : null;
+
+        const questionPaperDirectLink = copy.questionPaper && copy.questionPaper.driveFile && copy.questionPaper.driveFile.id
+            ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}` // Frontend will request this URL
+            : null;
+
+        // 2. Create a modified response object to include the new direct links
+        const responseCopy = {
+            ...copy.toObject(), // Convert Mongoose document to a plain JavaScript object
+            driveFile: {
+                ...(copy.driveFile ? copy.driveFile.toObject() : {}), // Ensure driveFile exists before toObject
+                directDownloadLink: answerCopyDirectLink // Replace external link with internal proxy link
+            },
+            questionPaper: {
+                ...(copy.questionPaper ? copy.questionPaper.toObject() : {}), // Ensure questionPaper exists
+                driveFile: {
+                    ...(copy.questionPaper && copy.questionPaper.driveFile ? copy.questionPaper.driveFile.toObject() : {}),
+                    directDownloadLink: questionPaperDirectLink // Replace external link with internal proxy link
+                }
+            }
+        };
+
+        // --- END MODIFIED LOGIC ---
+
+        res.json(responseCopy); // Send the modified response
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 exports.getCopy = async (req, res, next) => {
   try {
     const copy = await Copy.findById(req.params.id)
