@@ -116,4 +116,8 @@ async function uploadFileToFolder(buffer, filename, mimeType, folderId) {
   }
 }
 
-module.exports = { getOrCreateFolder, uploadFileToFolder };
+module.exports = {
+  getOrCreateFolder,
+  uploadFileToFolder,
+  drive, // <--- EXPORT THE AUTHENTICATED DRIVE INSTANCE
+};
