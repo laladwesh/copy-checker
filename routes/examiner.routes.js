@@ -8,7 +8,8 @@ const {
   markCompleteCopy,
   listQueries,
   getSingleQuery,
-  replyQuery, // Re-added replyQuery
+  replyQuery,
+  getExaminerCopyDetails, // Re-added replyQuery
 } = require("../controllers/examiner.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -22,6 +23,7 @@ router.use(verifyToken, ensureRole("examiner"));
 router.get("/copies/pending", listPending);
 router.get("/copies/history", listHistory);
 router.get("/copies/:id", getCopy);
+router.get("/copies/view/:id", getExaminerCopyDetails); // For detailed view in ExaminerCopyViewer
 router.patch("/copies/:id/mark-page", markPage);
 router.patch("/copies/:id/complete", markCompleteCopy); // Mark copy as fully evaluated
 
