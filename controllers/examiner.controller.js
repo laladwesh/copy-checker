@@ -129,7 +129,12 @@ exports.markPage = async (req, res, next) => {
       copy.pages.length === copy.totalPages &&
       copy.pages.every((p) => typeof p.marksAwarded === "number")
     ) {
+       if (copy.status === "evaluated") {
+      copy.status = "evaluated"; // Reset status to examining if already evaluated
+    } else{
       copy.status = "pending";
+    }
+      
     } else if (copy.status === "pending" || copy.status === "assigned") {
       copy.status = "examining";
     }
