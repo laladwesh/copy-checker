@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
@@ -20,11 +20,6 @@ import 'react-pdf/dist/Page/AnnotationLayer.css'; // Essential for annotations l
 import 'react-pdf/dist/Page/TextLayer.css'; // Essential for selectable text
 
 // Set worker source for react-pdf
-// This is crucial for react-pdf to work correctly.
-// Using unpkg CDN for robustness. Make sure the pdfjs.version matches your installed react-pdf version.
-// You might need to run 'npm view react-pdf version' or 'yarn info react-pdf version' to get it.
-// As of my last knowledge update, a common version is around 5.x or 6.x.
-// If you face issues, replace 'pdfjs.version' with the exact version number you have (e.g., '6.2.2')
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`; //
 
 export default function StudentCopyViewer() {
@@ -45,10 +40,6 @@ export default function StudentCopyViewer() {
     type: "success",
   });
 
-  // Loading states for PDFs
-  const [isQpLoading, setIsQpLoading] = useState(true);
-  const [isAcLoading, setIsAcLoading] = useState(true);
-
   // Zoom States
   const [qpZoomLevel, setQpZoomLevel] = useState(1);
   const [acZoomLevel, setAcZoomLevel] = useState(1);
@@ -67,28 +58,28 @@ export default function StudentCopyViewer() {
   const [numQpPages, setNumQpPages] = useState(null);
   const [numAcPages, setNumAcPages] = useState(null);
 
-  // Callback for successful PDF load
+  // Initial loading state for the entire component's data
+  const [isLoadingComponent, setIsLoadingComponent] = useState(true);
+
+  // Callback for successful PDF document load (not per page load)
   const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumQpPages(numPages);
-    setIsQpLoading(false);
   }, []);
 
   const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumAcPages(numPages);
-    setIsAcLoading(false);
   }, []);
 
   // 1) Load the copy and its queries once on mount
   useEffect(() => {
     const fetchCopyAndQueries = async () => {
+      setIsLoadingComponent(true); // Start loading for the component
       try {
         const copyRes = await api.get(`/student/copies/${copyId}`);
         setCopy(copyRes.data);
-        // Set both Answer Copy and Question Paper to page 1 on load
         setCurrentPage(1);
         setQpCurrentPage(1);
 
-        // NEW: Fetch queries related to this copy
         const queriesRes = await api.get(`/student/queries?copyId=${copyId}`);
         setStudentQueries(queriesRes.data);
 
@@ -98,6 +89,8 @@ export default function StudentCopyViewer() {
           `Error loading copy or queries: ${err.response?.data?.message || err.message}`,
           "error"
         );
+      } finally {
+        setIsLoadingComponent(false); // End loading for the component
       }
     };
     fetchCopyAndQueries();
@@ -136,7 +129,7 @@ export default function StudentCopyViewer() {
         } else if (action === "reset") {
           newZoom = MIN_ZOOM;
         }
-        return parseFloat(newZoom.toFixed(2)); // To prevent floating point inaccuracies
+        return parseFloat(newZoom.toFixed(2));
       });
     } else if (type === "ac") {
       setAcZoomLevel((prevZoom) => {
@@ -186,7 +179,7 @@ export default function StudentCopyViewer() {
 
     setIsSubmittingQuery(true);
     try {
-      await api.post(`/student/copies/${copyId}/queries`, { // Corrected endpoint to /queries
+      await api.post(`/student/copies/${copyId}/queries`, {
         pageNumber: Number(queryPage),
         text: queryText.trim(),
       });
@@ -212,7 +205,7 @@ export default function StudentCopyViewer() {
         Error: {error}
       </div>
     );
-  if (!copy)
+  if (isLoadingComponent || !copy) // Use isLoadingComponent for initial data fetch
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="flex flex-col items-center text-gray-600 text-lg">
@@ -342,7 +335,6 @@ export default function StudentCopyViewer() {
                 <button
                   onClick={() => {
                     setQpCurrentPage((p) => Math.max(1, p - 1));
-                    setIsQpLoading(true); // Set loading true on page change
                   }}
                   disabled={qpCurrentPage === 1}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -357,7 +349,6 @@ export default function StudentCopyViewer() {
                     setQpCurrentPage((p) =>
                       Math.min(numQpPages, p + 1)
                     );
-                    setIsQpLoading(true); // Set loading true on page change
                   }}
                   disabled={qpCurrentPage === numQpPages}
                   className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -367,31 +358,6 @@ export default function StudentCopyViewer() {
               </div>
             )}
             <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
-              {isQpLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-                  <svg
-                    className="animate-spin h-8 w-8 text-indigo-500"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span className="ml-2 text-gray-700">Loading...</span>
-                </div>
-              )}
               {/* React-PDF Document and Page for Question Paper*/}
               {qpPdfUrl ? (
                 <Document
@@ -400,7 +366,6 @@ export default function StudentCopyViewer() {
                   onLoadError={(err) => {
                     console.error("Error loading QP PDF:", err);
                     setError("Failed to load Question Paper PDF.");
-                    setIsQpLoading(false);
                   }}
                   className="w-full h-full flex items-center justify-center"
                 >
@@ -460,7 +425,6 @@ export default function StudentCopyViewer() {
                 <button
                   onClick={() => {
                     setCurrentPage((p) => Math.max(1, p - 1));
-                    setIsAcLoading(true); // Set loading true on page change
                   }}
                   disabled={currentPage === 1}
                   className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -473,7 +437,6 @@ export default function StudentCopyViewer() {
                 <button
                   onClick={() => {
                     setCurrentPage((p) => Math.min(numAcPages, p + 1));
-                    setIsAcLoading(true); // Set loading true on page change
                   }}
                   disabled={currentPage === numAcPages}
                   className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
@@ -483,31 +446,6 @@ export default function StudentCopyViewer() {
               </div>
             )}
             <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
-              {isAcLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-                  <svg
-                    className="animate-spin h-8 w-8 text-indigo-500"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span className="ml-2 text-gray-700">Loading...</span>
-                </div>
-              )}
               {/* React-PDF Document and Page for Answer Copy */}
               {acPdfUrl ? (
                 <Document
@@ -516,7 +454,6 @@ export default function StudentCopyViewer() {
                   onLoadError={(err) => {
                     console.error("Error loading AC PDF:", err);
                     setError("Failed to load Answer Copy PDF.");
-                    setIsAcLoading(false);
                   }}
                   className="w-full h-full flex items-center justify-center"
                 >
