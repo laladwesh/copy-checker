@@ -6,14 +6,83 @@ const pdfGen = require("../utils/pdfGenerator");
 const {
   getOrCreateFolder,
   uploadFileToFolder,
+  drive
 } = require("../config/googleDrive");
 const { PDFDocument } = require("pdf-lib");
-
+const { google } = require('googleapis');
+const getDirectDriveDownloadLink = (fileId) => {
+    if (!fileId) return null;
+    return `https://drive.google.com/uc?export=download&id=${fileId}`;
+};
 // Utility function to sanitize folder names (replace invalid characters)
 const sanitizeFolderName = (name) => {
   return String(name)
     .replace(/[^a-zA-Z0-9-_. ]/g, "_")
     .substring(0, 100); // Limit length
+};
+
+// --- NEW FUNCTION: Serve PDF directly from Google Drive via backend ---
+exports.serveDrivePdf = async (req, res, next) => {
+    try {
+        const { fileId } = req.params;
+
+        if (!fileId) {
+            return res.status(400).json({ message: "File ID is required." });
+        }
+
+        // Use the imported 'drive' instance for making the Google Drive API call
+        const response = await drive.files.get(
+            { fileId: fileId, alt: 'media' }, // 'alt=media' is crucial for getting the file content
+            { responseType: 'stream' }       // Get the response as a stream
+        );
+
+        // Set the appropriate headers for PDF content
+        res.setHeader('Content-Type', 'application/pdf');
+        // 'inline' means the browser should try to display it; 'attachment' means download
+        res.setHeader('Content-Disposition', `inline; filename="${fileId}.pdf"`);
+
+        // Set CORS headers. IMPORTANT: Adjust this for production.
+        // For development, '*' is generally fine.
+        // For production, change '*' to your actual frontend's domain (e.g., 'https://yourfrontend.com').
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+
+        // Pipe the Google Drive file stream directly to the response for efficient serving
+        response.data
+            .on('end', () => {
+                console.log(`[Backend] Served PDF file successfully: ${fileId}`);
+            })
+            .on('error', err => {
+                console.error(`[Backend] Error streaming PDF file ${fileId} from Drive:`, err);
+                // Handle errors that occur during the streaming process (e.g., connection drops)
+                if (!res.headersSent) { // Only send error if headers haven't been sent yet
+                    if (err.code === 403) {
+                        res.status(403).json({ message: "Access to Google Drive file forbidden. Check file permissions or authentication." });
+                    } else if (err.code === 404) {
+                        res.status(404).json({ message: "Google Drive file not found or deleted." });
+                    } else {
+                        res.status(500).json({ message: "Failed to stream file from Google Drive due to an unexpected error." });
+                    }
+                }
+            })
+            .pipe(res); // Connect the Google Drive stream to the HTTP response stream
+
+    } catch (err) {
+        // This catch block handles errors that occur before the stream even starts,
+        // such as issues with `drive.files.get` call itself (e.g., invalid fileId, initial auth error)
+        console.error("[Backend] Error fetching PDF metadata or initiating stream from Drive:", err);
+        if (err.response) {
+            // Google APIs often return errors with a `response` object
+            if (err.response.status === 403) {
+                return res.status(403).json({ message: "Access denied to Google Drive file. Verify file sharing settings or OAuth2 token permissions." });
+            } else if (err.response.status === 404) {
+                return res.status(404).json({ message: "Google Drive file not found." });
+            }
+        }
+        next(err); // Pass any other unhandled errors to your Express error handling middleware
+    }
 };
 
 // 1. User Management (No changes needed here for this request)
@@ -793,23 +862,54 @@ exports.getCopiesByExam = async (req, res, next) => {
 
 // NEW: Get a single copy's details for admin viewing (read-only)
 exports.getAdminCopyDetails = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const copy = await Copy.findById(id)
-      .populate("student", "name email")
-      .populate({
-        path: "questionPaper",
-        select: "title totalPages driveFile.id totalMarks", // Ensure driveFile.id and totalMarks are selected
-      })
-      .populate("examiners", "name email"); // Populate examiners for display
+    try {
+        const { id } = req.params;
+        const copy = await Copy.findById(id)
+            .populate("student", "name email")
+            .populate({
+                path: "questionPaper",
+                select: "title totalPages driveFile.id totalMarks",
+            })
+            .populate("examiners", "name email");
 
-    if (!copy) {
-      return res.status(404).json({ message: "Copy not found." });
+        if (!copy) {
+            return res.status(404).json({ message: "Copy not found." });
+        }
+
+        // --- MODIFIED LOGIC ---
+
+        // 1. Construct internal API endpoints for serving PDFs using the file IDs
+        // These URLs will point to your backend's new `serveDrivePdf` endpoint
+        const answerCopyDirectLink = copy.driveFile && copy.driveFile.id
+            ? `/api/drive/pdf/${copy.driveFile.id}` // Frontend will request this URL
+            : null;
+
+        const questionPaperDirectLink = copy.questionPaper && copy.questionPaper.driveFile && copy.questionPaper.driveFile.id
+            ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}` // Frontend will request this URL
+            : null;
+
+        // 2. Create a modified response object to include the new direct links
+        const responseCopy = {
+            ...copy.toObject(), // Convert Mongoose document to a plain JavaScript object
+            driveFile: {
+                ...(copy.driveFile ? copy.driveFile.toObject() : {}), // Ensure driveFile exists before toObject
+                directDownloadLink: answerCopyDirectLink // Replace external link with internal proxy link
+            },
+            questionPaper: {
+                ...(copy.questionPaper ? copy.questionPaper.toObject() : {}), // Ensure questionPaper exists
+                driveFile: {
+                    ...(copy.questionPaper && copy.questionPaper.driveFile ? copy.questionPaper.driveFile.toObject() : {}),
+                    directDownloadLink: questionPaperDirectLink // Replace external link with internal proxy link
+                }
+            }
+        };
+
+        // --- END MODIFIED LOGIC ---
+
+        res.json(responseCopy); // Send the modified response
+    } catch (err) {
+        next(err);
     }
-    res.json(copy);
-  } catch (err) {
-    next(err);
-  }
 };
 
 exports.toggleCopyRelease = async (req, res, next) => {
