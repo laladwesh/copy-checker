@@ -4,8 +4,8 @@ import Modal from "./Modal"; // Assuming your Modal component path
 import api from "../services/api";
 import {
   CloudArrowUpIcon,
-  DocumentIcon,
-  PhotoIcon,
+  // DocumentIcon, // Removed unused icon
+  // PhotoIcon, // Removed unused icon
 } from "@heroicons/react/24/outline";
 
 export default function ScanCopyUploadModal({
@@ -13,7 +13,7 @@ export default function ScanCopyUploadModal({
   onClose,
   onUploadSuccess,
   questionPapers,
-  students,
+  students, // This prop should now contain ALL students
 }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [studentEmail, setStudentEmail] = useState("");
@@ -21,7 +21,12 @@ export default function ScanCopyUploadModal({
   const [uploadMessage, setUploadMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // Reset form when modal opens/closes
+  // NEW STATES FOR BATCH FILTERING
+  const [selectedBatch, setSelectedBatch] = useState("");
+  const [availableBatches, setAvailableBatches] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+
+  // Effect to reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedFiles([]);
@@ -29,8 +34,32 @@ export default function ScanCopyUploadModal({
       setSelectedQpId("");
       setUploadMessage("");
       setIsUploading(false);
+      setSelectedBatch(""); // Reset batch selection on close
     }
   }, [isOpen]);
+
+  // Effect to populate available batches and filter students
+  useEffect(() => {
+    if (students && students.length > 0) {
+      // Extract unique batches from all students
+      const batches = [...new Set(students.map(s => s.batch).filter(Boolean))]; // Filter out null/undefined batches
+      setAvailableBatches(batches.sort()); // Sort batches alphabetically
+
+      // Filter students based on selectedBatch
+      if (selectedBatch) {
+        setFilteredStudents(students.filter(s => s.batch === selectedBatch));
+      } else {
+        setFilteredStudents(students); // If no batch selected, show all students
+      }
+    } else {
+      setAvailableBatches([]);
+      setFilteredStudents([]);
+    }
+    // Reset studentEmail if the filtered list changes and the current email is no longer valid
+    if (studentEmail && !filteredStudents.some(s => s.email === studentEmail)) {
+      setStudentEmail("");
+    }
+  }, [students, selectedBatch, studentEmail]); // Depend on students and selectedBatch
 
   const handleFileChange = (e) => {
     setUploadMessage("");
@@ -106,6 +135,32 @@ export default function ScanCopyUploadModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Scan & Upload Answer Copy">
       <form onSubmit={handleUpload} className="space-y-6 p-2">
+        {/* NEW: Batch Selection */}
+        <div>
+          <label
+            htmlFor="studentBatch"
+            className="block text-gray-700 text-base font-medium mb-2"
+          >
+            Student Batch:
+          </label>
+          <select
+            id="studentBatch"
+            value={selectedBatch}
+            onChange={(e) => {
+              setSelectedBatch(e.target.value);
+              setStudentEmail(""); // Reset student email when batch changes
+            }}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
+          >
+            <option value="">-- Select Batch (Optional) --</option>
+            {availableBatches.map((batch) => (
+              <option key={batch} value={batch}>
+                {batch}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div>
           <label
             htmlFor="studentEmail"
@@ -121,11 +176,17 @@ export default function ScanCopyUploadModal({
             required
           >
             <option value="">-- Select Student --</option>
-            {students.map((student) => (
-              <option key={student._id} value={student.email}>
-                {student.name} ({student.email})
-              </option>
-            ))}
+            {filteredStudents.length === 0 && selectedBatch ? (
+              <option value="" disabled>No students found for this batch</option>
+            ) : filteredStudents.length === 0 && !selectedBatch ? (
+              <option value="" disabled>No students available</option>
+            ) : (
+              filteredStudents.map((student) => (
+                <option key={student._id} value={student.email}>
+                  {student.name} ({student.email})
+                </option>
+              ))
+            )}
           </select>
         </div>
 
