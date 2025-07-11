@@ -5,6 +5,8 @@ const {
   getMe,
   logout,
 } = require("../controllers/auth.controller");
+const { verifyToken } = require("../middleware/jwtAuth");
+const { ensureAuthenticated } = require("../middleware/auth");
 const router = express.Router();
 
 // Kick off OAuth (no session)
@@ -26,7 +28,7 @@ router.get(
   googleCallback
 );
 
-router.get("/me", getMe);
+router.get("/me", verifyToken, ensureAuthenticated , getMe);
 router.get("/logout", logout);
 
 module.exports = router;
