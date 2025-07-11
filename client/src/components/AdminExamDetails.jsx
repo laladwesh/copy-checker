@@ -44,8 +44,10 @@ export default function AdminExamDetails() {
 
   const handleToggleReleaseAllCopies = async () => {
     try {
-      const evaluatedCopies = copies.filter(c => c.status === 'evaluated');
-      const anyEvaluatedAndReleased = evaluatedCopies.some(c => c.isReleasedToStudent);
+      const evaluatedCopies = copies.filter((c) => c.status === "evaluated");
+      const anyEvaluatedAndReleased = evaluatedCopies.some(
+        (c) => c.isReleasedToStudent
+      );
 
       const action = anyEvaluatedAndReleased ? "Unreleasing" : "Releasing";
       setToastMessage({
@@ -64,7 +66,9 @@ export default function AdminExamDetails() {
     } catch (err) {
       console.error("Error toggling release status for exam copies:", err);
       setToastMessage({
-        message: `Failed to toggle release status: ${err.response?.data?.message || err.message}`,
+        message: `Failed to toggle release status: ${
+          err.response?.data?.message || err.message
+        }`,
         type: "error",
       });
     } finally {
@@ -74,29 +78,41 @@ export default function AdminExamDetails() {
   };
 
   // NEW: Function to toggle release status for a single copy
-  const handleToggleSingleCopyRelease = async (copyId, currentReleaseStatus) => {
+  const handleToggleSingleCopyRelease = async (
+    copyId,
+    currentReleaseStatus
+  ) => {
     try {
       setToastMessage({
-        message: `${currentReleaseStatus ? 'Unreleasing' : 'Releasing'} single copy...`,
+        message: `${
+          currentReleaseStatus ? "Unreleasing" : "Releasing"
+        } single copy...`,
         type: "info",
       });
       setShowToast(true);
 
-      const res = await api.patch(`/admin/copies/single/${copyId}/toggle-release`);
+      const res = await api.patch(
+        `/admin/copies/single/${copyId}/toggle-release`
+      );
 
       setToastMessage({
         message: res.data.message,
         type: "success",
       });
       // Update the specific copy's release status in the local state
-      setCopies(prevCopies => prevCopies.map(copy =>
-        copy._id === copyId ? { ...copy, isReleasedToStudent: !currentReleaseStatus } : copy
-      ));
-
+      setCopies((prevCopies) =>
+        prevCopies.map((copy) =>
+          copy._id === copyId
+            ? { ...copy, isReleasedToStudent: !currentReleaseStatus }
+            : copy
+        )
+      );
     } catch (err) {
       console.error("Error toggling single copy release status:", err);
       setToastMessage({
-        message: `Failed to toggle single copy release: ${err.response?.data?.message || err.message}`,
+        message: `Failed to toggle single copy release: ${
+          err.response?.data?.message || err.message
+        }`,
         type: "error",
       });
     } finally {
@@ -105,12 +121,12 @@ export default function AdminExamDetails() {
     }
   };
 
-
   // Determine the overall release status for the bulk button text
-  const evaluatedCopiesForExam = copies.filter(c => c.status === 'evaluated');
-  const allEvaluatedCopiesReleased = evaluatedCopiesForExam.length > 0 && evaluatedCopiesForExam.every(c => c.isReleasedToStudent);
+  const evaluatedCopiesForExam = copies.filter((c) => c.status === "evaluated");
+  const allEvaluatedCopiesReleased =
+    evaluatedCopiesForExam.length > 0 &&
+    evaluatedCopiesForExam.every((c) => c.isReleasedToStudent);
   const anyEvaluatedCopies = evaluatedCopiesForExam.length > 0;
-
 
   if (isLoading) {
     return (
@@ -148,6 +164,12 @@ export default function AdminExamDetails() {
         <ArrowLeftIcon className="w-4 h-4 mr-1" />
         Back to Admin Dashboard
       </Link>
+      <button
+        onClick={() => window.open(exam.driveFile?.viewLink, "_blank")}
+        className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+      >
+        Exam Question Paper PDF
+      </button>
 
       <h1 className="text-4xl font-extrabold text-gray-900 text-center mb-8 tracking-tight">
         Copies for Exam: <span className="text-blue-700">{exam.title}</span>
@@ -189,6 +211,12 @@ export default function AdminExamDetails() {
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
+                    Batch
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Status
                   </th>
                   <th
@@ -220,6 +248,9 @@ export default function AdminExamDetails() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {copy.student?.name || "N/A"} (
                       {copy.student?.email || "N/A"})
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {copy.student?.batch || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
@@ -256,14 +287,21 @@ export default function AdminExamDetails() {
                       {copy.status === "evaluated" && ( // Only show if copy is evaluated
                         <button
                           onClick={() =>
-                            handleToggleSingleCopyRelease(copy._id, copy.isReleasedToStudent)
+                            handleToggleSingleCopyRelease(
+                              copy._id,
+                              copy.isReleasedToStudent
+                            )
                           }
                           className={`px-3 py-1.5 rounded-md text-white font-medium transition duration-150 flex items-center ${
                             copy.isReleasedToStudent
                               ? "bg-red-500 hover:bg-red-600"
                               : "bg-green-500 hover:bg-green-600"
                           }`}
-                          title={copy.isReleasedToStudent ? "Unrelease this copy" : "Release this copy"}
+                          title={
+                            copy.isReleasedToStudent
+                              ? "Unrelease this copy"
+                              : "Release this copy"
+                          }
                         >
                           <ArrowPathIcon className="h-4 w-4 inline-block mr-1" />
                           {copy.isReleasedToStudent ? "Unrelease" : "Release"}
