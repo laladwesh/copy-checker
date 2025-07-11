@@ -37,6 +37,8 @@ export default function AdminPanel() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("student");
+  const [newUserGender, setNewUserGender] = useState("");
+  const [newUserBatch, setNewUserBatch] = useState("");
   const [newExamTitle, setNewExamTitle] = useState(""); // For QP title
   const [newExamCourse, setNewExamCourse] = useState("");
   const [newExamExamType, setNewExamExamType] = useState("");
@@ -75,7 +77,8 @@ export default function AdminPanel() {
   const [isSubmittingQueryAction, setIsSubmittingQueryAction] = useState(false);
 
   // NEW: States for Query Viewer Modal (for displaying copy)
-  const [selectedCopyForQueryView, setSelectedCopyForQueryView] = useState(null);
+  const [selectedCopyForQueryView, setSelectedCopyForQueryView] =
+    useState(null);
   const [queryViewerCurrentPage, setQueryViewerCurrentPage] = useState(1);
   const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1);
   const [isQueryViewerAcLoading, setIsQueryViewerAcLoading] = useState(true);
@@ -85,37 +88,39 @@ export default function AdminPanel() {
   const [queryViewerQpZoomLevel, setQueryViewerQpZoomLevel] = useState(1);
   const [isQueryViewerQpLoading, setIsQueryViewerQpLoading] = useState(true);
 
-
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
 
   // NEW: States for Query Management Modal (exam selection and tabs)
-  const [selectedExamForQueryView, setSelectedExamForQueryView] = useState(''); // Exam ID for filtering queries
-  const [activeQueryTab, setActiveQueryTab] = useState('pending'); // 'pending', 'approved_by_admin', 'rejected_by_admin', 'resolved_by_admin', 'resolved_by_examiner'
+  const [selectedExamForQueryView, setSelectedExamForQueryView] = useState(""); // Exam ID for filtering queries
+  const [activeQueryTab, setActiveQueryTab] = useState("pending"); // 'pending', 'approved_by_admin', 'rejected_by_admin', 'resolved_by_admin', 'resolved_by_examiner'
 
   // Made showTemporaryToast stable using useCallback
-  const showTemporaryToast = useCallback((msg, type = "success") => {
-    setToastMessage({ message: msg, type: type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [setToastMessage, setShowToast]);
-
+  const showTemporaryToast = useCallback(
+    (msg, type = "success") => {
+      setToastMessage({ message: msg, type: type });
+      setShowToast(true);
+      const timer = setTimeout(() => {
+        setShowToast(false);
+        setToastMessage({ message: "", type: "success" });
+      }, 5000);
+      return () => clearTimeout(timer);
+    },
+    [setToastMessage, setShowToast]
+  );
 
   // Made fetchInitialData stable using useCallback
   const fetchInitialData = useCallback(async () => {
     try {
-      const [usersRes, examsRes, copiesRes, examinersRes, queriesRes] = await Promise.all([
-        api.get("/admin/users"),
-        api.get("/admin/exams"),
-        api.get("/admin/copies"),
-        api.get("/admin/examiners"),
-        api.get("/admin/queries"), // Fetch all queries
-      ]);
+      const [usersRes, examsRes, copiesRes, examinersRes, queriesRes] =
+        await Promise.all([
+          api.get("/admin/users"),
+          api.get("/admin/exams"),
+          api.get("/admin/copies"),
+          api.get("/admin/examiners"),
+          api.get("/admin/queries"), // Fetch all queries
+        ]);
       setUsers(usersRes.data);
       setExams(examsRes.data);
       setCopies(copiesRes.data);
@@ -127,18 +132,22 @@ export default function AdminPanel() {
     }
   }, [showTemporaryToast]); // Added showTemporaryToast to dependencies
 
-
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]); // Added fetchInitialData to dependencies
 
   const handleAddUser = async () => {
     try {
-      await api.post("/admin/users", {
+      const userData = {
         name: newUserName,
         email: newUserEmail,
         role: newUserRole,
-      });
+        gender: newUserGender,
+      };
+      if (newUserRole === "student") {
+        userData.batch = newUserBatch; // Conditionally add batch for students
+      }
+      await api.post("/admin/users", userData);
       showTemporaryToast("User added successfully!", "success");
       setNewUserName("");
       setNewUserEmail("");
@@ -256,13 +265,12 @@ export default function AdminPanel() {
   };
 
   const handleExaminerCheckboxChange = (examinerId) => {
-    setSelectedExaminerIds(prev =>
+    setSelectedExaminerIds((prev) =>
       prev.includes(examinerId)
-        ? prev.filter(id => id !== examinerId)
+        ? prev.filter((id) => id !== examinerId)
         : [...prev, examinerId]
     );
   };
-
 
   const handleAssignExaminersToExam = async () => {
     if (!selectedExamForExaminerAssignment) {
@@ -438,8 +446,13 @@ export default function AdminPanel() {
   const uniqueExamTitlesWithIds = Array.from(
     new Map(
       queries
-        .filter(q => q.copy?.questionPaper?.title && q.copy?.questionPaper?._id)
-        .map(q => [q.copy.questionPaper._id, { _id: q.copy.questionPaper._id, title: q.copy.questionPaper.title }])
+        .filter(
+          (q) => q.copy?.questionPaper?.title && q.copy?.questionPaper?._id
+        )
+        .map((q) => [
+          q.copy.questionPaper._id,
+          { _id: q.copy.questionPaper._id, title: q.copy.questionPaper.title },
+        ])
     ).values()
   );
 
@@ -458,7 +471,9 @@ export default function AdminPanel() {
       try {
         setIsQueryViewerAcLoading(true);
         setIsQueryViewerQpLoading(true); // Start loading for QP as well
-        const copyDetailsRes = await api.get(`/admin/copies/view/${query.copy._id}`);
+        const copyDetailsRes = await api.get(
+          `/admin/copies/view/${query.copy._id}`
+        );
         setSelectedCopyForQueryView(copyDetailsRes.data);
       } catch (err) {
         console.error("Error fetching copy details for query view:", err);
@@ -491,13 +506,18 @@ export default function AdminPanel() {
     setIsSubmittingQueryAction(true);
     try {
       await api.patch(`/admin/queries/${selectedQuery._id}/approve`);
-      showTemporaryToast("Query approved and forwarded to examiner!", "success");
+      showTemporaryToast(
+        "Query approved and forwarded to examiner!",
+        "success"
+      );
       handleCloseQueryModal();
       fetchInitialData(); // Re-fetch queries to update status
     } catch (error) {
       console.error("Error approving query:", error);
       showTemporaryToast(
-        `Error approving query: ${error.response?.data?.message || error.message}`,
+        `Error approving query: ${
+          error.response?.data?.message || error.message
+        }`,
         "error"
       );
     } finally {
@@ -516,7 +536,9 @@ export default function AdminPanel() {
     } catch (error) {
       console.error("Error rejecting query:", error);
       showTemporaryToast(
-        `Error rejecting query: ${error.response?.data?.message || error.message}`,
+        `Error rejecting query: ${
+          error.response?.data?.message || error.message
+        }`,
         "error"
       );
     } finally {
@@ -526,7 +548,10 @@ export default function AdminPanel() {
 
   const handleResolveQuery = async () => {
     if (!selectedQuery || !replyText.trim()) {
-      showTemporaryToast("Please provide a response to resolve the query.", "error");
+      showTemporaryToast(
+        "Please provide a response to resolve the query.",
+        "error"
+      );
       return;
     }
     setIsSubmittingQueryAction(true);
@@ -534,13 +559,18 @@ export default function AdminPanel() {
       await api.patch(`/admin/queries/${selectedQuery._id}/resolve`, {
         responseText: replyText,
       });
-      showTemporaryToast("Query resolved successfully with your reply!", "success");
+      showTemporaryToast(
+        "Query resolved successfully with your reply!",
+        "success"
+      );
       handleCloseQueryModal();
       fetchInitialData(); // Re-fetch queries to update status
     } catch (error) {
       console.error("Error resolving query:", error);
       showTemporaryToast(
-        `Error resolving query: ${error.response?.data?.message || error.message}`,
+        `Error resolving query: ${
+          error.response?.data?.message || error.message
+        }`,
         "error"
       );
     } finally {
@@ -582,19 +612,30 @@ export default function AdminPanel() {
     let filtered = queries;
 
     if (selectedExamForQueryView) {
-      filtered = filtered.filter(query => query.copy?.questionPaper?._id === selectedExamForQueryView);
+      filtered = filtered.filter(
+        (query) => query.copy?.questionPaper?._id === selectedExamForQueryView
+      );
     }
 
-    if (activeQueryTab === 'pending') {
-      filtered = filtered.filter(query => query.status === 'pending');
-    } else if (activeQueryTab === 'approved_by_admin') {
-      filtered = filtered.filter(query => query.status === 'approved_by_admin');
-    } else if (activeQueryTab === 'rejected_by_admin') {
-      filtered = filtered.filter(query => query.status === 'rejected_by_admin');
-    } else if (activeQueryTab === 'resolved_by_admin') {
-      filtered = filtered.filter(query => query.status === 'resolved_by_admin');
-    } else if (activeQueryTab === 'resolved_by_examiner') { // New filter for examiner resolved
-      filtered = filtered.filter(query => query.status === 'resolved_by_examiner');
+    if (activeQueryTab === "pending") {
+      filtered = filtered.filter((query) => query.status === "pending");
+    } else if (activeQueryTab === "approved_by_admin") {
+      filtered = filtered.filter(
+        (query) => query.status === "approved_by_admin"
+      );
+    } else if (activeQueryTab === "rejected_by_admin") {
+      filtered = filtered.filter(
+        (query) => query.status === "rejected_by_admin"
+      );
+    } else if (activeQueryTab === "resolved_by_admin") {
+      filtered = filtered.filter(
+        (query) => query.status === "resolved_by_admin"
+      );
+    } else if (activeQueryTab === "resolved_by_examiner") {
+      // New filter for examiner resolved
+      filtered = filtered.filter(
+        (query) => query.status === "resolved_by_examiner"
+      );
     }
     // No specific tab for "responded by examiner" as admin resolves it.
     // If there was a distinct status for examiner response before admin resolution, it would go here.
@@ -602,10 +643,11 @@ export default function AdminPanel() {
     // Apply search term if any
     const searchTermLower = querySearchTerm.toLowerCase();
     if (searchTermLower) {
-      filtered = filtered.filter(query =>
-        query.raisedBy?.name?.toLowerCase().includes(searchTermLower) ||
-        query.raisedBy?.email?.toLowerCase().includes(searchTermLower) ||
-        query.text.toLowerCase().includes(searchTermLower)
+      filtered = filtered.filter(
+        (query) =>
+          query.raisedBy?.name?.toLowerCase().includes(searchTermLower) ||
+          query.raisedBy?.email?.toLowerCase().includes(searchTermLower) ||
+          query.text.toLowerCase().includes(searchTermLower)
       );
     }
 
@@ -729,7 +771,8 @@ export default function AdminPanel() {
             onClick={() => setIsQueriesModalOpen(true)}
             className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
           >
-            Manage Queries ({queries.filter(q => q.status === 'pending').length} Pending)
+            Manage Queries (
+            {queries.filter((q) => q.status === "pending").length} Pending)
           </button>
         </div>
       </div>
@@ -892,6 +935,15 @@ export default function AdminPanel() {
             onChange={(e) => setNewUserName(e.target.value)}
             className="w-full p-2 border rounded"
           />
+           {newUserRole === "student" && (
+            <input
+              type="text"
+              placeholder="Batch (e.g., 2023)"
+              value={newUserBatch}
+              onChange={(e) => setNewUserBatch(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          )}
           <input
             type="email"
             placeholder="Email"
@@ -899,6 +951,17 @@ export default function AdminPanel() {
             onChange={(e) => setNewUserEmail(e.target.value)}
             className="w-full p-2 border rounded"
           />
+          <select
+            value={newUserGender}
+            onChange={(e) => setNewUserGender(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          >
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
           <select
             value={newUserRole}
             onChange={(e) => setNewUserRole(e.target.value)}
@@ -908,6 +971,10 @@ export default function AdminPanel() {
             <option value="examiner">Examiner</option>
             <option value="admin">Admin</option>
           </select>
+          {/* AFTER the newUserGender select element: */}
+         
+          {/* AFTER the newUserRole select element: */}
+          
           <button
             onClick={handleAddUser}
             className="bg-green-500 text-white p-2 rounded w-full"
@@ -1167,7 +1234,7 @@ export default function AdminPanel() {
               <label
                 htmlFor="selectExaminers"
                 className="block text-sm font-medium text-gray-700 mb-2"
-                >
+              >
                 Assign Examiners (Select multiple):
               </label>
               <div className="border rounded p-3 max-h-40 overflow-y-auto bg-gray-50">
@@ -1223,12 +1290,21 @@ export default function AdminPanel() {
       />
 
       {/* Manage Queries Modal */}
-      <Modal isOpen={isQueriesModalOpen} onClose={() => setIsQueriesModalOpen(false)} large>
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Manage Student Queries</h2>
+      <Modal
+        isOpen={isQueriesModalOpen}
+        onClose={() => setIsQueriesModalOpen(false)}
+        large
+      >
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">
+          Manage Student Queries
+        </h2>
 
         {/* Exam Selection for Queries */}
         <div className="mb-4">
-          <label htmlFor="selectExamForQueries" className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            htmlFor="selectExamForQueries"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Filter by Exam:
           </label>
           <select
@@ -1238,8 +1314,10 @@ export default function AdminPanel() {
             className="w-full p-2 border rounded mt-1"
           >
             <option value="">All Exams</option>
-            {uniqueExamTitlesWithIds.map(exam => (
-              <option key={exam._id} value={exam._id}>{exam.title}</option>
+            {uniqueExamTitlesWithIds.map((exam) => (
+              <option key={exam._id} value={exam._id}>
+                {exam.title}
+              </option>
             ))}
           </select>
         </div>
@@ -1248,53 +1326,98 @@ export default function AdminPanel() {
         <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
           <button
             className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === 'pending'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeQueryTab === "pending"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveQueryTab('pending')}
+            onClick={() => setActiveQueryTab("pending")}
           >
-            Pending ({queries.filter(q => q.status === 'pending' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
+            Pending (
+            {
+              queries.filter(
+                (q) =>
+                  q.status === "pending" &&
+                  (!selectedExamForQueryView ||
+                    q.copy?.questionPaper?._id === selectedExamForQueryView)
+              ).length
+            }
+            )
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === 'approved_by_admin'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeQueryTab === "approved_by_admin"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveQueryTab('approved_by_admin')}
+            onClick={() => setActiveQueryTab("approved_by_admin")}
           >
-            Approved (Sent to Examiner) ({queries.filter(q => q.status === 'approved_by_admin' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
+            Approved (Sent to Examiner) (
+            {
+              queries.filter(
+                (q) =>
+                  q.status === "approved_by_admin" &&
+                  (!selectedExamForQueryView ||
+                    q.copy?.questionPaper?._id === selectedExamForQueryView)
+              ).length
+            }
+            )
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === 'rejected_by_admin'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeQueryTab === "rejected_by_admin"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveQueryTab('rejected_by_admin')}
+            onClick={() => setActiveQueryTab("rejected_by_admin")}
           >
-            Rejected ({queries.filter(q => q.status === 'rejected_by_admin' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
+            Rejected (
+            {
+              queries.filter(
+                (q) =>
+                  q.status === "rejected_by_admin" &&
+                  (!selectedExamForQueryView ||
+                    q.copy?.questionPaper?._id === selectedExamForQueryView)
+              ).length
+            }
+            )
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === 'resolved_by_admin'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeQueryTab === "resolved_by_admin"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveQueryTab('resolved_by_admin')}
+            onClick={() => setActiveQueryTab("resolved_by_admin")}
           >
-            Resolved by Admin ({queries.filter(q => q.status === 'resolved_by_admin' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
+            Resolved by Admin (
+            {
+              queries.filter(
+                (q) =>
+                  q.status === "resolved_by_admin" &&
+                  (!selectedExamForQueryView ||
+                    q.copy?.questionPaper?._id === selectedExamForQueryView)
+              ).length
+            }
+            )
           </button>
           <button
             className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === 'resolved_by_examiner'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+              activeQueryTab === "resolved_by_examiner"
+                ? "border-b-2 border-indigo-500 text-indigo-600"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveQueryTab('resolved_by_examiner')}
+            onClick={() => setActiveQueryTab("resolved_by_examiner")}
           >
-            Resolved by Examiner ({queries.filter(q => q.status === 'resolved_by_examiner' && (!selectedExamForQueryView || q.copy?.questionPaper?._id === selectedExamForQueryView)).length})
+            Resolved by Examiner (
+            {
+              queries.filter(
+                (q) =>
+                  q.status === "resolved_by_examiner" &&
+                  (!selectedExamForQueryView ||
+                    q.copy?.questionPaper?._id === selectedExamForQueryView)
+              ).length
+            }
+            )
           </button>
         </div>
 
@@ -1309,38 +1432,69 @@ export default function AdminPanel() {
           />
         </div>
 
-        <div className="overflow-x-auto max-h-[500px] overflow-y-auto"> {/* Added max-height and overflow for scrollability */}
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          {" "}
+          {/* Added max-height and overflow for scrollability */}
           {getFilteredQueries().length === 0 ? (
-            <p className="text-gray-600 text-center py-4">No student queries to manage in this category.</p>
+            <p className="text-gray-600 text-center py-4">
+              No student queries to manage in this category.
+            </p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Query Text</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Student Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Exam Title
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Page
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Query Text
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {getFilteredQueries().map((query) => (
                   <tr key={query._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.raisedBy?.name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.copy?.questionPaper?.title || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.pageNumber}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 truncate max-w-xs">{query.text}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {query.raisedBy?.name || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {query.copy?.questionPaper?.title || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {query.pageNumber}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 truncate max-w-xs">
+                      {query.text}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        query.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        query.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
-                        query.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
-                        query.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
-                        query.status === 'resolved_by_examiner' ? 'bg-purple-100 text-purple-800' : // New color for examiner resolved
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {query.status.replace(/_/g, ' ')}
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          query.status === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : query.status === "approved_by_admin"
+                            ? "bg-blue-100 text-blue-800"
+                            : query.status === "rejected_by_admin"
+                            ? "bg-red-100 text-red-800"
+                            : query.status === "resolved_by_admin"
+                            ? "bg-green-100 text-green-800"
+                            : query.status === "resolved_by_examiner"
+                            ? "bg-purple-100 text-purple-800" // New color for examiner resolved
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {query.status.replace(/_/g, " ")}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
