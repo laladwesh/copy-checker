@@ -205,11 +205,13 @@ export default function ScanCopyUploadModal({
             required
           >
             <option value="">-- Select Question Paper --</option>
-            {questionPapers.map((qp) => (
-              <option key={qp._id} value={qp._id}>
-                {qp.title} ({qp.totalPages} pages)
-              </option>
-            ))}
+            {questionPapers
+              .filter(qp => !qp.assignedExaminers || qp.assignedExaminers.length === 0) // Filter out QPs with assigned examiners
+              .map((qp) => (
+                <option key={qp._id} value={qp._id}>
+                  {qp.title} ({qp.totalPages} pages)
+                </option>
+              ))}
           </select>
         </div>
 
