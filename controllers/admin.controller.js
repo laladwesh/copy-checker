@@ -286,7 +286,7 @@ exports.listPapers = async (req, res, next) => {
     const papers = await Paper.find().populate(
       "assignedExaminers",
       "name email"
-    );
+    ).sort({ date: -1 }); // Sort by date, newest first
     res.json(papers);
   } catch (err) {
     next(err);
@@ -704,9 +704,23 @@ exports.uploadScannedCopy = async (req, res, next) => {
     console.log("[ScanCopy] Found student:", student.email);
 
     const questionPaper = await Paper.findById(questionPaperId);
+    // Check if the question paper exists
     if (!questionPaper) {
       return res.status(404).json({ message: "Question Paper not found." });
     }
+    if(questionPaper.assignedExaminers.length !== 0) {
+      return res.status(400).json({
+        message:
+          "Cannot upload scanned copy for this exam as it already has assigned examiners.",
+      });
+    }
+    //add check to ensure student is not already associated with this question paper
+    if (questionPaper.students && questionPaper.students.includes(student._id)) {
+      return res.status(400).json({
+        message: "This student already has a scanned copy for this exam.",
+      });
+    }
+    
     console.log("[ScanCopy] Associating copy with exam:", questionPaper.title);
 
     // --- NEW LOGIC FOR FOLDER STRUCTURE FOR SCANNED COPIES ---
@@ -850,7 +864,7 @@ exports.getCopiesByExam = async (req, res, next) => {
 
     // Fetch copies for that exam
     const copies = await Copy.find({ questionPaper: examId })
-      .populate("student", "name email") // Populate student name and email
+      .populate("student", "name email batch") // Populate student name and email
       .populate("examiners", "name email"); // Populate examiner names and emails
 
     // Return both exam and copies in an object
@@ -865,7 +879,7 @@ exports.getAdminCopyDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
         const copy = await Copy.findById(id)
-            .populate("student", "name email")
+            .populate("student", "name email batch")
             .populate({
                 path: "questionPaper",
                 select: "title totalPages driveFile.id totalMarks",
