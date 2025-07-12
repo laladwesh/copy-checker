@@ -82,7 +82,7 @@ export default function ScanCopyUploadModal({
       setSelectedQpId("");
     }
 
-  }, [students, selectedBatch, studentEmail, filteredStudents, questionPapers, selectedQpId]); // Added questionPapers and selectedQpId to dependencies
+  }, [students, selectedBatch, studentEmail, filteredStudents, questionPapers, selectedQpId , filteredQuestionPapers]); // Added questionPapers and selectedQpId to dependencies
 
   const handleFileChange = (e) => {
     setUploadMessage("");
