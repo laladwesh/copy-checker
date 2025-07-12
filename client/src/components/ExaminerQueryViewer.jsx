@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect,  useCallback } from "react";
+import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
 import {
   ArrowLeftIcon,
@@ -9,7 +9,6 @@ import {
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
-  ChatBubbleLeftRightIcon, // For query details
   UserCircleIcon, // For student info
   ArrowPathIcon, // Added missing import for ArrowPathIcon
 } from "@heroicons/react/24/outline";
@@ -24,8 +23,7 @@ import 'react-pdf/dist/Page/TextLayer.css'; // Essential for selectable text
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function ExaminerQueryViewer() {
-  const { queryId } = useParams(); // Get queryId from URL
-  const navigate = useNavigate();
+  const { queryId } = useParams();
 
   // State for query and copy data
   const [query, setQuery] = useState(null);
@@ -197,6 +195,7 @@ export default function ExaminerQueryViewer() {
         marks: marks === "" ? null : parseFloat(marks), // Send null if empty, else parse
         comments: comments,
         annotations: annotations,
+        queryId: query._id,
       };
       const res = await api.patch(`/examiner/copies/${copy._id}/mark-page`, payload);
       setCopy(res.data); // Update the copy state with the new page details
