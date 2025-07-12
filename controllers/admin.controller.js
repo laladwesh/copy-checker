@@ -370,6 +370,81 @@ exports.assignExaminersToExam = async (req, res, next) => {
   }
 };
 
+
+// NEW: Function to redistribute copies based on examiner performance
+exports.redistributeCopies = async (req, res, next) => {
+  try {
+    const { examId } = req.params; // Expect examId from route parameters
+
+    const paper = await Paper.findById(examId).populate('assignedExaminers', '_id name email');
+    if (!paper) {
+      return res.status(404).json({ message: "Exam (Question Paper) not found." });
+    }
+
+    const assignedExaminers = paper.assignedExaminers;
+    if (!assignedExaminers || assignedExaminers.length === 0) {
+      return res.status(400).json({ message: "No examiners assigned to this exam." });
+    }
+
+    // Find all copies for this exam that are still 'pending' and are currently assigned
+    // or unassigned (if we want to re-distribute everything not yet evaluated)
+    // For this logic, we'll focus on unassigned pending copies for redistribution
+    const pendingUnassignedCopies = await Copy.find({
+      questionPaper: examId,
+      status: "pending",
+      examiners: { $size: 0 } // Only copies that are pending AND currently unassigned
+    });
+
+    if (pendingUnassignedCopies.length === 0) {
+      return res.status(200).json({ message: "No unassigned pending copies to redistribute." });
+    }
+
+    // Calculate performance for each examiner for this specific exam
+    const examinerPerformance = {}; // { examinerId: count_evaluated_copies }
+    for (const examiner of assignedExaminers) {
+      const evaluatedCount = await Copy.countDocuments({
+        questionPaper: examId,
+        status: "evaluated",
+        examiners: examiner._id // Copies successfully evaluated by this examiner
+      });
+      examinerPerformance[examiner._id.toString()] = evaluatedCount;
+    }
+
+    // Sort examiners by their performance (number of evaluated copies) in descending order.
+    // This means examiners who have checked more copies will appear earlier in the list.
+    const sortedExaminers = [...assignedExaminers].sort((a, b) => {
+      const perfA = examinerPerformance[a._id.toString()] || 0;
+      const perfB = examinerPerformance[b._id.toString()] || 0;
+      return perfB - perfA; // Sort descending (higher performance first)
+    });
+
+    let assignedCount = 0;
+    let examinerIndex = 0; // Start distributing from the highest performing examiner
+
+    // Distribute the remaining pending copies in a round-robin fashion,
+    // but using the performance-sorted list of examiners.
+    for (const copy of pendingUnassignedCopies) {
+      const currentExaminer = sortedExaminers[examinerIndex];
+      copy.examiners = [currentExaminer._id]; // Assign the copy to the current examiner
+      await copy.save();
+      assignedCount++;
+
+      // Move to the next examiner in the sorted list. This ensures that
+      // higher-performing examiners get more copies first until the pool is exhausted.
+      examinerIndex = (examinerIndex + 1) % sortedExaminers.length;
+    }
+
+    res.status(200).json({
+      message: `${assignedCount} copies redistributed based on examiner performance.`,
+      redistributedCopiesCount: assignedCount,
+    });
+
+  } catch (err) {
+    console.error("Error redistributing copies:", err);
+    next(err);
+  }
+};
+
 // 3. Answer Copy Management (Manual Upload by Admin/Examiner)
 exports.uploadCopy = async (req, res, next) => {
   try {
