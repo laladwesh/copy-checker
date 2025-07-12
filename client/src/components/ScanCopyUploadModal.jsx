@@ -21,10 +21,11 @@ export default function ScanCopyUploadModal({
   const [uploadMessage, setUploadMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  // NEW STATES FOR BATCH FILTERING
+  // STATES FOR BATCH FILTERING
   const [selectedBatch, setSelectedBatch] = useState("");
   const [availableBatches, setAvailableBatches] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
+  const [filteredQuestionPapers, setFilteredQuestionPapers] = useState([]); // NEW STATE
 
   // Effect to reset form when modal opens/closes
   useEffect(() => {
@@ -38,18 +39,17 @@ export default function ScanCopyUploadModal({
     }
   }, [isOpen]);
 
-  // Effect to populate available batches and filter students
+  // Effect to populate available batches and filter students and question papers
   useEffect(() => {
+    // Filter Students based on selectedBatch
     if (students && students.length > 0) {
-      // Extract unique batches from all students
       const batches = [...new Set(students.map(s => s.batch).filter(Boolean))]; // Filter out null/undefined batches
       setAvailableBatches(batches.sort()); // Sort batches alphabetically
 
-      // Filter students based on selectedBatch
       if (selectedBatch) {
         setFilteredStudents(students.filter(s => s.batch === selectedBatch));
       } else {
-        setFilteredStudents(students); // If no batch selected, show all students
+        setFilteredStudents([]); // If no batch selected, show no students
       }
     } else {
       setAvailableBatches([]);
@@ -59,7 +59,30 @@ export default function ScanCopyUploadModal({
     if (studentEmail && !filteredStudents.some(s => s.email === studentEmail)) {
       setStudentEmail("");
     }
-  }, [students, selectedBatch, studentEmail]); // Depend on students and selectedBatch
+
+    // NEW LOGIC FOR QUESTION PAPER FILTERING BASED ON SELECTED BATCH (COURSE)
+    if (questionPapers && questionPapers.length > 0) {
+      if (selectedBatch) {
+        // Filter QPs by their 'course' matching the 'selectedBatch'
+        // And also keep the existing filter for unassigned examiners
+        const qpsByBatch = questionPapers.filter(qp =>
+          qp.course === selectedBatch && (!qp.assignedExaminers || qp.assignedExaminers.length === 0)
+        );
+        setFilteredQuestionPapers(qpsByBatch);
+      } else {
+        // If no batch selected, show no question papers
+        setFilteredQuestionPapers([]);
+      }
+    } else {
+      setFilteredQuestionPapers([]);
+    }
+
+    // Reset selected QP if the filtered list changes and the current QP is no longer valid
+    if (selectedQpId && !filteredQuestionPapers.some(qp => qp._id === selectedQpId)) {
+      setSelectedQpId("");
+    }
+
+  }, [students, selectedBatch, studentEmail, filteredStudents, questionPapers, selectedQpId]); // Added questionPapers and selectedQpId to dependencies
 
   const handleFileChange = (e) => {
     setUploadMessage("");
@@ -135,7 +158,7 @@ export default function ScanCopyUploadModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Scan & Upload Answer Copy">
       <form onSubmit={handleUpload} className="space-y-6 p-2">
-        {/* NEW: Batch Selection */}
+        {/* Batch Selection (Mandatory) */}
         <div>
           <label
             htmlFor="studentBatch"
@@ -149,10 +172,12 @@ export default function ScanCopyUploadModal({
             onChange={(e) => {
               setSelectedBatch(e.target.value);
               setStudentEmail(""); // Reset student email when batch changes
+              setSelectedQpId(""); // Reset QP when batch changes
             }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
+            required // Made batch selection mandatory
           >
-            <option value="">-- Select Batch (Optional) --</option>
+            <option value="">-- Select Batch --</option>
             {availableBatches.map((batch) => (
               <option key={batch} value={batch}>
                 {batch}
@@ -161,6 +186,7 @@ export default function ScanCopyUploadModal({
           </select>
         </div>
 
+        {/* Student Email (Disabled until batch is selected) */}
         <div>
           <label
             htmlFor="studentEmail"
@@ -174,12 +200,13 @@ export default function ScanCopyUploadModal({
             onChange={(e) => setStudentEmail(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
             required
+            disabled={!selectedBatch || filteredStudents.length === 0} // Disable if no batch is selected or no students in batch
           >
             <option value="">-- Select Student --</option>
-            {filteredStudents.length === 0 && selectedBatch ? (
+            {!selectedBatch ? (
+              <option value="" disabled>Please select a batch first</option>
+            ) : filteredStudents.length === 0 ? (
               <option value="" disabled>No students found for this batch</option>
-            ) : filteredStudents.length === 0 && !selectedBatch ? (
-              <option value="" disabled>No students available</option>
             ) : (
               filteredStudents.map((student) => (
                 <option key={student._id} value={student.email}>
@@ -190,6 +217,7 @@ export default function ScanCopyUploadModal({
           </select>
         </div>
 
+        {/* Question Paper (Disabled until batch is selected) */}
         <div>
           <label
             htmlFor="questionPaper"
@@ -203,15 +231,20 @@ export default function ScanCopyUploadModal({
             onChange={(e) => setSelectedQpId(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
             required
+            disabled={!selectedBatch || filteredQuestionPapers.length === 0} // Disable if no batch selected or no QPs in batch
           >
             <option value="">-- Select Question Paper --</option>
-            {questionPapers
-              .filter(qp => !qp.assignedExaminers || qp.assignedExaminers.length === 0) // Filter out QPs with assigned examiners
-              .map((qp) => (
+            {!selectedBatch ? (
+              <option value="" disabled>Please select a batch first</option>
+            ) : filteredQuestionPapers.length === 0 ? (
+              <option value="" disabled>No question papers found for this batch</option>
+            ) : (
+              filteredQuestionPapers.map((qp) => (
                 <option key={qp._id} value={qp._id}>
                   {qp.title} ({qp.totalPages} pages)
                 </option>
-              ))}
+              ))
+            )}
           </select>
         </div>
 
@@ -260,7 +293,7 @@ export default function ScanCopyUploadModal({
           </button>
           <button
             type="submit"
-            disabled={isUploading}
+            disabled={isUploading || !selectedBatch || !studentEmail || !selectedQpId || selectedFiles.length === 0} // Disable submit until all required fields are filled
             className="inline-flex items-center px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isUploading ? (
