@@ -58,6 +58,21 @@ exports.raiseQuery = async (req, res, next) => {
         });
     }
 
+    // NEW LOGIC: Check for existing pending or approved queries for this page on this copy
+    const existingQuery = await Query.findOne({
+      copy: req.params.id,
+      pageNumber: pageNumber,
+      raisedBy: req.user._id, // Ensure it's the same student raising it
+      status: { $in: ["pending", "approved_by_admin", "resolved_by_examiner"] }, // Consider what statuses should block new queries
+    });
+
+    if (existingQuery) {
+      return res.status(409).json({
+        message: `A query for page ${pageNumber} of this copy is already pending or being reviewed.`,
+      });
+    }
+    // END NEW LOGIC
+
     const q = new Query({
       copy: req.params.id,
       pageNumber,
