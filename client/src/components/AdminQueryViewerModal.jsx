@@ -38,7 +38,7 @@ export default function AdminQueryViewerModal({
   handleRejectQuery,
   handleResolveQuery,
 }) {
-  const ZOOM_STEP = 0.25; // Define zoom steps locally or pass as props
+  // const ZOOM_STEP = 0.25; // Define zoom steps locally or pass as props
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
 
@@ -344,6 +344,12 @@ export default function AdminQueryViewerModal({
                           <p className="text-gray-700 whitespace-pre-wrap">{selectedQuery?.response}</p>
                         </div>
                       )}
+                        {selectedQuery?.action && (
+                      <div className="mt-4 p-3 border-t border-gray-200 bg-white rounded-md">
+                        <p className="text-gray-800 font-bold mb-2">Action Taken:</p>
+                        <p className="text-gray-700 whitespace-pre-wrap">{selectedQuery?.action}</p>
+                      </div>
+                    )}
                     </div>
 
                     {selectedQuery?.status === 'resolved_by_admin' || selectedQuery?.status === 'rejected_by_admin' ? (
