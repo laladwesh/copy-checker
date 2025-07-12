@@ -22,6 +22,7 @@ const QuerySchema = new mongoose.Schema({
     default: "pending",
   },
   response: String, // Admin's or Examiner's response to the query
+  action : String,
   createdAt: { type: Date, default: Date.now },
 });
 
