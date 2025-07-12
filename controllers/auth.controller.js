@@ -25,7 +25,6 @@ exports.getMe = (req, res) => {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      console.log("User details fetched successfully:", user);
       res.json({ id: user._id, email: user.email, role: user.role, name: user.name});
     })
     .catch((err) => {
