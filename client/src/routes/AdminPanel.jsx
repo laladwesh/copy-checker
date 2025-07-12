@@ -14,8 +14,10 @@ import {
   PaperAirplaneIcon, // For toast (used for info toast)
   EyeIcon, // For viewing exam details
   QuestionMarkCircleIcon, // For Queries section
+  ClipboardDocumentListIcon,
   // Removed unused icons: MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, ArrowsPointingInIcon, ClipboardDocumentListIcon, ArrowPathIcon
 } from "@heroicons/react/24/outline";
+import AllExaminerDetailsModal from "../components/AllExaminerDetailsModal";
 
 export default function AdminPanel() {
   const [users, setUsers] = useState([]);
@@ -87,6 +89,9 @@ export default function AdminPanel() {
   const [queryViewerQpCurrentPage, setQueryViewerQpCurrentPage] = useState(1);
   const [queryViewerQpZoomLevel, setQueryViewerQpZoomLevel] = useState(1);
   const [isQueryViewerQpLoading, setIsQueryViewerQpLoading] = useState(true);
+
+  const [isExaminerDetailsModalOpen, setIsExaminerDetailsModalOpen] =
+    useState(false);
 
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 1;
@@ -775,6 +780,22 @@ export default function AdminPanel() {
             {queries.filter((q) => q.status === "pending").length} Pending)
           </button>
         </div>
+        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
+          <ClipboardDocumentListIcon className="h-16 w-16 text-teal-500 mb-4" />{" "}
+          {/* Using ClipboardDocumentListIcon */}
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">
+            Examiner Performance
+          </h2>
+          <p className="text-gray-600 mb-6">
+            View detailed statistics for each examiner's work.
+          </p>
+          <button
+            onClick={() => setIsExaminerDetailsModalOpen(true)}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+          >
+            View Examiner Stats
+          </button>
+        </div>
       </div>
 
       {/* Exam Overview Section (replaces "Manage All Copies" modal content) */}
@@ -935,7 +956,7 @@ export default function AdminPanel() {
             onChange={(e) => setNewUserName(e.target.value)}
             className="w-full p-2 border rounded"
           />
-           {newUserRole === "student" && (
+          {newUserRole === "student" && (
             <input
               type="text"
               placeholder="Batch (e.g., 2023)"
@@ -972,9 +993,9 @@ export default function AdminPanel() {
             <option value="admin">Admin</option>
           </select>
           {/* AFTER the newUserGender select element: */}
-         
+
           {/* AFTER the newUserRole select element: */}
-          
+
           <button
             onClick={handleAddUser}
             className="bg-green-500 text-white p-2 rounded w-full"
@@ -1091,12 +1112,12 @@ export default function AdminPanel() {
               htmlFor="examCourse"
               className="block text-sm font-medium text-gray-700"
             >
-              Course:
+             Batch: {/*  or Course: */}
             </label>
             <input
               type="text"
               id="examCourse"
-              placeholder="e.g., Computer Science I"
+              placeholder="e.g., Batch 2025"
               value={newExamCourse}
               onChange={(e) => setNewExamCourse(e.target.value)}
               className="w-full p-2 border rounded mt-1"
@@ -1544,6 +1565,14 @@ export default function AdminPanel() {
         handleApproveQuery={handleApproveQuery}
         handleRejectQuery={handleRejectQuery}
         handleResolveQuery={handleResolveQuery}
+      />
+
+      <AllExaminerDetailsModal
+        isOpen={isExaminerDetailsModalOpen}
+        onClose={() => setIsExaminerDetailsModalOpen(false)}
+        examiners={availableExaminers} // Pass the list of examiners
+        copies={copies} // Pass all copies to calculate stats
+        exams={exams} // Pass all exams to get exam titles
       />
     </div>
   );
