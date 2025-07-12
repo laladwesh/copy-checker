@@ -18,7 +18,8 @@ const {
   getCopiesByExam,
   getAdminCopyDetails,
   toggleCopyRelease,
-  resolveQueryByAdmin, // NEW
+  resolveQueryByAdmin,
+  redistributeCopies, // NEW
 } = require("../controllers/admin.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -45,6 +46,8 @@ router.post(
 );
 router.get("/exams", listPapers);
 router.post("/exams/:id/assign-examiners", assignExaminersToExam);
+
+router.post("/exams/:examId/redistribute-copies", redistributeCopies);
 
 // Answer Copy Management (Manual Uploads)
 router.post(
