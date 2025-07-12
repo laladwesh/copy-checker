@@ -91,7 +91,7 @@ exports.getCopy = async (req, res, next) => {
 
 exports.markPage = async (req, res, next) => {
   try {
-    const { pageNumber, marks, comments, annotations } = req.body;
+    const { pageNumber, marks, comments, annotations, queryId } = req.body; // Capture queryId from request body
     const copy = await Copy.findById(req.params.id);
 
     if (!copy) {
@@ -106,13 +106,24 @@ exports.markPage = async (req, res, next) => {
 
     const pageIndex = copy.pages.findIndex((p) => p.pageNumber === pageNumber);
 
+    let oldMarks = null;
+    let oldComments = "";
+    let copyActionMessages = []; // For copy.action (if you still want it)
+    let queryActionMessages = []; // For query.action
+
     if (pageIndex > -1) {
+      // Page exists, capture old values for comparison
+      oldMarks = copy.pages[pageIndex].marksAwarded;
+      oldComments = copy.pages[pageIndex].comments; // Keep as is, will handle null/undefined below
+
+      // Update existing page details
       copy.pages[pageIndex].marksAwarded = marks;
       copy.pages[pageIndex].comments = comments;
       copy.pages[pageIndex].annotations = annotations;
       copy.pages[pageIndex].lastAnnotatedBy = req.user._id;
       copy.pages[pageIndex].lastAnnotatedAt = new Date();
     } else {
+      // New page entry (this scenario is less common for query updates)
       copy.pages.push({
         pageNumber,
         marksAwarded: marks,
@@ -121,23 +132,75 @@ exports.markPage = async (req, res, next) => {
         lastAnnotatedBy: req.user._id,
         lastAnnotatedAt: new Date(),
       });
+      copyActionMessages.push(`Added details for page ${pageNumber}.`);
+      queryActionMessages.push(`Added details for page ${pageNumber}.`);
     }
 
     copy.pages.sort((a, b) => a.pageNumber - b.pageNumber);
 
-    if (
-      copy.pages.length === copy.totalPages &&
-      copy.pages.every((p) => typeof p.marksAwarded === "number")
-    ) {
-       if (copy.status === "evaluated") {
-      copy.status = "evaluated"; // Reset status to examining if already evaluated
-    } else{
-      copy.status = "pending";
+    // --- Determine Action Messages for Copy and Query ---
+    // Compare new values with old values (if page existed)
+    if (pageIndex > -1) { // Only if updating an existing page
+        if (oldMarks !== marks) {
+            const oldM = oldMarks !== null ? oldMarks : 'N/A';
+            const newM = marks !== null ? marks : 'N/A';
+            copyActionMessages.push(`Marks changed from ${oldM} to ${newM} on page ${pageNumber}.`);
+            queryActionMessages.push(`Marks changed from ${oldM} to ${newM}.`); // Shorter for query context
+        }
+
+        // FIX: Ensure oldComments and comments are strings before trimming
+        const oldCommentsString = oldComments === null || oldComments === undefined ? '' : String(oldComments);
+        const newCommentsString = comments === null || comments === undefined ? '' : String(comments);
+
+        if (oldCommentsString.trim() !== newCommentsString.trim()) {
+            const oldC = oldCommentsString.trim() === '' ? '[empty]' : `"${oldCommentsString}"`;
+            const newC = newCommentsString.trim() === '' ? '[empty]' : `"${newCommentsString}"`;
+            copyActionMessages.push(`Comments changed from ${oldC} to ${newC} on page ${pageNumber}.`);
+            queryActionMessages.push(`Comments changed from ${oldC} to ${newC}.`); // Shorter for query context
+        }
+        // Add logic for annotations if needed
     }
-      
+
+    // Set copy.action (if you still want this on the copy itself)
+    if (copyActionMessages.length > 0) {
+        copy.action = copyActionMessages.join(" | ");
+    } else {
+        copy.action = ""; // Clear if no specific changes were made in this call
+    }
+
+    // --- Update Query.action if queryId is provided ---
+    if (queryId && queryActionMessages.length > 0) {
+        const query = await Query.findById(queryId);
+        if (query) {
+            // Append new action to existing query.action or set it
+            // Consider if you want to overwrite or append. Appending is safer for history.
+            query.action = (query.action ? query.action + " | " : "") + queryActionMessages.join(" | ");
+            await query.save();
+        } else {
+            console.warn(`Query with ID ${queryId} not found for action update.`);
+        }
+    }
+    // --- End Query.action update ---
+
+
+    // --- Status Update Logic ---
+    const allPagesMarked = copy.pages.length === copy.totalPages &&
+                           copy.pages.every((p) => typeof p.marksAwarded === "number");
+
+    if (allPagesMarked) {
+        if (copy.status !== "evaluated") {
+            copy.status = "evaluated";
+            // If status changes to 'evaluated', append to copy.action
+            if (copyActionMessages.length === 0) {
+                copy.action = "Copy marked complete.";
+            } else {
+                copy.action += " | Copy marked complete.";
+            }
+        }
     } else if (copy.status === "pending" || copy.status === "assigned") {
-      copy.status = "examining";
+        copy.status = "examining";
     }
+    // --- End Status Update Logic ---
 
     await copy.save();
     const updatedCopy = await Copy.findById(req.params.id)
