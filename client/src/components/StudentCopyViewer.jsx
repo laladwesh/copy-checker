@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
 import {
@@ -24,7 +24,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 
 export default function StudentCopyViewer() {
   const { copyId } = useParams();
-  const navigate = useNavigate();
 
   // State for copy data and UI
   const [copy, setCopy] = useState(null);
@@ -546,32 +545,37 @@ export default function StudentCopyViewer() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Your Query</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response</th>
-                  </tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Your Query</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Taken</th> {/* NEW HEADER */}
+              </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {studentQueries.map((query) => (
                     <tr key={query._id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.pageNumber}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{query.text}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          query.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          query.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
-                          query.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
-                          query.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {query.status.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                        {query.response || 'N/A'}
-                      </td>
-                    </tr>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{query.pageNumber}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">{query.text}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      query.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      query.status === 'approved_by_admin' ? 'bg-blue-100 text-blue-800' :
+                      query.status === 'rejected_by_admin' ? 'bg-red-100 text-red-800' :
+                      query.status === 'resolved_by_admin' ? 'bg-green-100 text-green-800' :
+                      query.status === 'resolved_by_examiner' ? 'bg-purple-100 text-purple-800' : // Added for examiner resolution
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {query.status.replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                    {query.response || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 max-w-xs "> {/* NEW CELL */}
+                    {query.action || 'No specific action recorded.'}
+                  </td>
+                </tr>
                   ))}
                 </tbody>
               </table>
