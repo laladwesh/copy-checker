@@ -1,39 +1,42 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"; // Added useMemo
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import api from "../services/api"; // Your Axios instance
-import Modal from "../components/Modal"; // Assuming you have a generic Modal component
-import ScanCopyUploadModal from "../components/ScanCopyUploadModal"; // Assuming you have this component
-import AdminQueryViewerModal from "../components/AdminQueryViewerModal"; // NEW: Import the dedicated query viewer modal
+import api from "../services/api";
+import Modal from "../components/Modal";
+import ScanCopyUploadModal from "../components/ScanCopyUploadModal";
+import AdminQueryViewerModal from "../components/AdminQueryViewerModal";
 import {
   UserGroupIcon,
   BookOpenIcon,
   CloudArrowUpIcon,
-  UsersIcon, // For assigning examiners to exam
-  CheckCircleIcon, // For toast
-  ExclamationCircleIcon, // For toast
-  PaperAirplaneIcon, // For toast (used for info toast)
-  EyeIcon, // For viewing exam details
-  QuestionMarkCircleIcon, // For Queries section
+  UsersIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  PaperAirplaneIcon,
+  EyeIcon,
+  QuestionMarkCircleIcon,
   ClipboardDocumentListIcon,
-  MagnifyingGlassIcon, // For search bars
+  MagnifyingGlassIcon,
+  TrashIcon,
+  ArrowPathIcon, // Added TrashIcon for delete functionality
 } from "@heroicons/react/24/outline";
 import AllExaminerDetailsModal from "../components/AllExaminerDetailsModal";
 
 export default function AdminPanel() {
   const [users, setUsers] = useState([]);
-  const [exams, setExams] = useState([]); // Renamed from questionPapers for clarity ("pool where all exams should be there")
-  const [copies, setCopies] = useState([]); // Still fetch all copies to calculate overall progress
-  const [queries, setQueries] = useState([]); // State for queries
+  const [exams, setExams] = useState([]);
+  const [copies, setCopies] = useState([]);
+  const [queries, setQueries] = useState([]);
+  const [availableExaminers, setAvailableExaminers] = useState([]);
 
   // Modals
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
-  const [isCreateExamModalOpen, setIsCreateExamModalOpen] = useState(false); // For creating new exam
+  const [isCreateExamModalOpen, setIsCreateExamModalOpen] = useState(false);
   const [
     isAssignExaminersToExamModalOpen,
     setIsAssignExaminersToExamModalOpen,
-  ] = useState(false); // For assigning examiners to an exam
-  const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false); // For scanning and uploading copies
-  const [isQueriesModalOpen, setIsQueriesModalOpen] = useState(false); // For Queries Modal
+  ] = useState(false);
+  const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
+  const [isQueriesModalOpen, setIsQueriesModalOpen] = useState(false);
 
   // Form states for adding user/QP/assigning examiner
   const [newUserName, setNewUserName] = useState("");
@@ -41,31 +44,38 @@ export default function AdminPanel() {
   const [newUserRole, setNewUserRole] = useState("student");
   const [newUserGender, setNewUserGender] = useState("");
   const [newUserBatch, setNewUserBatch] = useState("");
-  const [newExamTitle, setNewExamTitle] = useState(""); // For QP title
+  const [newExamTitle, setNewExamTitle] = useState("");
   const [newExamCourse, setNewExamCourse] = useState("");
   const [newExamExamType, setNewExamExamType] = useState("");
   const [newExamDate, setNewExamDate] = useState("");
   const [newExamTotalMarks, setNewExamTotalMarks] = useState("");
 
-  const [newExamFiles, setNewExamFiles] = useState([]); // Array to hold files
-  const [newExamFileType, setNewExamFileType] = useState(null); // 'pdf' or 'images'
+  const [newExamFiles, setNewExamFiles] = useState([]);
+  const [newExamFileType, setNewExamFileType] = useState(null);
 
-  const [querySearchTerm, setQuerySearchTerm] = useState(""); // Search term for queries
+  const [querySearchTerm, setQuerySearchTerm] = useState("");
 
   const [
     selectedExamForExaminerAssignment,
     setSelectedExamForExaminerAssignment,
-  ] = useState(null); // The exam object selected for examiner assignment
-  const [selectedExaminerIds, setSelectedExaminerIds] = useState([]); // Examiner IDs for assignment (multi-select)
-  const [availableExaminers, setAvailableExaminers] = useState([]); // List of examiners for dropdown
+  ] = useState(null);
+  const [selectedExaminerIds, setSelectedExaminerIds] = useState([]);
 
   // State for exam search filter
   const [examSearchTerm, setExamSearchTerm] = useState("");
 
   // States for Manage Users Modal tabs and search
-  const [activeUserTab, setActiveUserTab] = useState("all"); // 'all', 'student', 'examiner', 'admin'
-  const [userSearchTerm, setUserSearchTerm] = useState(""); // Search term for users modal
-  const [activeStudentBatchTab, setActiveStudentBatchTab] = useState("all"); // NEW: For batch-wise student filtering
+  const [activeUserTab, setActiveUserTab] = useState("all");
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [activeStudentBatchTab, setActiveStudentBatchTab] = useState("all");
+
+  // Bulk Delete States
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [selectAllInTab, setSelectAllInTab] = useState(false);
+  const [deleteAllBatches, setDeleteAllBatches] = useState(false); // Checkbox for deleting all students across all batches
+  const [deleteCurrentBatch, setDeleteCurrentBatch] = useState(false); // Checkbox for deleting all students in current batch
+  const [isDeletingUsers, setIsDeletingUsers] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState({
@@ -79,14 +89,14 @@ export default function AdminPanel() {
   const [replyText, setReplyText] = useState("");
   const [isSubmittingQueryAction, setIsSubmittingQueryAction] = useState(false);
 
-  // NEW: States for Query Viewer Modal (for displaying copy)
+  // States for Query Viewer Modal (for displaying copy)
   const [selectedCopyForQueryView, setSelectedCopyForQueryView] =
     useState(null);
   const [queryViewerCurrentPage, setQueryViewerCurrentPage] = useState(1);
   const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1);
   const [isQueryViewerAcLoading, setIsQueryViewerAcLoading] = useState(true);
 
-  // NEW: States for Question Paper within Query Viewer Modal
+  // States for Question Paper within Query Viewer Modal
   const [queryViewerQpCurrentPage, setQueryViewerQpCurrentPage] = useState(1);
   const [queryViewerQpZoomLevel, setQueryViewerQpZoomLevel] = useState(1);
   const [isQueryViewerQpLoading, setIsQueryViewerQpLoading] = useState(true);
@@ -98,11 +108,10 @@ export default function AdminPanel() {
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
 
-  // NEW: States for Query Management Modal (exam selection and tabs)
-  const [selectedExamForQueryView, setSelectedExamForQueryView] = useState(""); // Exam ID for filtering queries
-  const [activeQueryTab, setActiveQueryTab] = useState("pending"); // 'pending', 'approved_by_admin', 'rejected_by_admin', 'resolved_by_admin', 'resolved_by_examiner'
+  // States for Query Management Modal (exam selection and tabs)
+  const [selectedExamForQueryView, setSelectedExamForQueryView] = useState("");
+  const [activeQueryTab, setActiveQueryTab] = useState("pending");
 
-  // Made showTemporaryToast stable using useCallback
   const showTemporaryToast = useCallback(
     (msg, type = "success") => {
       setToastMessage({ message: msg, type: type });
@@ -116,7 +125,6 @@ export default function AdminPanel() {
     [setToastMessage, setShowToast]
   );
 
-  // Made fetchInitialData stable using useCallback
   const fetchInitialData = useCallback(async () => {
     try {
       const [usersRes, examsRes, copiesRes, examinersRes, queriesRes] =
@@ -125,31 +133,38 @@ export default function AdminPanel() {
           api.get("/admin/exams"),
           api.get("/admin/copies"),
           api.get("/admin/examiners"),
-          api.get("/admin/queries"), // Fetch all queries
+          api.get("/admin/queries"),
         ]);
       setUsers(usersRes.data);
       setExams(examsRes.data);
       setCopies(copiesRes.data);
       setAvailableExaminers(examinersRes.data);
-      setQueries(queriesRes.data); // Set the fetched queries
+      setQueries(queriesRes.data);
     } catch (error) {
       console.error("Error fetching initial data:", error);
       showTemporaryToast("Failed to load initial data.", "error");
     }
-  }, [showTemporaryToast]); // Added showTemporaryToast to dependencies
+  }, [showTemporaryToast]);
 
   useEffect(() => {
     fetchInitialData();
-  }, [fetchInitialData]); // Added fetchInitialData to dependencies
+  }, [fetchInitialData]);
 
-  // NEW: Extract unique batches for student filtering
+  // Reset selected users and select all checkbox when tab or batch changes
+  useEffect(() => {
+    setSelectedUserIds([]);
+    setSelectAllInTab(false);
+    setDeleteAllBatches(false);
+    setDeleteCurrentBatch(false);
+  }, [activeUserTab, activeStudentBatchTab]);
+
   const uniqueBatches = useMemo(() => {
     const batches = new Set(
       users
         .filter((user) => user.role === "student" && user.batch)
         .map((user) => user.batch)
     );
-    return ["all", ...Array.from(batches).sort()]; // 'all' tab first, then sorted batches
+    return ["all", ...Array.from(batches).sort()];
   }, [users]);
 
   const handleAddUser = async () => {
@@ -161,16 +176,16 @@ export default function AdminPanel() {
         gender: newUserGender,
       };
       if (newUserRole === "student") {
-        userData.batch = newUserBatch; // Conditionally add batch for students
+        userData.batch = newUserBatch;
       }
       await api.post("/admin/users", userData);
       showTemporaryToast("User added successfully!", "success");
       setNewUserName("");
       setNewUserEmail("");
       setNewUserRole("student");
-      setNewUserGender(""); // Clear gender
-      setNewUserBatch(""); // Clear batch
-      fetchInitialData(); // Refresh user list
+      setNewUserGender("");
+      setNewUserBatch("");
+      fetchInitialData();
     } catch (err) {
       showTemporaryToast(
         `Error adding user: ${err.response?.data?.message || err.message}`,
@@ -219,7 +234,7 @@ export default function AdminPanel() {
       setNewExamFiles([]);
       setNewExamFileType(null);
       setIsCreateExamModalOpen(false);
-      fetchInitialData(); // Refresh exams list
+      fetchInitialData();
     } catch (err) {
       showTemporaryToast(
         `Error creating exam: ${err.response?.data?.message || err.message}`,
@@ -275,7 +290,6 @@ export default function AdminPanel() {
 
   const openAssignExaminersModal = (exam) => {
     setSelectedExamForExaminerAssignment(exam);
-    // When opening, pre-select current examiners assigned to this exam
     setSelectedExaminerIds(
       exam ? exam.assignedExaminers.map((ex) => ex._id) : []
     );
@@ -312,7 +326,7 @@ export default function AdminPanel() {
       );
       showTemporaryToast(res.data.message, "success");
       setIsAssignExaminersToExamModalOpen(false);
-      fetchInitialData(); // Refresh data to show updated assignments
+      fetchInitialData();
     } catch (err) {
       showTemporaryToast(
         `Error assigning examiners: ${
@@ -326,10 +340,9 @@ export default function AdminPanel() {
   const handleScanUploadSuccess = () => {
     showTemporaryToast("Scanned copy uploaded and registered!", "success");
     setIsScanUploadModalOpen(false);
-    fetchInitialData(); // Refresh copies list
+    fetchInitialData();
   };
 
-  // Helper function to calculate exam status and examiner progress
   const getExamProgressSummary = useCallback(
     (examId) => {
       const examCopies = copies.filter(
@@ -344,7 +357,6 @@ export default function AdminPanel() {
       const progress = {};
       let totalEvaluated = 0;
 
-      // Initialize progress for all assigned examiners
       const exam = exams.find((e) => e._id === examId);
       if (exam && exam.assignedExaminers) {
         exam.assignedExaminers.forEach((examiner) => {
@@ -357,10 +369,9 @@ export default function AdminPanel() {
       }
 
       examCopies.forEach((copy) => {
-        // Ensure copy.examiners is an array before iterating
         if (Array.isArray(copy.examiners)) {
           copy.examiners.forEach((examiner) => {
-            const examinerId = examiner._id; // Assuming examiner is populated
+            const examinerId = examiner._id;
             if (!progress[examinerId]) {
               progress[examinerId] = {
                 name: examiner.name || examiner.email,
@@ -395,38 +406,168 @@ export default function AdminPanel() {
     [copies, exams]
   );
 
-  // Filter exams for the "Assign Examiners to Exam Pool" modal
-  // Only show exams that have no examiners assigned yet
   const unassignedExamsForModal = exams.filter(
     (exam) => !exam.assignedExaminers || exam.assignedExaminers.length === 0
   );
 
-  // Filter exams for the main "Exam Overview & Progress" section based on search term
   const filteredExams = exams.filter((exam) =>
     exam.title.toLowerCase().includes(examSearchTerm.toLowerCase())
   );
 
-  // Filter users for Manage Users Modal based on active tab, search term, and NEW: batch
-  const getFilteredUsers = (role) => {
-    let filtered = users;
-    if (role !== "all") {
-      filtered = users.filter((user) => user.role === role);
-    }
-    // NEW: Apply batch filter if activeUserTab is 'student' and a specific batch is selected
-    if (activeUserTab === "student" && activeStudentBatchTab !== "all") {
-      filtered = filtered.filter(
-        (user) => user.batch === activeStudentBatchTab
+  // Filter users for Manage Users Modal based on active tab, search term, and batch
+  const getFilteredUsers = useCallback(
+    (role) => {
+      let filtered = users;
+      if (role !== "all") {
+        filtered = users.filter((user) => user.role === role);
+      }
+      if (activeUserTab === "student" && activeStudentBatchTab !== "all") {
+        filtered = filtered.filter(
+          (user) => user.batch === activeStudentBatchTab
+        );
+      }
+
+      if (userSearchTerm) {
+        filtered = filtered.filter(
+          (user) =>
+            user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+            user.name.toLowerCase().includes(userSearchTerm.toLowerCase())
+        );
+      }
+      return filtered;
+    },
+    [users, activeUserTab, activeStudentBatchTab, userSearchTerm]
+  );
+
+  // Handle individual user checkbox change
+  const handleUserCheckboxChange = (userId) => {
+    setSelectedUserIds((prevSelected) =>
+      prevSelected.includes(userId)
+        ? prevSelected.filter((id) => id !== userId)
+        : [...prevSelected, userId]
+    );
+  };
+
+  // Handle "Select All in Current Tab" checkbox
+  const handleSelectAllInTab = (e) => {
+    const isChecked = e.target.checked;
+    setSelectAllInTab(isChecked);
+    if (isChecked) {
+      const currentTabUserIds = getFilteredUsers(activeUserTab).map(
+        (user) => user._id
       );
+      setSelectedUserIds(currentTabUserIds);
+    } else {
+      setSelectedUserIds([]);
+    }
+  };
+
+  // Handle "Delete All Batches" checkbox
+  const handleDeleteAllBatchesChange = (e) => {
+    const isChecked = e.target.checked;
+    setDeleteAllBatches(isChecked);
+    if (isChecked) {
+      setDeleteCurrentBatch(false); // Uncheck "Delete Current Batch" if "Delete All Batches" is checked
+      setSelectedUserIds([]); // Clear individual selections
+      setSelectAllInTab(false); // Uncheck "Select All in Tab"
+    }
+  };
+
+  // Handle "Delete Whole Batch" checkbox
+  const handleDeleteCurrentBatchChange = (e) => {
+    const isChecked = e.target.checked;
+    setDeleteCurrentBatch(isChecked);
+    if (isChecked) {
+      setDeleteAllBatches(false); // Uncheck "Delete All Batches" if "Delete Whole Batch" is checked
+      setSelectedUserIds([]); // Clear individual selections
+      setSelectAllInTab(false); // Uncheck "Select All in Tab"
+    }
+  };
+
+  const handleDeleteUsers = async () => {
+    let userIdsToDelete = [];
+    let confirmationMessage = "";
+
+    if (deleteAllBatches) {
+      // Deleting all students across all batches
+      userIdsToDelete = users
+        .filter((user) => user.role === "student")
+        .map((user) => user._id);
+      confirmationMessage =
+        "Are you sure you want to delete ALL students across ALL batches? This action cannot be undone.";
+    } else if (deleteCurrentBatch && activeStudentBatchTab !== "all") {
+      // Deleting all students in the currently selected batch
+      userIdsToDelete = users
+        .filter(
+          (user) =>
+            user.role === "student" && user.batch === activeStudentBatchTab
+        )
+        .map((user) => user._id);
+      confirmationMessage = `Are you sure you want to delete all students in Batch ${activeStudentBatchTab}? This action cannot be undone.`;
+    } else if (selectAllInTab) {
+      // Deleting all users in the current tab/filter
+      userIdsToDelete = getFilteredUsers(activeUserTab).map((user) => user._id);
+      confirmationMessage = `Are you sure you want to delete all ${activeUserTab}s currently displayed? This action cannot be undone.`;
+    } else if (selectedUserIds.length > 0) {
+      // Deleting individually selected users
+      userIdsToDelete = selectedUserIds;
+      confirmationMessage = `Are you sure you want to delete the ${selectedUserIds.length} selected user(s)? This action cannot be undone.`;
+    } else {
+      showTemporaryToast("No users selected for deletion.", "info");
+      return;
     }
 
-    if (userSearchTerm) {
-      filtered = filtered.filter(
-        (user) =>
-          user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-          user.name.toLowerCase().includes(userSearchTerm.toLowerCase())
+    if (userIdsToDelete.length === 0) {
+      showTemporaryToast(
+        "No users found to delete based on your selection.",
+        "info"
       );
+      return;
     }
-    return filtered;
+
+    setShowDeleteConfirmModal(true); // Show confirmation modal
+  };
+
+  const confirmDeleteUsers = async () => {
+    setShowDeleteConfirmModal(false); // Close confirmation modal
+    setIsDeletingUsers(true);
+    let userIdsToDelete = [];
+
+    if (deleteAllBatches) {
+      userIdsToDelete = users
+        .filter((user) => user.role === "student")
+        .map((user) => user._id);
+    } else if (deleteCurrentBatch && activeStudentBatchTab !== "all") {
+      userIdsToDelete = users
+        .filter(
+          (user) =>
+            user.role === "student" && user.batch === activeStudentBatchTab
+        )
+        .map((user) => user._id);
+    } else if (selectAllInTab) {
+      userIdsToDelete = getFilteredUsers(activeUserTab).map((user) => user._id);
+    } else {
+      userIdsToDelete = selectedUserIds;
+    }
+
+    try {
+      const res = await api.delete("/admin/users", {
+        data: { userIds: userIdsToDelete },
+      });
+      showTemporaryToast(res.data.message, "success");
+      fetchInitialData(); // Refresh user list
+      setSelectedUserIds([]); // Clear selections
+      setSelectAllInTab(false);
+      setDeleteAllBatches(false);
+      setDeleteCurrentBatch(false);
+    } catch (err) {
+      showTemporaryToast(
+        `Error deleting users: ${err.response?.data?.message || err.message}`,
+        "error"
+      );
+    } finally {
+      setIsDeletingUsers(false);
+    }
   };
 
   const renderUsersTable = (usersToDisplay) => (
@@ -434,6 +575,23 @@ export default function AdminPanel() {
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0">
           <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <input
+                type="checkbox"
+                className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                checked={
+                  selectAllInTab &&
+                  selectedUserIds.length === usersToDisplay.length &&
+                  usersToDisplay.length > 0
+                }
+                onChange={handleSelectAllInTab}
+                disabled={
+                  usersToDisplay.length === 0 ||
+                  deleteAllBatches ||
+                  deleteCurrentBatch
+                }
+              />
+            </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Name
             </th>
@@ -443,7 +601,7 @@ export default function AdminPanel() {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Role
             </th>
-            {activeUserTab === "student" && ( // Only show Batch column for students
+            {activeUserTab === "student" && (
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Batch
               </th>
@@ -454,7 +612,7 @@ export default function AdminPanel() {
           {usersToDisplay.length === 0 ? (
             <tr>
               <td
-                colSpan={activeUserTab === "student" ? "4" : "3"}
+                colSpan={activeUserTab === "student" ? "5" : "4"}
                 className="px-6 py-4 text-center text-gray-500"
               >
                 No users found.
@@ -463,6 +621,17 @@ export default function AdminPanel() {
           ) : (
             usersToDisplay.map((user) => (
               <tr key={user._id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    checked={selectedUserIds.includes(user._id)}
+                    onChange={() => handleUserCheckboxChange(user._id)}
+                    disabled={
+                      selectAllInTab || deleteAllBatches || deleteCurrentBatch
+                    }
+                  />
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {user.name}
                 </td>
@@ -485,7 +654,6 @@ export default function AdminPanel() {
     </div>
   );
 
-  // Helper to get unique exam titles for the query filter dropdown
   const uniqueExamTitlesWithIds = Array.from(
     new Map(
       queries
@@ -499,21 +667,19 @@ export default function AdminPanel() {
     ).values()
   );
 
-  // Query Management Handlers
   const handleOpenQueryModal = async (query) => {
     setSelectedQuery(query);
-    setReplyText(query.response || ""); // Pre-fill if already replied
+    setReplyText(query.response || "");
     setIsViewQueryModalOpen(true);
-    setQueryViewerCurrentPage(query.pageNumber); // Set initial AC page to query page
-    setQueryViewerZoomLevel(1); // Reset AC zoom
-    setQueryViewerQpCurrentPage(1); // Set initial QP page to 1
-    setQueryViewerQpZoomLevel(1); // Reset QP zoom
+    setQueryViewerCurrentPage(query.pageNumber);
+    setQueryViewerZoomLevel(1);
+    setQueryViewerQpCurrentPage(1);
+    setQueryViewerQpZoomLevel(1);
 
-    // Fetch the full copy details for display
     if (query.copy?._id) {
       try {
         setIsQueryViewerAcLoading(true);
-        setIsQueryViewerQpLoading(true); // Start loading for QP as well
+        setIsQueryViewerQpLoading(true);
         const copyDetailsRes = await api.get(
           `/admin/copies/view/${query.copy._id}`
         );
@@ -521,7 +687,7 @@ export default function AdminPanel() {
       } catch (err) {
         console.error("Error fetching copy details for query view:", err);
         showTemporaryToast("Failed to load copy details for query.", "error");
-        setSelectedCopyForQueryView(null); // Clear if error
+        setSelectedCopyForQueryView(null);
       } finally {
         setIsQueryViewerAcLoading(false);
         setIsQueryViewerQpLoading(false);
@@ -537,12 +703,12 @@ export default function AdminPanel() {
     setSelectedQuery(null);
     setReplyText("");
     setIsViewQueryModalOpen(false);
-    setSelectedCopyForQueryView(null); // Clear copy details
-    setQueryViewerCurrentPage(1); // Reset AC page
-    setQueryViewerZoomLevel(1); // Reset AC zoom
-    setQueryViewerQpCurrentPage(1); // Reset QP page
-    setQueryViewerQpZoomLevel(1); // Reset QP zoom
-    fetchInitialData(); // Refresh queries after action
+    setSelectedCopyForQueryView(null);
+    setQueryViewerCurrentPage(1);
+    setQueryViewerZoomLevel(1);
+    setQueryViewerQpCurrentPage(1);
+    setQueryViewerQpZoomLevel(1);
+    fetchInitialData();
   };
 
   const handleApproveQuery = async () => {
@@ -555,7 +721,6 @@ export default function AdminPanel() {
         "success"
       );
       handleCloseQueryModal();
-      // fetchInitialData(); // Re-fetch queries to update status - done in handleCloseQueryModal
     } catch (error) {
       console.error("Error approving query:", error);
       showTemporaryToast(
@@ -576,7 +741,6 @@ export default function AdminPanel() {
       await api.patch(`/admin/queries/${selectedQuery._id}/reject`);
       showTemporaryToast("Query rejected!", "success");
       handleCloseQueryModal();
-      // fetchInitialData(); // Re-fetch queries to update status - done in handleCloseQueryModal
     } catch (error) {
       console.error("Error rejecting query:", error);
       showTemporaryToast(
@@ -608,7 +772,6 @@ export default function AdminPanel() {
         "success"
       );
       handleCloseQueryModal();
-      // fetchInitialData(); // Re-fetch queries to update status - done in handleCloseQueryModal
     } catch (error) {
       console.error("Error resolving query:", error);
       showTemporaryToast(
@@ -622,7 +785,6 @@ export default function AdminPanel() {
     }
   };
 
-  // Handler for zooming images within the query viewer modal
   const handleQueryViewerZoom = useCallback((type, action) => {
     if (type === "ac") {
       setQueryViewerZoomLevel((prevZoom) => {
@@ -651,7 +813,6 @@ export default function AdminPanel() {
     }
   }, []);
 
-  // Filter queries based on selected exam and active tab
   const getFilteredQueries = () => {
     let filtered = queries;
 
@@ -676,13 +837,11 @@ export default function AdminPanel() {
         (query) => query.status === "resolved_by_admin"
       );
     } else if (activeQueryTab === "resolved_by_examiner") {
-      // New filter for examiner resolved
       filtered = filtered.filter(
         (query) => query.status === "resolved_by_examiner"
       );
     }
 
-    // Apply search term if any
     const searchTermLower = querySearchTerm.toLowerCase();
     if (searchTermLower) {
       filtered = filtered.filter(
@@ -706,7 +865,7 @@ export default function AdminPanel() {
               ? "bg-green-500"
               : toastMessage.type === "error"
               ? "bg-red-500"
-              : "bg-blue-500" // For 'info' type
+              : "bg-blue-500"
           } ${
             showToast
               ? "translate-x-0 opacity-100"
@@ -749,7 +908,7 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        {/* Manage Exams (Question Papers) Card - "kind of pool where all exams should be there" */}
+        {/* Manage Exams (Question Papers) Card */}
         <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
           <BookOpenIcon className="h-16 w-16 text-blue-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
@@ -759,14 +918,14 @@ export default function AdminPanel() {
             Create new exams and manage question papers.
           </p>
           <button
-            onClick={() => setIsCreateExamModalOpen(true)} // Opens modal to create exam
+            onClick={() => setIsCreateExamModalOpen(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
           >
             Create Exam
           </button>
         </div>
 
-        {/* Assign Examiner to Exam Pool Card - "ek exam me 4 examiner assign kar die" */}
+        {/* Assign Examiner to Exam Pool Card */}
         <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
           <UsersIcon className="h-16 w-16 text-purple-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
@@ -776,14 +935,14 @@ export default function AdminPanel() {
             Assign examiners to an exam pool for copy distribution.
           </p>
           <button
-            onClick={() => openAssignExaminersModal(null)} // Opens modal to select exam and assign examiners
+            onClick={() => openAssignExaminersModal(null)}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
           >
             Assign Examiners
           </button>
         </div>
 
-        {/* Scan & Upload Copy Card - "pahle student ki saari copies upload ho jae" */}
+        {/* Scan & Upload Copy Card */}
         <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
           <CloudArrowUpIcon className="h-16 w-16 text-orange-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
@@ -800,7 +959,7 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        {/* NEW: Manage Queries Card */}
+        {/* Manage Queries Card */}
         <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
           <QuestionMarkCircleIcon className="h-16 w-16 text-red-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
@@ -818,8 +977,7 @@ export default function AdminPanel() {
           </button>
         </div>
         <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <ClipboardDocumentListIcon className="h-16 w-16 text-teal-500 mb-4" />{" "}
-          {/* Using ClipboardDocumentListIcon */}
+          <ClipboardDocumentListIcon className="h-16 w-16 text-teal-500 mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
             Examiner Performance
           </h2>
@@ -835,11 +993,10 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* Exam Overview Section (replaces "Manage All Copies" modal content) */}
+      {/* Exam Overview Section */}
       <section className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-10">
         <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
           <span>Exam Overview & Progress</span>
-          {/* Search Bar for Exams */}
           <div className="relative w-1/3 min-w-[200px]">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <MagnifyingGlassIcon
@@ -969,7 +1126,7 @@ export default function AdminPanel() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <Link
-                          to={`/admin/exams/${exam._id}`} // Link to the new AdminExamDetails page
+                          to={`/admin/exams/${exam._id}`}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
                         >
                           <EyeIcon className="h-4 w-4 mr-1" /> View Details
@@ -1025,8 +1182,8 @@ export default function AdminPanel() {
             value={newUserRole}
             onChange={(e) => {
               setNewUserRole(e.target.value);
-              setNewUserBatch(""); // Clear batch if role changes from student
-              setNewUserGender(""); // Clear gender if role changes
+              setNewUserBatch("");
+              setNewUserGender("");
             }}
             className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
           >
@@ -1062,7 +1219,7 @@ export default function AdminPanel() {
             onClick={() => {
               setActiveUserTab("all");
               setUserSearchTerm("");
-              setActiveStudentBatchTab("all"); // Reset batch tab
+              setActiveStudentBatchTab("all");
             }}
           >
             All Users ({getFilteredUsers("all").length})
@@ -1089,7 +1246,7 @@ export default function AdminPanel() {
             onClick={() => {
               setActiveUserTab("examiner");
               setUserSearchTerm("");
-              setActiveStudentBatchTab("all"); // Reset batch tab
+              setActiveStudentBatchTab("all");
             }}
           >
             Examiners ({getFilteredUsers("examiner").length})
@@ -1103,18 +1260,16 @@ export default function AdminPanel() {
             onClick={() => {
               setActiveUserTab("admin");
               setUserSearchTerm("");
-              setActiveStudentBatchTab("all"); // Reset batch tab
+              setActiveStudentBatchTab("all");
             }}
           >
             Admins ({getFilteredUsers("admin").length})
           </button>
         </div>
 
-        {/* NEW: Student Batch Sub-Tabs */}
+        {/* Student Batch Sub-Tabs */}
         {activeUserTab === "student" && (
           <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar ml-4">
-            {" "}
-            {/* Added ml-4 for indentation */}
             {uniqueBatches.map((batch) => (
               <button
                 key={batch}
@@ -1125,7 +1280,7 @@ export default function AdminPanel() {
                 } transition duration-150`}
                 onClick={() => {
                   setActiveStudentBatchTab(batch);
-                  setUserSearchTerm(""); // Clear search when changing batch tabs
+                  setUserSearchTerm("");
                 }}
               >
                 {batch === "all" ? "All Batches" : `Batch ${batch}`} (
@@ -1161,6 +1316,116 @@ export default function AdminPanel() {
 
         {/* Render Table based on active tab and search term */}
         {renderUsersTable(getFilteredUsers(activeUserTab))}
+
+        {/* Bulk Delete Options */}
+        <div className="mt-6 pt-4 border-t border-gray-200 space-y-3">
+          <h4 className="text-lg font-bold text-gray-800">
+            Bulk Delete Options
+          </h4>
+          <div className="flex flex-col space-y-2">
+            {activeUserTab === "student" && (
+              <>
+                <label className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    checked={deleteAllBatches}
+                    onChange={handleDeleteAllBatchesChange}
+                    disabled={
+                      selectedUserIds.length > 0 ||
+                      selectAllInTab ||
+                      (activeStudentBatchTab !== "all" && deleteCurrentBatch)
+                    }
+                  />
+                  <span className="ml-2 text-sm text-gray-700 font-medium">
+                    Delete ALL Students (All Batches)
+                  </span>
+                </label>
+                {activeStudentBatchTab !== "all" && (
+                  <label className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      checked={deleteCurrentBatch}
+                      onChange={handleDeleteCurrentBatchChange}
+                      disabled={
+                        selectedUserIds.length > 0 ||
+                        selectAllInTab ||
+                        deleteAllBatches
+                      }
+                    />
+                    <span className="ml-2 text-sm text-gray-700 font-medium">
+                      Delete ALL Students in Current Batch (
+                      {activeStudentBatchTab})
+                    </span>
+                  </label>
+                )}
+              </>
+            )}
+
+            <button
+              onClick={handleDeleteUsers}
+              disabled={
+                isDeletingUsers ||
+                (selectedUserIds.length === 0 &&
+                  !selectAllInTab &&
+                  !deleteAllBatches &&
+                  !deleteCurrentBatch) ||
+                (activeUserTab === "student" &&
+                  deleteAllBatches &&
+                  users.filter((u) => u.role === "student").length === 0) ||
+                (activeUserTab === "student" &&
+                  deleteCurrentBatch &&
+                  activeStudentBatchTab !== "all" &&
+                  users.filter(
+                    (u) =>
+                      u.role === "student" && u.batch === activeStudentBatchTab
+                  ).length === 0) ||
+                (selectAllInTab && getFilteredUsers(activeUserTab).length === 0)
+              }
+              className="mt-4 bg-red-600 text-white p-2 rounded w-full hover:bg-red-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {isDeletingUsers ? (
+                <>
+                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />{" "}
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <TrashIcon className="h-5 w-5 mr-2" /> Delete Selected / All
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirmModal}
+        onClose={() => setShowDeleteConfirmModal(false)}
+        title="Confirm Deletion"
+      >
+        <div className="p-4 text-center">
+          <p className="text-lg text-gray-700 mb-6">
+            Are you absolutely sure you want to delete the selected users? This
+            action cannot be undone.
+          </p>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => setShowDeleteConfirmModal(false)}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDeleteUsers}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Create Exam Modal (Upload Question Paper) */}
@@ -1193,7 +1458,7 @@ export default function AdminPanel() {
               htmlFor="examCourse"
               className="block text-sm font-medium text-gray-700"
             >
-              Batch: {/* or Course: */}
+              Batch:
             </label>
             <input
               type="text"
@@ -1316,7 +1581,7 @@ export default function AdminPanel() {
                 )
               }
               className="w-full p-2 border rounded-md mt-1 focus:ring-purple-500 focus:border-purple-500"
-              disabled={unassignedExamsForModal.length === 0} // Disable if no exams to assign
+              disabled={unassignedExamsForModal.length === 0}
             >
               <option value="">-- Choose an Exam --</option>
               {unassignedExamsForModal.map((exam) => (
@@ -1393,8 +1658,8 @@ export default function AdminPanel() {
         isOpen={isScanUploadModalOpen}
         onClose={() => setIsScanUploadModalOpen(false)}
         onUploadSuccess={handleScanUploadSuccess}
-        questionPapers={exams} // Pass exams (question papers) for dropdown
-        students={users.filter((u) => u.role === "student")} // Pass students for dropdown
+        questionPapers={exams}
+        students={users.filter((u) => u.role === "student")}
       />
 
       {/* Manage Queries Modal */}
@@ -1548,7 +1813,6 @@ export default function AdminPanel() {
 
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto rounded-lg border border-gray-200 shadow-sm">
           {" "}
-          {/* Added max-height and overflow for scrollability */}
           {getFilteredQueries().length === 0 ? (
             <p className="text-gray-600 text-center py-4">
               No student queries to manage in this category.
@@ -1604,7 +1868,7 @@ export default function AdminPanel() {
                             : query.status === "resolved_by_admin"
                             ? "bg-green-100 text-green-800"
                             : query.status === "resolved_by_examiner"
-                            ? "bg-purple-100 text-purple-800" // New color for examiner resolved
+                            ? "bg-purple-100 text-purple-800"
                             : "bg-gray-100 text-gray-800"
                         }`}
                       >
@@ -1663,9 +1927,9 @@ export default function AdminPanel() {
       <AllExaminerDetailsModal
         isOpen={isExaminerDetailsModalOpen}
         onClose={() => setIsExaminerDetailsModalOpen(false)}
-        examiners={availableExaminers} // Pass the list of examiners
-        copies={copies} // Pass all copies to calculate stats
-        exams={exams} // Pass all exams to get exam titles
+        examiners={availableExaminers}
+        copies={copies}
+        exams={exams}
       />
     </div>
   );
