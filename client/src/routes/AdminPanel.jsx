@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"; // Added useCallback
+import React, { useState, useEffect, useCallback, useMemo } from "react"; // Added useMemo
 import { Link } from "react-router-dom";
 import api from "../services/api"; // Your Axios instance
 import Modal from "../components/Modal"; // Assuming you have a generic Modal component
@@ -15,7 +15,7 @@ import {
   EyeIcon, // For viewing exam details
   QuestionMarkCircleIcon, // For Queries section
   ClipboardDocumentListIcon,
-  // Removed unused icons: MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, ArrowsPointingInIcon, ClipboardDocumentListIcon, ArrowPathIcon
+  MagnifyingGlassIcon, // For search bars
 } from "@heroicons/react/24/outline";
 import AllExaminerDetailsModal from "../components/AllExaminerDetailsModal";
 
@@ -65,6 +65,7 @@ export default function AdminPanel() {
   // States for Manage Users Modal tabs and search
   const [activeUserTab, setActiveUserTab] = useState("all"); // 'all', 'student', 'examiner', 'admin'
   const [userSearchTerm, setUserSearchTerm] = useState(""); // Search term for users modal
+  const [activeStudentBatchTab, setActiveStudentBatchTab] = useState("all"); // NEW: For batch-wise student filtering
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState({
@@ -141,6 +142,16 @@ export default function AdminPanel() {
     fetchInitialData();
   }, [fetchInitialData]); // Added fetchInitialData to dependencies
 
+  // NEW: Extract unique batches for student filtering
+  const uniqueBatches = useMemo(() => {
+    const batches = new Set(
+      users
+        .filter((user) => user.role === "student" && user.batch)
+        .map((user) => user.batch)
+    );
+    return ["all", ...Array.from(batches).sort()]; // 'all' tab first, then sorted batches
+  }, [users]);
+
   const handleAddUser = async () => {
     try {
       const userData = {
@@ -157,6 +168,8 @@ export default function AdminPanel() {
       setNewUserName("");
       setNewUserEmail("");
       setNewUserRole("student");
+      setNewUserGender(""); // Clear gender
+      setNewUserBatch(""); // Clear batch
       fetchInitialData(); // Refresh user list
     } catch (err) {
       showTemporaryToast(
@@ -317,67 +330,70 @@ export default function AdminPanel() {
   };
 
   // Helper function to calculate exam status and examiner progress
-  const getExamProgressSummary = (examId) => {
-    const examCopies = copies.filter(
-      (copy) => copy.questionPaper?._id === examId
-    );
-    const totalCopies = examCopies.length;
+  const getExamProgressSummary = useCallback(
+    (examId) => {
+      const examCopies = copies.filter(
+        (copy) => copy.questionPaper?._id === examId
+      );
+      const totalCopies = examCopies.length;
 
-    if (totalCopies === 0) {
-      return { status: "No Copies Uploaded", progress: {} };
-    }
+      if (totalCopies === 0) {
+        return { status: "No Copies Uploaded", progress: {} };
+      }
 
-    const progress = {};
-    let totalEvaluated = 0;
+      const progress = {};
+      let totalEvaluated = 0;
 
-    // Initialize progress for all assigned examiners
-    const exam = exams.find((e) => e._id === examId);
-    if (exam && exam.assignedExaminers) {
-      exam.assignedExaminers.forEach((examiner) => {
-        progress[examiner._id] = {
-          name: examiner.name || examiner.email,
-          assigned: 0,
-          evaluated: 0,
-        };
-      });
-    }
-
-    examCopies.forEach((copy) => {
-      // Ensure copy.examiners is an array before iterating
-      if (Array.isArray(copy.examiners)) {
-        copy.examiners.forEach((examiner) => {
-          const examinerId = examiner._id; // Assuming examiner is populated
-          if (!progress[examinerId]) {
-            progress[examinerId] = {
-              name: examiner.name || examiner.email,
-              assigned: 0,
-              evaluated: 0,
-            };
-          }
-          progress[examinerId].assigned++;
-          if (copy.status === "evaluated") {
-            progress[examinerId].evaluated++;
-            totalEvaluated++;
-          }
+      // Initialize progress for all assigned examiners
+      const exam = exams.find((e) => e._id === examId);
+      if (exam && exam.assignedExaminers) {
+        exam.assignedExaminers.forEach((examiner) => {
+          progress[examiner._id] = {
+            name: examiner.name || examiner.email,
+            assigned: 0,
+            evaluated: 0,
+          };
         });
       }
-    });
 
-    let overallStatus = "Pending Assignment";
-    if (totalCopies > 0 && Object.keys(progress).length > 0) {
-      if (totalEvaluated === totalCopies) {
-        overallStatus = "Completed";
-      } else if (totalEvaluated > 0) {
-        overallStatus = "In Progress";
-      } else {
-        overallStatus = "Assigned, Not Started";
+      examCopies.forEach((copy) => {
+        // Ensure copy.examiners is an array before iterating
+        if (Array.isArray(copy.examiners)) {
+          copy.examiners.forEach((examiner) => {
+            const examinerId = examiner._id; // Assuming examiner is populated
+            if (!progress[examinerId]) {
+              progress[examinerId] = {
+                name: examiner.name || examiner.email,
+                assigned: 0,
+                evaluated: 0,
+              };
+            }
+            progress[examinerId].assigned++;
+            if (copy.status === "evaluated") {
+              progress[examinerId].evaluated++;
+              totalEvaluated++;
+            }
+          });
+        }
+      });
+
+      let overallStatus = "Pending Assignment";
+      if (totalCopies > 0 && Object.keys(progress).length > 0) {
+        if (totalEvaluated === totalCopies) {
+          overallStatus = "Completed";
+        } else if (totalEvaluated > 0) {
+          overallStatus = "In Progress";
+        } else {
+          overallStatus = "Assigned, Not Started";
+        }
+      } else if (totalCopies > 0) {
+        overallStatus = "Copies Uploaded, Unassigned";
       }
-    } else if (totalCopies > 0) {
-      overallStatus = "Copies Uploaded, Unassigned";
-    }
 
-    return { status: overallStatus, progress };
-  };
+      return { status: overallStatus, progress };
+    },
+    [copies, exams]
+  );
 
   // Filter exams for the "Assign Examiners to Exam Pool" modal
   // Only show exams that have no examiners assigned yet
@@ -390,24 +406,33 @@ export default function AdminPanel() {
     exam.title.toLowerCase().includes(examSearchTerm.toLowerCase())
   );
 
-  // Filter users for Manage Users Modal based on active tab and search term
+  // Filter users for Manage Users Modal based on active tab, search term, and NEW: batch
   const getFilteredUsers = (role) => {
     let filtered = users;
     if (role !== "all") {
       filtered = users.filter((user) => user.role === role);
     }
+    // NEW: Apply batch filter if activeUserTab is 'student' and a specific batch is selected
+    if (activeUserTab === "student" && activeStudentBatchTab !== "all") {
+      filtered = filtered.filter(
+        (user) => user.batch === activeStudentBatchTab
+      );
+    }
+
     if (userSearchTerm) {
-      filtered = filtered.filter((user) =>
-        user.email.toLowerCase().includes(userSearchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (user) =>
+          user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+          user.name.toLowerCase().includes(userSearchTerm.toLowerCase())
       );
     }
     return filtered;
   };
 
   const renderUsersTable = (usersToDisplay) => (
-    <div className="overflow-x-auto no-scrollbar max-h-60 overflow-y-auto mt-4">
+    <div className="overflow-x-auto no-scrollbar max-h-60 overflow-y-auto mt-4 rounded-lg border border-gray-200 shadow-sm">
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+        <thead className="bg-gray-50 sticky top-0">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Name
@@ -418,12 +443,20 @@ export default function AdminPanel() {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Role
             </th>
+            {activeUserTab === "student" && ( // Only show Batch column for students
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Batch
+              </th>
+            )}
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {usersToDisplay.length === 0 ? (
             <tr>
-              <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
+              <td
+                colSpan={activeUserTab === "student" ? "4" : "3"}
+                className="px-6 py-4 text-center text-gray-500"
+              >
                 No users found.
               </td>
             </tr>
@@ -439,6 +472,11 @@ export default function AdminPanel() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {user.role}
                 </td>
+                {activeUserTab === "student" && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.batch || "N/A"}
+                  </td>
+                )}
               </tr>
             ))
           )}
@@ -504,6 +542,7 @@ export default function AdminPanel() {
     setQueryViewerZoomLevel(1); // Reset AC zoom
     setQueryViewerQpCurrentPage(1); // Reset QP page
     setQueryViewerQpZoomLevel(1); // Reset QP zoom
+    fetchInitialData(); // Refresh queries after action
   };
 
   const handleApproveQuery = async () => {
@@ -516,7 +555,7 @@ export default function AdminPanel() {
         "success"
       );
       handleCloseQueryModal();
-      fetchInitialData(); // Re-fetch queries to update status
+      // fetchInitialData(); // Re-fetch queries to update status - done in handleCloseQueryModal
     } catch (error) {
       console.error("Error approving query:", error);
       showTemporaryToast(
@@ -537,7 +576,7 @@ export default function AdminPanel() {
       await api.patch(`/admin/queries/${selectedQuery._id}/reject`);
       showTemporaryToast("Query rejected!", "success");
       handleCloseQueryModal();
-      fetchInitialData(); // Re-fetch queries to update status
+      // fetchInitialData(); // Re-fetch queries to update status - done in handleCloseQueryModal
     } catch (error) {
       console.error("Error rejecting query:", error);
       showTemporaryToast(
@@ -569,7 +608,7 @@ export default function AdminPanel() {
         "success"
       );
       handleCloseQueryModal();
-      fetchInitialData(); // Re-fetch queries to update status
+      // fetchInitialData(); // Re-fetch queries to update status - done in handleCloseQueryModal
     } catch (error) {
       console.error("Error resolving query:", error);
       showTemporaryToast(
@@ -584,7 +623,7 @@ export default function AdminPanel() {
   };
 
   // Handler for zooming images within the query viewer modal
-  const handleQueryViewerZoom = (type, action) => {
+  const handleQueryViewerZoom = useCallback((type, action) => {
     if (type === "ac") {
       setQueryViewerZoomLevel((prevZoom) => {
         let newZoom = prevZoom;
@@ -610,7 +649,7 @@ export default function AdminPanel() {
         return parseFloat(newZoom.toFixed(2));
       });
     }
-  };
+  }, []);
 
   // Filter queries based on selected exam and active tab
   const getFilteredQueries = () => {
@@ -642,8 +681,6 @@ export default function AdminPanel() {
         (query) => query.status === "resolved_by_examiner"
       );
     }
-    // No specific tab for "responded by examiner" as admin resolves it.
-    // If there was a distinct status for examiner response before admin resolution, it would go here.
 
     // Apply search term if any
     const searchTermLower = querySearchTerm.toLowerCase();
@@ -803,13 +840,21 @@ export default function AdminPanel() {
         <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
           <span>Exam Overview & Progress</span>
           {/* Search Bar for Exams */}
-          <input
-            type="text"
-            placeholder="Search exams by title..."
-            className="w-1/3 p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={examSearchTerm}
-            onChange={(e) => setExamSearchTerm(e.target.value)}
-          />
+          <div className="relative w-1/3 min-w-[200px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon
+                className="h-5 w-5 text-gray-400"
+                aria-hidden="true"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Search exams by title..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={examSearchTerm}
+              onChange={(e) => setExamSearchTerm(e.target.value)}
+            />
+          </div>
         </h2>
         {filteredExams.length === 0 && exams.length > 0 ? (
           <p className="text-gray-600 text-center py-4">
@@ -820,9 +865,9 @@ export default function AdminPanel() {
             No exams created yet. Create an exam to see its progress.
           </p>
         ) : (
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-lg border border-gray-200 shadow-sm">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   <th
                     scope="col"
@@ -947,35 +992,28 @@ export default function AdminPanel() {
         onClose={() => setIsUsersModalOpen(false)}
         title="Manage Users"
       >
-        <h3 className="text-xl font-bold mb-4">Add New User</h3>
-        <div className="space-y-4 mb-6">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">Add New User</h3>
+        <div className="space-y-4 mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <input
             type="text"
             placeholder="Name"
             value={newUserName}
             onChange={(e) => setNewUserName(e.target.value)}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            required
           />
-          {newUserRole === "student" && (
-            <input
-              type="text"
-              placeholder="Batch (e.g., 2023)"
-              value={newUserBatch}
-              onChange={(e) => setNewUserBatch(e.target.value)}
-              className="w-full p-2 border rounded"
-            />
-          )}
           <input
             type="email"
             placeholder="Email"
             value={newUserEmail}
             onChange={(e) => setNewUserEmail(e.target.value)}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            required
           />
           <select
             value={newUserGender}
             onChange={(e) => setNewUserGender(e.target.value)}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
             required
           >
             <option value="">Select Gender</option>
@@ -985,37 +1023,46 @@ export default function AdminPanel() {
           </select>
           <select
             value={newUserRole}
-            onChange={(e) => setNewUserRole(e.target.value)}
-            className="w-full p-2 border rounded"
+            onChange={(e) => {
+              setNewUserRole(e.target.value);
+              setNewUserBatch(""); // Clear batch if role changes from student
+              setNewUserGender(""); // Clear gender if role changes
+            }}
+            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="student">Student</option>
             <option value="examiner">Examiner</option>
             <option value="admin">Admin</option>
           </select>
-          {/* AFTER the newUserGender select element: */}
-
-          {/* AFTER the newUserRole select element: */}
-
+          {newUserRole === "student" && (
+            <input
+              type="text"
+              placeholder="Batch (e.g., 2023)"
+              value={newUserBatch}
+              onChange={(e) => setNewUserBatch(e.target.value)}
+              className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          )}
           <button
             onClick={handleAddUser}
-            className="bg-green-500 text-white p-2 rounded w-full"
+            className="bg-green-600 text-white p-2 rounded-md w-full hover:bg-green-700 transition duration-150"
           >
             Add User
           </button>
         </div>
 
-        {/* Tabs for Existing Users */}
-        <h3 className="text-xl font-bold mb-4">Existing Users</h3>
-        <div className="flex border-b border-gray-200 mb-4 no-scrollbar">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">Existing Users</h3>
+        <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
           <button
             className={`py-2 px-4 text-sm font-medium ${
               activeUserTab === "all"
                 ? "border-b-2 border-indigo-500 text-indigo-600"
                 : "text-gray-500 hover:text-gray-700"
-            }`}
+            } transition duration-150`}
             onClick={() => {
               setActiveUserTab("all");
-              setUserSearchTerm(""); // Clear search when changing tabs
+              setUserSearchTerm("");
+              setActiveStudentBatchTab("all"); // Reset batch tab
             }}
           >
             All Users ({getFilteredUsers("all").length})
@@ -1025,7 +1072,7 @@ export default function AdminPanel() {
               activeUserTab === "student"
                 ? "border-b-2 border-indigo-500 text-indigo-600"
                 : "text-gray-500 hover:text-gray-700"
-            }`}
+            } transition duration-150`}
             onClick={() => {
               setActiveUserTab("student");
               setUserSearchTerm("");
@@ -1038,10 +1085,11 @@ export default function AdminPanel() {
               activeUserTab === "examiner"
                 ? "border-b-2 border-indigo-500 text-indigo-600"
                 : "text-gray-500 hover:text-gray-700"
-            }`}
+            } transition duration-150`}
             onClick={() => {
               setActiveUserTab("examiner");
               setUserSearchTerm("");
+              setActiveStudentBatchTab("all"); // Reset batch tab
             }}
           >
             Examiners ({getFilteredUsers("examiner").length})
@@ -1051,35 +1099,68 @@ export default function AdminPanel() {
               activeUserTab === "admin"
                 ? "border-b-2 border-indigo-500 text-indigo-600"
                 : "text-gray-500 hover:text-gray-700"
-            }`}
+            } transition duration-150`}
             onClick={() => {
               setActiveUserTab("admin");
               setUserSearchTerm("");
+              setActiveStudentBatchTab("all"); // Reset batch tab
             }}
           >
             Admins ({getFilteredUsers("admin").length})
           </button>
         </div>
 
+        {/* NEW: Student Batch Sub-Tabs */}
+        {activeUserTab === "student" && (
+          <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar ml-4">
+            {" "}
+            {/* Added ml-4 for indentation */}
+            {uniqueBatches.map((batch) => (
+              <button
+                key={batch}
+                className={`py-2 px-4 text-xs font-medium ${
+                  activeStudentBatchTab === batch
+                    ? "border-b-2 border-purple-500 text-purple-600"
+                    : "text-gray-500 hover:text-gray-700"
+                } transition duration-150`}
+                onClick={() => {
+                  setActiveStudentBatchTab(batch);
+                  setUserSearchTerm(""); // Clear search when changing batch tabs
+                }}
+              >
+                {batch === "all" ? "All Batches" : `Batch ${batch}`} (
+                {
+                  users.filter(
+                    (user) =>
+                      user.role === "student" &&
+                      (batch === "all" || user.batch === batch)
+                  ).length
+                }
+                )
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search Bar for Users */}
-        <div className="mb-4">
+        <div className="mb-4 relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <MagnifyingGlassIcon
+              className="h-5 w-5 text-gray-400"
+              aria-hidden="true"
+            />
+          </div>
           <input
             type="text"
-            placeholder={`Search by email in ${activeUserTab}s...`}
+            placeholder={`Search by name or email in ${activeUserTab}s...`}
             value={userSearchTerm}
             onChange={(e) => setUserSearchTerm(e.target.value)}
-            className="w-full p-2 border rounded"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           />
         </div>
 
         {/* Render Table based on active tab and search term */}
-        {activeUserTab === "all" && renderUsersTable(getFilteredUsers("all"))}
-        {activeUserTab === "student" &&
-          renderUsersTable(getFilteredUsers("student"))}
-        {activeUserTab === "examiner" &&
-          renderUsersTable(getFilteredUsers("examiner"))}
-        {activeUserTab === "admin" &&
-          renderUsersTable(getFilteredUsers("admin"))}
+        {renderUsersTable(getFilteredUsers(activeUserTab))}
       </Modal>
 
       {/* Create Exam Modal (Upload Question Paper) */}
@@ -1088,7 +1169,7 @@ export default function AdminPanel() {
         onClose={() => setIsCreateExamModalOpen(false)}
         title="Create New Exam"
       >
-        <form onSubmit={handleCreateExam} className="space-y-4">
+        <form onSubmit={handleCreateExam} className="space-y-4 p-2">
           <div>
             <label
               htmlFor="examTitle"
@@ -1102,7 +1183,7 @@ export default function AdminPanel() {
               placeholder="e.g., Mid-Term Exam 2025"
               value={newExamTitle}
               onChange={(e) => setNewExamTitle(e.target.value)}
-              className="w-full p-2 border rounded mt-1"
+              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
               required
             />
           </div>
@@ -1112,7 +1193,7 @@ export default function AdminPanel() {
               htmlFor="examCourse"
               className="block text-sm font-medium text-gray-700"
             >
-             Batch: {/*  or Course: */}
+              Batch: {/* or Course: */}
             </label>
             <input
               type="text"
@@ -1120,7 +1201,7 @@ export default function AdminPanel() {
               placeholder="e.g., Batch 2025"
               value={newExamCourse}
               onChange={(e) => setNewExamCourse(e.target.value)}
-              className="w-full p-2 border rounded mt-1"
+              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
               required
             />
           </div>
@@ -1138,7 +1219,7 @@ export default function AdminPanel() {
               placeholder="e.g., Mid-Term, Final, Quiz"
               value={newExamExamType}
               onChange={(e) => setNewExamExamType(e.target.value)}
-              className="w-full p-2 border rounded mt-1"
+              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
               required
             />
           </div>
@@ -1155,7 +1236,7 @@ export default function AdminPanel() {
               id="examDate"
               value={newExamDate}
               onChange={(e) => setNewExamDate(e.target.value)}
-              className="w-full p-2 border rounded mt-1"
+              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
               required
             />
           </div>
@@ -1173,7 +1254,7 @@ export default function AdminPanel() {
               placeholder="e.g., 100"
               value={newExamTotalMarks}
               onChange={(e) => setNewExamTotalMarks(e.target.value)}
-              className="w-full p-2 border rounded mt-1"
+              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
               required
             />
           </div>
@@ -1201,7 +1282,7 @@ export default function AdminPanel() {
           </div>
           <button
             type="submit"
-            className="bg-blue-600 text-white p-2 rounded w-full"
+            className="bg-blue-600 text-white p-2 rounded-md w-full hover:bg-blue-700 transition duration-150"
           >
             Create Exam
           </button>
@@ -1214,11 +1295,11 @@ export default function AdminPanel() {
         onClose={() => setIsAssignExaminersToExamModalOpen(false)}
         title="Assign Examiners to Exam Pool"
       >
-        <div className="space-y-4">
+        <div className="space-y-6 p-2">
           <div>
             <label
               htmlFor="selectExam"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
               Select Exam (Only unassigned exams shown):
             </label>
@@ -1234,7 +1315,7 @@ export default function AdminPanel() {
                   exams.find((exam) => exam._id === e.target.value)
                 )
               }
-              className="w-full p-2 border rounded mt-1"
+              className="w-full p-2 border rounded-md mt-1 focus:ring-purple-500 focus:border-purple-500"
               disabled={unassignedExamsForModal.length === 0} // Disable if no exams to assign
             >
               <option value="">-- Choose an Exam --</option>
@@ -1258,14 +1339,17 @@ export default function AdminPanel() {
               >
                 Assign Examiners (Select multiple):
               </label>
-              <div className="border rounded p-3 max-h-40 overflow-y-auto bg-gray-50">
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto bg-gray-50 shadow-inner">
                 {availableExaminers.length === 0 ? (
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-gray-500 text-sm text-center py-2">
                     No examiners available.
                   </p>
                 ) : (
                   availableExaminers.map((examiner) => (
-                    <div key={examiner._id} className="flex items-center mb-1">
+                    <div
+                      key={examiner._id}
+                      className="flex items-center mb-1 last:mb-0"
+                    >
                       <input
                         type="checkbox"
                         id={`examiner-${examiner._id}`}
@@ -1274,7 +1358,7 @@ export default function AdminPanel() {
                         onChange={() =>
                           handleExaminerCheckboxChange(examiner._id)
                         }
-                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
                       />
                       <label
                         htmlFor={`examiner-${examiner._id}`}
@@ -1286,6 +1370,9 @@ export default function AdminPanel() {
                   ))
                 )}
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Hold Ctrl/Cmd to select multiple examiners.
+              </p>
             </div>
           )}
           <button
@@ -1294,7 +1381,7 @@ export default function AdminPanel() {
               !selectedExamForExaminerAssignment ||
               selectedExaminerIds.length === 0
             }
-            className="bg-purple-600 text-white p-2 rounded w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-purple-600 text-white p-2 rounded-md w-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition duration-150"
           >
             Assign Examiners & Distribute Copies
           </button>
@@ -1321,7 +1408,7 @@ export default function AdminPanel() {
         </h2>
 
         {/* Exam Selection for Queries */}
-        <div className="mb-4">
+        <div className="mb-4 p-2 border border-gray-200 rounded-lg bg-gray-50">
           <label
             htmlFor="selectExamForQueries"
             className="block text-sm font-medium text-gray-700 mb-2"
@@ -1332,7 +1419,7 @@ export default function AdminPanel() {
             id="selectExamForQueries"
             value={selectedExamForQueryView}
             onChange={(e) => setSelectedExamForQueryView(e.target.value)}
-            className="w-full p-2 border rounded mt-1"
+            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Exams</option>
             {uniqueExamTitlesWithIds.map((exam) => (
@@ -1350,7 +1437,7 @@ export default function AdminPanel() {
               activeQueryTab === "pending"
                 ? "border-b-2 border-indigo-500 text-indigo-600"
                 : "text-gray-500 hover:text-gray-700"
-            }`}
+            } transition duration-150`}
             onClick={() => setActiveQueryTab("pending")}
           >
             Pending (
@@ -1443,17 +1530,23 @@ export default function AdminPanel() {
         </div>
 
         {/* Search bar for queries within the modal */}
-        <div className="mb-4">
+        <div className="mb-4 relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <MagnifyingGlassIcon
+              className="h-5 w-5 text-gray-400"
+              aria-hidden="true"
+            />
+          </div>
           <input
             type="text"
             placeholder="Search queries by student, or query text..."
-            className="w-full p-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             value={querySearchTerm}
             onChange={(e) => setQuerySearchTerm(e.target.value)}
           />
         </div>
 
-        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto rounded-lg border border-gray-200 shadow-sm">
           {" "}
           {/* Added max-height and overflow for scrollability */}
           {getFilteredQueries().length === 0 ? (
@@ -1462,7 +1555,7 @@ export default function AdminPanel() {
             </p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Student Name
