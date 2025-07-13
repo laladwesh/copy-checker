@@ -10,6 +10,7 @@ const {
 } = require("../config/googleDrive");
 const { PDFDocument } = require("pdf-lib");
 const { google } = require('googleapis');
+const { default: mongoose } = require("mongoose");
 const getDirectDriveDownloadLink = (fileId) => {
     if (!fileId) return null;
     return `https://drive.google.com/uc?export=download&id=${fileId}`;
