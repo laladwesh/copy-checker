@@ -20,6 +20,7 @@ const {
   toggleCopyRelease,
   resolveQueryByAdmin,
   redistributeCopies, // NEW
+  deleteUserBulk, // Assuming deleteUser is defined in the controller
 } = require("../controllers/admin.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -34,6 +35,7 @@ router.post("/users", createUser);
 router.get("/users", listUsers);
 router.get("/students", getStudentsByBatch);
 router.get("/examiners", getExaminers);
+router.delete("/users", deleteUserBulk); //Bulk delete controller 
 
 // Exam (Question Paper) Management - "pool where all exams should be there"
 router.post(

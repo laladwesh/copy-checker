@@ -1029,3 +1029,33 @@ exports.toggleCopyRelease = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.deleteUserBulk = async (req, res, next) => {
+  try {
+    const { userIds } = req.body; // Expecting an array of user IDs to delete
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty user IDs array." });
+    }
+
+    // Validate that all provided IDs are valid ObjectIDs
+    const validObjectIds = userIds.every((id) => mongoose.Types.ObjectId.isValid(id));
+    if (!validObjectIds) {
+      return res.status(400).json({ message: "One or more invalid user IDs provided." });
+    }
+
+    // Delete users in bulk
+    const result = await User.deleteMany({ _id: { $in: userIds } });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "No users found with the provided IDs." });
+    }
+
+    res.json({
+      message: `${result.deletedCount} users deleted successfully.`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
