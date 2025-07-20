@@ -1149,12 +1149,12 @@ export default function AdminPanel() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link
-                          to={`/admin/exams/${exam._id}`}
+                        <a
+                          href={`/admin/exams/${exam._id}`}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
                         >
                           <EyeIcon className="h-4 w-4 mr-1" /> View Details
-                        </Link>
+                        </a>
                       </td>
                     </tr>
                   );
