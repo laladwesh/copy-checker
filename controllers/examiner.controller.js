@@ -79,10 +79,20 @@ exports.getExaminerCopyDetails = async (req, res, next) => {
 
 exports.getCopy = async (req, res, next) => {
   try {
+
+    //check that is that the same examiner assigned to this copy if not return 403 unauthorized
     const copy = await Copy.findById(req.params.id)
       .populate("student") // Populate student details
       .populate("questionPaper"); // Populate questionPaper details
-
+    const examiner = req.user._id;
+    if (!copy) {
+      return res.status(404).json({ message: "Copy not found" });
+    }
+    if (!copy.examiners.includes(examiner)) {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: You are not assigned to this copy." });
+    }
     res.json(copy);
   } catch (err) {
     next(err);
