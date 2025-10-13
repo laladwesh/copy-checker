@@ -47,17 +47,22 @@ export default function ScanCopyUploadModal({
       setAvailableBatches(batches.sort()); // Sort batches alphabetically
 
       if (selectedBatch) {
-        setFilteredStudents(students.filter(s => s.batch === selectedBatch));
+        const filtered = students.filter(s => s.batch === selectedBatch);
+        setFilteredStudents(filtered);
+        
+        // Reset studentEmail if the current email is no longer valid
+        if (studentEmail && !filtered.some(s => s.email === studentEmail)) {
+          setStudentEmail("");
+        }
       } else {
         setFilteredStudents([]); // If no batch selected, show no students
+        if (studentEmail) {
+          setStudentEmail("");
+        }
       }
     } else {
       setAvailableBatches([]);
       setFilteredStudents([]);
-    }
-    // Reset studentEmail if the filtered list changes and the current email is no longer valid
-    if (studentEmail && !filteredStudents.some(s => s.email === studentEmail)) {
-      setStudentEmail("");
     }
 
     // NEW LOGIC FOR QUESTION PAPER FILTERING BASED ON SELECTED BATCH (COURSE)
@@ -69,20 +74,23 @@ export default function ScanCopyUploadModal({
           qp.course === selectedBatch && (!qp.assignedExaminers || qp.assignedExaminers.length === 0)
         );
         setFilteredQuestionPapers(qpsByBatch);
+        
+        // Reset selected QP if the current QP is no longer valid
+        if (selectedQpId && !qpsByBatch.some(qp => qp._id === selectedQpId)) {
+          setSelectedQpId("");
+        }
       } else {
         // If no batch selected, show no question papers
         setFilteredQuestionPapers([]);
+        if (selectedQpId) {
+          setSelectedQpId("");
+        }
       }
     } else {
       setFilteredQuestionPapers([]);
     }
 
-    // Reset selected QP if the filtered list changes and the current QP is no longer valid
-    if (selectedQpId && !filteredQuestionPapers.some(qp => qp._id === selectedQpId)) {
-      setSelectedQpId("");
-    }
-
-  }, [students, selectedBatch, studentEmail, filteredStudents, questionPapers, selectedQpId , filteredQuestionPapers]); // Added questionPapers and selectedQpId to dependencies
+  }, [students, selectedBatch, questionPapers]); // Removed filteredStudents, filteredQuestionPapers, studentEmail, and selectedQpId from dependencies
 
   const handleFileChange = (e) => {
     setUploadMessage("");
