@@ -33,17 +33,11 @@ export default function ExaminerCopyViewer() {
   const [error, setError] = useState("");
 
   const [acCurrentPage, setAcCurrentPage] = useState(1); // Current page of the Answer Copy
-  const [qpCurrentPage, setQpCurrentPage] = useState(1); // Current page of the Question Paper
-
   // Number of pages for PDFs
   const [numAcPages, setNumAcPages] = useState(null);
-  const [numQpPages, setNumQpPages] = useState(null);
-
+  
   // Zoom states
-  const [qpZoomLevel, setQpZoomLevel] = useState(1);
   const [acZoomLevel, setAcZoomLevel] = useState(1);
-
-  const [isQpLoading, setIsQpLoading] = useState(true); // State for QP PDF loading
   const [isAcLoading, setIsAcLoading] = useState(true); // State for AC PDF loading
 
   const ZOOM_STEP = 0.25;
@@ -58,11 +52,9 @@ export default function ExaminerCopyViewer() {
         const res = await api.get(`/examiner/copies/view/${copyId}`);
         setCopy(res.data);
         setAcCurrentPage(1); // Reset to page 1 on new copy load
-        setQpCurrentPage(1); // Reset to page 1 on new copy load
 
-        // Reset PDF loading states when new data is fetched
+        // Reset PDF loading state when new data is fetched
         setIsAcLoading(true);
-        setIsQpLoading(true);
 
         // Debugging logs for PDF URLs
         // console.log("Fetched Copy Data:", res.data);
@@ -73,9 +65,8 @@ export default function ExaminerCopyViewer() {
       } catch (err) {
         console.error("Error fetching copy details:", err);
         setError(err.response?.data?.message || err.message || "Failed to fetch copy details.");
-        // If copy details fail to load, ensure PDF loading states are set to false
+        // If copy details fail to load, ensure PDF loading state is set to false
         setIsAcLoading(false);
-        setIsQpLoading(false);
       } finally {
         setIsLoading(false);
       }
@@ -90,24 +81,11 @@ export default function ExaminerCopyViewer() {
     setIsAcLoading(false); // Mark Answer Copy PDF as loaded
     console.log("Answer Copy PDF Loaded Successfully. Pages:", numPages);
   }, []);
-
-  const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
-    setNumQpPages(numPages);
-    setIsQpLoading(false); // Mark Question Paper PDF as loaded
-    console.log("Question Paper PDF Loaded Successfully. Pages:", numPages);
-  }, []);
-
   // Handlers for when PDF documents fail to load
   const onAcDocumentLoadError = useCallback((err) => {
     console.error("Error loading Answer Copy PDF:", err);
     setIsAcLoading(false); // Stop loading animation
     setError("Failed to load Answer Copy PDF. Please check the file format or link.");
-  }, []);
-
-  const onQpDocumentLoadError = useCallback((err) => {
-    console.error("Error loading Question Paper PDF:", err);
-    setIsQpLoading(false); // Stop loading animation
-    setError(prev => prev ? prev + " Failed to load Question Paper PDF." : "Failed to load Question Paper PDF.");
   }, []);
 
 
@@ -116,38 +94,21 @@ export default function ExaminerCopyViewer() {
     setAcZoomLevel(1);
   }, [acCurrentPage]);
 
-  useEffect(() => {
-    setQpZoomLevel(1);
-  }, [qpCurrentPage]);
-
 
   // Handler for zooming PDFs (now affects scale of the <Page> component)
   const handleZoom = useCallback((type, action) => {
-    if (type === "qp") {
-      setQpZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = 1; // Reset to 1 (actual size within the container)
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    } else if (type === "ac") {
-      setAcZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = 1; // Reset to 1 (actual size within the container)
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    }
+    // Only answer-copy zoom is needed for the examiner view
+    setAcZoomLevel((prevZoom) => {
+      let newZoom = prevZoom;
+      if (action === "in") {
+        newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
+      } else if (action === "out") {
+        newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
+      } else if (action === "reset") {
+        newZoom = 1;
+      }
+      return parseFloat(newZoom.toFixed(2));
+    });
   }, [MIN_ZOOM, MAX_ZOOM, ZOOM_STEP]); // Dependencies for useCallback
 
   if (isLoading) {
@@ -246,124 +207,12 @@ export default function ExaminerCopyViewer() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-          {/* Question Paper Section */}
-          <div className="lg:col-span-5 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
-              Question Paper
-            </h2>
-            <div className="flex justify-between items-center w-full mb-4 space-x-4">
-              <button
-                onClick={() => setQpCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={qpCurrentPage === 1}
-                className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Prev
-              </button>
-              <span className="text-lg font-bold text-gray-800">
-                Page {qpCurrentPage} / {numQpPages || "..."}
-              </span>
-              <button
-                onClick={() =>
-                  setQpCurrentPage((p) => Math.min(numQpPages, p + 1))
-                }
-                disabled={qpCurrentPage === numQpPages}
-                className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Next
-              </button>
-            </div>
-            <div className="relative w-full flex-grow h-[600px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
-              {isQpLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-                  <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
-                  <span className="ml-2 text-gray-700">Loading Question Paper...</span>
-                </div>
-              )}
-              {qpPdfUrl ? (
-                <Document
-                  file={qpPdfUrl}
-                  onLoadSuccess={onQpDocumentLoadSuccess}
-                  onLoadError={onQpDocumentLoadError}
-                >
-                  <Page
-                    pageNumber={qpCurrentPage}
-                    scale={qpZoomLevel}
-                    renderTextLayer={false}
-                    renderAnnotationLayer={true}
-                    loading={
-                      <div className="flex flex-col items-center">
-                        <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
-                        <span className="ml-2 text-gray-700">Loading page...</span>
-                      </div>
-                    }
-                  />
-                </Document>
-              ) : (
-                <div className="text-gray-500 text-center p-4">
-                  Question Paper PDF Not Found or Link Invalid.
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-center mt-4 space-x-2">
-              <button
-                onClick={() => handleZoom("qp", "out")}
-                disabled={qpZoomLevel === MIN_ZOOM}
-                className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom Out"
-              >
-                <MagnifyingGlassMinusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("qp", "in")}
-                disabled={qpZoomLevel === MAX_ZOOM}
-                className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom In"
-              >
-                <MagnifyingGlassPlusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("qp", "reset")}
-                disabled={qpZoomLevel === 1}
-                className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Reset Zoom"
-              >
-                <ArrowsPointingInIcon className="h-5 w-5" />
-              </button>
-              <span className="text-sm text-gray-600">
-                {qpZoomLevel.toFixed(2)}x
-              </span>
-            </div>
-          </div>
-
-          {/* Answer Copy Section */}
-          <div className="lg:col-span-7 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
+          {/* Main Answer Copy Viewer (center) */}
+          <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Answer Copy
             </h2>
-            <div className="flex justify-between items-center w-full mb-4 space-x-4">
-              <button
-                onClick={() =>
-                  setAcCurrentPage((p) => Math.max(1, p - 1))
-                }
-                disabled={acCurrentPage === 1}
-                className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Prev
-              </button>
-              <span className="text-lg font-bold text-gray-800">
-                Page {acCurrentPage} / {numAcPages || "..."}
-              </span>
-              <button
-                onClick={() =>
-                  setAcCurrentPage((p) => Math.min(numAcPages, p + 1))
-                }
-                disabled={acCurrentPage === numAcPages}
-                className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Next
-              </button>
-            </div>
-            <div className="relative w-full flex-grow h-[600px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+            <div className="relative w-full h-[800px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                   <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
@@ -395,36 +244,87 @@ export default function ExaminerCopyViewer() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-center mt-4 space-x-2">
-              <button
-                onClick={() => handleZoom("ac", "out")}
-                disabled={acZoomLevel === MIN_ZOOM}
-                className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom Out"
-              >
-                <MagnifyingGlassMinusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("ac", "in")}
-                disabled={acZoomLevel === MAX_ZOOM}
-                className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom In"
-              >
-                <MagnifyingGlassPlusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("ac", "reset")}
-                disabled={acZoomLevel === 1}
-                className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Reset Zoom"
-              >
-                <ArrowsPointingInIcon className="h-5 w-5" />
-              </button>
-              <span className="text-sm text-gray-600">
-                {acZoomLevel.toFixed(2)}x
-              </span>
-            </div>
           </div>
+
+          {/* Right Sidebar: controls, question paper link, evaluation */}
+          <aside className="lg:col-span-4 flex flex-col space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3>
+              <div className="flex items-center justify-between mb-3 space-x-3">
+                <button
+                  onClick={() => setAcCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={acCurrentPage === 1}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                >
+                  Prev
+                </button>
+                <div className="text-center">
+                  <div className="text-sm text-gray-600">Page</div>
+                  <div className="text-lg font-bold text-gray-800">{acCurrentPage} / {numAcPages || "..."}</div>
+                </div>
+                <button
+                  onClick={() => setAcCurrentPage((p) => Math.min(numAcPages, p + 1))}
+                  disabled={acCurrentPage === numAcPages}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                >
+                  Next
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleZoom("ac", "out")}
+                    disabled={acZoomLevel === MIN_ZOOM}
+                    className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    title="Zoom Out"
+                  >
+                    <MagnifyingGlassMinusIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => handleZoom("ac", "in")}
+                    disabled={acZoomLevel === MAX_ZOOM}
+                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    title="Zoom In"
+                  >
+                    <MagnifyingGlassPlusIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => handleZoom("ac", "reset")}
+                    disabled={acZoomLevel === 1}
+                    className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    title="Reset Zoom"
+                  >
+                    <ArrowsPointingInIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
+              </div>
+
+              <div className="mt-2">
+                <h4 className="text-sm font-medium text-gray-700 mb-1">Question Paper</h4>
+                {qpPdfUrl ? (
+                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                    Open Question Paper in Drive
+                  </a>
+                ) : (
+                  <div className="text-gray-500">Question paper link not available.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Evaluation for Page {acCurrentPage}</h3>
+              <div className="mb-4">
+                <label className="block text-base font-medium text-gray-700 mb-1">Marks Awarded:</label>
+                <p className="w-full md:w-32 px-3 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-base">{marksAwarded}</p>
+              </div>
+              <div className="mb-2">
+                <label className="block text-base font-medium text-gray-700 mb-1">Comments:</label>
+                <p className="w-full px-3 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-base whitespace-pre-wrap">{comments}</p>
+              </div>
+            </div>
+          </aside>
         </div>
 
         {/* Marks and Comments Display */}
