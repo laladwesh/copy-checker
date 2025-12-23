@@ -68,7 +68,7 @@ export default function Navbar({ user, onLogout }) {
   };
 
   return (
-    <nav className="bg-white shadow-lg p-4 md:px-8 flex flex-col md:flex-row justify-between items-center rounded-b-xl sticky top-0 z-50">
+    <nav className="bg-white shadow-lg p-4 md:px-8 flex flex-col md:flex-row justify-between items-center rounded-b-xl">
       {/* Brand Logo/Link */}
       <Link
         to="/"
@@ -87,7 +87,7 @@ export default function Navbar({ user, onLogout }) {
               className="flex items-center text-lg font-semibold text-gray-700 bg-indigo-100 px-4 py-2 rounded-full shadow-inner cursor-pointer hover:bg-indigo-200 transition-colors duration-200"
             >
               <UserCircleIcon className="h-5 w-5 mr-2 text-indigo-600" />
-              {user.role.toUpperCase()}
+              {user.role?.toUpperCase()}
             </button>
             {/* Logout Button */}
             <button
