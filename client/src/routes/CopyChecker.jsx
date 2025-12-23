@@ -31,9 +31,10 @@ export default function CopyChecker() {
   const [copy, setCopy] = useState(null);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1); // Current page of the Answer Copy
-  const [qpCurrentPage, setQpCurrentPage] = useState(1); // Current page of the Question Paper
   const [marks, setMarks] = useState("");
   const [comments, setComments] = useState("");
+  // Track which pages have been explicitly saved by the examiner (client-side)
+  const [savedPages, setSavedPages] = useState(new Set());
 
   // UI States
   const [showToast, setShowToast] = useState(false);
@@ -44,16 +45,11 @@ export default function CopyChecker() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // For Save & Next button loading
 
-  // React-pdf states for Question Paper
-  const [qpNumPages, setQpNumPages] = useState(null);
-  const [isQpLoading, setIsQpLoading] = useState(true);
-
   // React-pdf states for Answer Copy
   const [acNumPages, setAcNumPages] = useState(null);
   const [isAcLoading, setIsAcLoading] = useState(true);
 
   // Zoom States
-  const [qpZoomLevel, setQpZoomLevel] = useState(1); // Initial zoom level for QP
   const [acZoomLevel, setAcZoomLevel] = useState(1); // Initial zoom level for AC
 
   const ZOOM_STEP = 0.25;
@@ -66,12 +62,19 @@ export default function CopyChecker() {
       try {
         const res = await api.get(`/examiner/copies/${copyId}`);
         setCopy(res.data);
-        // Set both Answer Copy and Question Paper to page 1 on load
+        // Set Answer Copy to page 1 on load
         setCurrentPage(1);
-        setQpCurrentPage(1);
-        // Reset loading states after initial document fetch
+        // Reset loading state after initial document fetch
         setIsAcLoading(true); // Will be set to false by onRenderSuccessAC
-        setIsQpLoading(true); // Will be set to false by onRenderSuccessQP
+        // Initialize savedPages from server data (only pages actually annotated by a user)
+        // Use `lastAnnotatedBy` rather than `marksAwarded` because `marksAwarded` may be 0
+        // for un-annotated pages in some backends and would be incorrectly treated as saved.
+        const initiallySaved = new Set(
+          (res.data.pages || [])
+            .filter((p) => Boolean(p.lastAnnotatedBy))
+            .map((p) => p.pageNumber)
+        );
+        setSavedPages(initiallySaved);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
         showTemporaryToast(
@@ -79,7 +82,6 @@ export default function CopyChecker() {
           "error"
         );
         setIsAcLoading(false); // Ensure loading is off if there's an error
-        setIsQpLoading(false); // Ensure loading is off if there's an error
       }
     };
     fetchCopy();
@@ -103,27 +105,17 @@ export default function CopyChecker() {
     setIsAcLoading(true);
   }, [currentPage, copy]);
 
-  // Reset zoom for QP when page changes, and set loading to true
-  useEffect(() => {
-    if (!copy || !copy.questionPaper) return;
-    setQpZoomLevel(1);
-    setIsQpLoading(true);
-  }, [qpCurrentPage, copy]);
+  // Combine server-side marked pages with client-side saved pages for progress/count
+  // Consider only pages where `lastAnnotatedBy` is present as saved on the server.
+  // Avoid using `marksAwarded` here because 0 is a valid numeric value that may
+  // be present for all pages by default and would cause false positives.
+  const serverSavedPages = (copy?.pages || [])
+    .filter((p) => Boolean(p.lastAnnotatedBy))
+    .map((p) => p.pageNumber);
+  const combinedSavedSet = new Set([...Array.from(savedPages), ...serverSavedPages]);
+  const totalChecked = combinedSavedSet.size;
 
-  const onDocumentLoadSuccessQP = useCallback(({ numPages }) => {
-    setQpNumPages(numPages);
-    setIsQpLoading(false); // Document loaded, but page rendering still needs to happen
-  }, []);
-
-  const onDocumentLoadErrorQP = useCallback((error) => {
-    console.error("Error loading QP document:", error);
-    setIsQpLoading(false);
-    setError("Failed to load Question Paper PDF.");
-  }, []);
-
-  const onRenderSuccessQP = useCallback(() => {
-    setIsQpLoading(false); // Page finished rendering
-  }, []);
+  // (Question Paper is provided as an external link in the sidebar)
 
   const onDocumentLoadSuccessAC = useCallback(({ numPages }) => {
     setAcNumPages(numPages);
@@ -193,12 +185,9 @@ export default function CopyChecker() {
     0
   );
 
-  // Calculate completion percentage for the timeline
-  const markedPagesCount = copy.pages.filter(
-    (page) => page.lastAnnotatedBy != null
-  ).length;
+  // Calculate completion percentage for the timeline (use combined saved state)
   const completionPercentage =
-    copy.totalPages > 0 ? (markedPagesCount / copy.totalPages) * 100 : 0;
+    copy.totalPages > 0 ? (totalChecked / copy.totalPages) * 100 : 0;
 
   // Handler: save this page’s marks, then advance
   const handleSavePage = async () => {
@@ -207,10 +196,12 @@ export default function CopyChecker() {
     try {
       if (marks === "" || isNaN(parseInt(marks))) {
         showTemporaryToast("Please enter a valid number for marks.", "error");
+        setIsSaving(false);
         return;
       }
       if (parseInt(marks) < 0) {
         showTemporaryToast("Marks cannot be negative.", "error");
+        setIsSaving(false);
         return;
       }
 
@@ -221,6 +212,12 @@ export default function CopyChecker() {
       };
       const res = await api.patch(`/examiner/copies/${copyId}/mark-page`, payload);
       setCopy(res.data); // Update local copy state with new data from server
+      // Mark this page as saved on the client as well
+      setSavedPages((prev) => {
+        const next = new Set(Array.from(prev));
+        next.add(currentPage);
+        return next;
+      });
       showTemporaryToast("Page marks saved successfully!", "success");
 
       // Advance to the next page only if it's not the last page
@@ -228,7 +225,7 @@ export default function CopyChecker() {
         setCurrentPage((p) => p + 1);
       } else {
         setIsAcLoading(false); // Stop loading state if on last page
-        setIsQpLoading(false); // Stop loading state if on last page
+        // question-paper loading not used here (QP is opened via link)
         setShowReviewModal(true); // Show review modal if on last page
         showTemporaryToast(
           "You've reached the last page. Please review and submit.",
@@ -247,8 +244,8 @@ export default function CopyChecker() {
   };
 
   // Get the current page URL for Question Paper PDF
-  const qpPdfUrl = copy.questionPaper?.driveFile?.id
-    ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
+  const qpPdfUrl = copy.questionPaper?.driveFile?.viewLink
+    ? `${copy.questionPaper?.driveFile?.viewLink}`
     : "";
 
   // Get the current page URL for Answer Copy PDF
@@ -285,31 +282,18 @@ export default function CopyChecker() {
 
   // Handler for zooming images
   const handleZoom = (type, action) => {
-    if (type === "qp") {
-      setQpZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = 1; // Reset to default 1x zoom
-        }
-        return parseFloat(newZoom.toFixed(2)); // To prevent floating point inaccuracies
-      });
-    } else if (type === "ac") {
-      setAcZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = 1; // Reset to default 1x zoom
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    }
+    // Only answer-copy zoom is needed in this view; ignore QP
+    setAcZoomLevel((prevZoom) => {
+      let newZoom = prevZoom;
+      if (action === "in") {
+        newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
+      } else if (action === "out") {
+        newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
+      } else if (action === "reset") {
+        newZoom = 1;
+      }
+      return parseFloat(newZoom.toFixed(2));
+    });
   };
 
   
@@ -367,22 +351,22 @@ export default function CopyChecker() {
           </Link>
         </div>
       </nav>
-      <div className="p-8">
+      <div className="p-4">
         {" "}
         {/* Main content padding */}
-        <div>
+        {/* <div>
           <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center tracking-tight">
             Checking:{" "}
             <span className="text-indigo-700">{copy.student.name}</span> (
             <span className="text-indigo-700">{copy.student.email}</span>) —{" "}
             <span className="text-purple-700">{copy.questionPaper.title}</span>
           </h1>
-        </div>
+        </div> */}
         {/* Completion Timeline */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-6xl mx-auto mb-8">
+        <div className="bg-white p-3 rounded-md border border-gray-200 max-w-6xl mx-auto mb-6">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">
-            Marking Progress: {markedPagesCount} of {copy.totalPages} pages
-            marked ({completionPercentage.toFixed(1)}%)
+            Marking Progress: {totalChecked} of {copy.totalPages} pages
+            checked ({completionPercentage.toFixed(1)}%)
           </h3>
           <div className="w-full bg-gray-200 rounded-full h-4">
             <div
@@ -391,330 +375,108 @@ export default function CopyChecker() {
             ></div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 w-full max-w-full mx-auto mb-8">
-          <h3 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">
-            Marking for Page {currentPage}
-          </h3>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-            <div className="flex-grow">
-              <label
-                htmlFor="marks"
-                className="block text-base font-medium text-gray-700 mb-1"
-              >
-                Marks Awarded:
-              </label>
-              <input
-                id="marks"
-                type="number"
-                min="0"
-                value={marks}
-                onChange={(e) => setMarks(e.target.value)}
-                className="w-full md:w-32 px-3 py-1.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base appearance-none"
-                placeholder="e.g., 10"
-              />
-            </div>
-            {/* Moved the Save button here, alongside the marks input on larger screens */}
-            <button
-              onClick={handleSavePage}
-              disabled={isSaving}
-              className="w-full md:w-auto bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 ease-in-out text-xl font-semibold shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <svg
-                  className="animate-spin h-6 w-6 mr-3 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                <ClipboardDocumentCheckIcon className="h-6 w-6 mr-3" />
-              )}
-              {isSaving ? "Saving..." : "Save & Next Page"}
-            </button>
-          </div>
-
-          <div className="mb-4">
-            {" "}
-            {/* Reduced mb from mb-6 to mb-4 */}
-            <label
-              htmlFor="comments"
-              className="block text-base font-medium text-gray-700 mb-1"
-            >
-              Comments / Annotations:
-            </label>
-            <textarea
-              id="comments"
-              rows={2}
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base resize-y"
-              placeholder="Add any comments or annotations for this page..."
-            ></textarea>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-          {/* Question Paper Section - Takes 5/12 width on large screens */}
-          <div className="lg:col-span-5 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
-              Question Paper
-            </h2>
-            {qpNumPages > 1 && (
-              <div className="flex justify-between items-center w-full mb-4 space-x-4">
-                {/* Page navigation for QP */}
-                <button
-                  onClick={() => {
-                    setQpCurrentPage((p) => Math.max(1, p - 1));
-                    // setIsQpLoading(true); // This is now handled by useEffect for qpCurrentPage
-                  }}
-                  disabled={qpCurrentPage === 1}
-                  className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-                >
-                  Prev
-                </button>
-                <span className="text-lg font-bold text-gray-800">
-                  Page {qpCurrentPage} / {qpNumPages || "..."}
-                </span>
-                <button
-                  onClick={() => {
-                    setQpCurrentPage((p) =>
-                      Math.min(qpNumPages, p + 1)
-                    );
-                    // setIsQpLoading(true); // This is now handled by useEffect for qpCurrentPage
-                  }}
-                  disabled={qpCurrentPage === qpNumPages}
-                  className="flex-1 px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-                >
-                  Next
-                </button>
+        {/* Main layout: big Answer Copy in center, controls + marking on right sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+          <div className="lg:col-span-9 bg-white flex flex-col items-center">
+            <div className="w-full flex items-center justify-between mb-2">
+              <h2 className="text-2xl font-semibold text-gray-800 text-center">Answer Copy</h2>
+              {/* Page check indicator */}
+              <div className="flex items-center space-x-2 mr-2">
+                {(function(){
+                  const isChecked = combinedSavedSet.has(currentPage);
+                  return (
+                    <>
+                      <span className={`h-3 w-3 rounded-full ${isChecked ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className="text-sm text-gray-700">{isChecked ? 'Checked' : 'Not checked'}</span>
+                    </>
+                  );
+                })()}
               </div>
-            )}
-            <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
-              {isQpLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10 rounded-lg">
-                  <svg
-                    className="animate-spin h-8 w-8 text-indigo-500"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span className="ml-2 text-gray-700">Loading...</span>
-                </div>
-              )}
-              {qpPdfUrl ? (
-                <Document
-                  file={qpPdfUrl}
-                  onLoadSuccess={onDocumentLoadSuccessQP}
-                  onLoadError={onDocumentLoadErrorQP}
-                  className="w-full h-full flex justify-center items-center" // Center the document
-                >
-                  <Page
-                    pageNumber={qpCurrentPage}
-                    scale={qpZoomLevel}
-                    renderAnnotationLayer={true}
-                    renderTextLayer={true}
-                    onRenderSuccess={onRenderSuccessQP} // Add this
-                    customTextRenderer={({ str, itemIndex }) => (
-                      <span
-                        key={itemIndex}
-                        className="react-pdf__Page__textContent__text"
-                        style={{ opacity: 0 }}
-                      >
-                        {str}
-                      </span>
-                    )} // Hide text layer to prevent double text
-                  />
-                </Document>
-              ) : (
-                <div className="text-gray-500 text-center p-4">
-                  Question Paper PDF Not Found.
-                </div>
-              )}
             </div>
-            <div className="flex items-center justify-center mt-4 space-x-2">
-              {" "}
-              {/* Zoom controls centered below QP */}
-              <button
-                onClick={() => handleZoom("qp", "out")}
-                disabled={qpZoomLevel === MIN_ZOOM}
-                className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom Out"
-              >
-                <MagnifyingGlassMinusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("qp", "in")}
-                disabled={qpZoomLevel === MAX_ZOOM}
-                className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom In"
-              >
-                <MagnifyingGlassPlusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("qp", "reset")}
-                disabled={qpZoomLevel === 1}
-                className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Reset Zoom"
-              >
-                <ArrowsPointingInIcon className="h-5 w-5" />
-              </button>
-              <span className="text-sm text-gray-600">
-                {qpZoomLevel.toFixed(2)}x
-              </span>
-            </div>
-          </div>
-
-          {/* Answer Copy Section - Takes 7/12 width on large screens */}
-          <div className="lg:col-span-7 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
-              Answer Copy
-            </h2>
-            <div className="flex justify-between items-center w-full mb-4 space-x-4">
-              {" "}
-              {/* Page navigation for AC */}
-              <button
-                onClick={() => {
-                  setCurrentPage((p) => Math.max(1, p - 1));
-                  // setIsAcLoading(true); // This is now handled by useEffect for currentPage
-                }}
-                disabled={currentPage === 1}
-                className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Prev
-              </button>
-              <span className="text-lg font-bold text-gray-800">
-                Page {currentPage} / {acNumPages || "..."}
-              </span>
-              <button
-                onClick={() => {
-                  setCurrentPage((p) => Math.min(acNumPages, p + 1));
-                  // setIsAcLoading(true); // This is now handled by useEffect for currentPage
-                }}
-                disabled={currentPage === acNumPages}
-                className="flex-1 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-lg"
-              >
-                Next
-              </button>
-            </div>
-            <div className="relative w-full flex-grow h-[400px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+            <div className="relative w-full overflow-auto flex items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
               {isAcLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10 rounded-lg">
-                  <svg
-                    className="animate-spin h-8 w-8 text-indigo-500"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
+                  <svg className="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   <span className="ml-2 text-gray-700">Loading...</span>
                 </div>
               )}
               {acPdfUrl ? (
-                <Document
-                  file={acPdfUrl}
-                  onLoadSuccess={onDocumentLoadSuccessAC}
-                  onLoadError={onDocumentLoadErrorAC}
-                  className="w-full h-full flex justify-center items-center" // Center the document
-                >
-                  <Page
-                    pageNumber={currentPage}
-                    scale={acZoomLevel}
-                    renderAnnotationLayer={true}
-                    renderTextLayer={true}
-                    onRenderSuccess={onRenderSuccessAC} // Add this
-                    customTextRenderer={({ str, itemIndex }) => (
-                      <span
-                        key={itemIndex}
-                        className="react-pdf__Page__textContent__text"
-                        style={{ opacity: 0 }}
-                      >
-                        {str}
-                      </span>
-                    )} // Hide text layer to prevent double text
-                  />
+                <Document file={acPdfUrl} onLoadSuccess={onDocumentLoadSuccessAC} onLoadError={onDocumentLoadErrorAC} className="w-full h-full flex justify-center items-center">
+                  <Page pageNumber={currentPage} scale={acZoomLevel} renderAnnotationLayer={true} renderTextLayer={true} onRenderSuccess={onRenderSuccessAC} customTextRenderer={({ str, itemIndex }) => (
+                    <span key={itemIndex} className="react-pdf__Page__textContent__text" style={{ opacity: 0 }}>{str}</span>
+                  )} />
                 </Document>
               ) : (
-                <div className="text-gray-500 text-center p-4">
-                  Answer Copy PDF Not Found.
-                </div>
+                <div className="text-gray-500 text-center p-2">Answer Copy PDF Not Found.</div>
               )}
             </div>
-            <div className="flex items-center justify-center mt-4 space-x-2">
-              {" "}
-              {/* Zoom controls centered below AC */}
-              <button
-                onClick={() => handleZoom("ac", "out")}
-                disabled={acZoomLevel === MIN_ZOOM}
-                className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom Out"
-              >
-                <MagnifyingGlassMinusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("ac", "in")}
-                disabled={acZoomLevel === MAX_ZOOM}
-                className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Zoom In"
-              >
-                <MagnifyingGlassPlusIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => handleZoom("ac", "reset")}
-                disabled={acZoomLevel === 1}
-                className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                title="Reset Zoom"
-              >
-                <ArrowsPointingInIcon className="h-5 w-5" />
-              </button>
-              <span className="text-sm text-gray-600">
-                {acZoomLevel.toFixed(2)}x
-              </span>
-            </div>
           </div>
+
+          {/* Right Sidebar */}
+          <aside className="lg:col-span-3 flex flex-col space-y-4">
+            <div className="bg-white p-3 rounded-md border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3>
+              <div className="flex items-center justify-between mb-3 space-x-3">
+                <button onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); }} disabled={currentPage === 1} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium">Prev</button>
+                <div className="text-center"><div className="text-sm text-gray-600">Page</div><div className="text-lg font-bold text-gray-800">{currentPage} / {acNumPages || "..."}</div></div>
+                <button onClick={() => { setCurrentPage((p) => Math.min(acNumPages, p + 1)); }} disabled={currentPage === acNumPages} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium">Next</button>
+              </div>
+
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
+                </div>
+                <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
+              </div>
+
+              <div className="mt-2">
+                <h4 className="text-sm font-medium text-gray-700 mb-1">Question Paper</h4>
+                {qpPdfUrl ? (
+                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Open Question Paper (new tab)</a>
+                ) : (
+                  <div className="text-gray-500">Question paper link not available.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-md border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Marking for Page {currentPage}</h3>
+              <div className="mb-3">
+                <label htmlFor="marks" className="block text-sm font-medium text-gray-700 mb-1">Marks Awarded:</label>
+                <input id="marks" type="number" min="0" value={marks} onChange={(e) => setMarks(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="e.g., 10" />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-1">Comments:</label>
+                <textarea id="comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm resize-y" placeholder="Add comments..."></textarea>
+              </div>
+              <div className="flex justify-end">
+                <button onClick={handleSavePage} disabled={isSaving} className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm flex items-center">
+                  {isSaving ? (
+                    <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  ) : (
+                    <ClipboardDocumentCheckIcon className="h-4 w-4 mr-2" />
+                  )}
+                  {isSaving ? "Saving" : "Save"}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-md border border-gray-200">
+              <div className="text-sm font-semibold text-gray-800">Total: <span className="text-green-700">{totalMarks}</span></div>
+              <div className="mt-3">
+                <button onClick={() => setShowReviewModal(true)} className="w-full bg-purple-600 text-white px-3 py-1 rounded-md hover:bg-purple-700 text-sm">Review & Submit</button>
+              </div>
+            </div>
+          </aside>
         </div>
         {/* Mark Allocation Form */}
         {/* Running Total & Review Button */}
-        <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-4xl mx-auto">
+        {/* <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-4xl mx-auto">
           <div className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-4 md:mb-0">
             Total Marks: <span className="text-green-700">{totalMarks}</span>
           </div>
@@ -724,7 +486,7 @@ export default function CopyChecker() {
           >
             <PaperAirplaneIcon className="h-6 w-6 mr-3" /> Review & Submit Final
           </button>
-        </div>
+        </div> */}
         {/* Completion Status */}
         {copy.status === "evaluated" && ( // Changed from 'completed' to 'evaluated' based on examiner.controller.js
           <div className="text-center text-xl text-green-600 font-semibold bg-green-50 p-4 rounded-lg mt-6 max-w-4xl mx-auto border border-green-200">
@@ -748,28 +510,31 @@ export default function CopyChecker() {
               <div className="space-y-6">
                 {copy.pages
                   .sort((a, b) => a.pageNumber - b.pageNumber)
-                  .map((page) => (
-                    <div
-                      key={page.pageNumber}
-                      className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm"
-                    >
-                      <h4 className="text-lg font-bold text-gray-800 mb-2">
-                        Page {page.pageNumber}
-                      </h4>
-                      <p className="text-gray-700">
-                        <strong>Marks:</strong>{" "}
-                        <span className="font-semibold text-green-700">
-                          {page.marksAwarded ?? "N/A"}
-                        </span>
-                      </p>
-                      <p className="text-gray-700">
-                        <strong>Comments:</strong>{" "}
-                        {page.comments || "No comments."}
-                      </p>
-                      {/* Optionally, add a small thumbnail here if you have a way to generate/fetch them */}
-                      {/* <img src={`/api/drive/page-thumbnail/${copy.driveFile.id}/${page.pageNumber}`} alt={`Page ${page.pageNumber}`} className="mt-2 w-24 h-auto border rounded" /> */}
-                    </div>
-                  ))}
+                  .map((page) => {
+                    const isChecked = combinedSavedSet.has(page.pageNumber);
+                    return (
+                      <div
+                        key={page.pageNumber}
+                        className={`bg-gray-50 p-4 rounded-lg border ${isChecked ? 'border-green-200' : 'border-gray-200'} shadow-sm`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="text-lg font-bold text-gray-800">Page {page.pageNumber}</h4>
+                          <div className="flex items-center space-x-2">
+                            <span className={`h-3 w-3 rounded-full ${isChecked ? 'bg-green-500' : 'bg-gray-300'}`} />
+                            <span className="text-sm text-gray-700">{isChecked ? 'Checked' : 'Not checked'}</span>
+                          </div>
+                        </div>
+                        <p className="text-gray-700">
+                          <strong>Marks:</strong>{" "}
+                          <span className="font-semibold text-green-700">{page.marksAwarded ?? "N/A"}</span>
+                        </p>
+                        <p className="text-gray-700">
+                          <strong>Comments:</strong>{" "}
+                          {page.comments || "No comments."}
+                        </p>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -787,16 +552,16 @@ export default function CopyChecker() {
             </button>
             <button
               onClick={handleFinalSubmit}
-              disabled={markedPagesCount !== copy.totalPages} // Only enable if all pages are marked
+              disabled={totalChecked !== copy.totalPages} // Only enable if all pages are checked/saved
               className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm & Finish
             </button>
           </div>
-          {markedPagesCount !== copy.totalPages && (
+          {totalChecked !== copy.totalPages && (
             <p className="text-sm text-red-500 text-center mt-3">
-              *You must mark all {copy.totalPages} pages before confirming final
-              submission.
+              *You must save every page (click Save) before confirming final
+              submission. {copy.totalPages - totalChecked} page(s) left.
             </p>
           )}
         </Modal>
