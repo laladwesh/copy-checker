@@ -93,11 +93,15 @@ export default function AllExaminerDetailsModal({ isOpen, onClose, examiners, co
     }
   }, [isOpen, examiners, copies, exams]); // Re-run effect if these props change
 
-  // Filter examiner stats based on search term
-  const filteredExaminerStats = examinerStats.filter(examiner =>
-    examiner.name.toLowerCase().includes(examinerSearchTerm.toLowerCase()) ||
-    examiner.email.toLowerCase().includes(examinerSearchTerm.toLowerCase())
-  );
+  // Filter examiner stats based on search term (guard missing fields)
+  const _term = (examinerSearchTerm || "").toLowerCase().trim();
+  const filteredExaminerStats = _term
+    ? examinerStats.filter((examiner) => {
+        const name = String(examiner?.name || "").toLowerCase();
+        const email = String(examiner?.email || "").toLowerCase();
+        return name.includes(_term) || email.includes(_term);
+      })
+    : examinerStats;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Examiner Performance & Payments" large>
