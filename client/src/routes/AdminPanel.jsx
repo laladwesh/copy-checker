@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal";
 import ScanCopyUploadModal from "../components/ScanCopyUploadModal";
-import AdminQueryViewerModal from "../components/AdminQueryViewerModal";
 import {
   UserGroupIcon,
   BookOpenIcon,
@@ -19,7 +18,7 @@ import {
   TrashIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import AllExaminerDetailsModal from "../components/AllExaminerDetailsModal";
+// AllExaminerDetailsModal moved to a full page: /admin/examiners
 
 /**
  * AdminPanel - Main dashboard for administrators
@@ -41,7 +40,6 @@ export default function AdminPanel() {
     setIsAssignExaminersToExamModalOpen,
   ] = useState(false);
   const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
-  const [isQueriesModalOpen, setIsQueriesModalOpen] = useState(false);
 
   // Form input states
   const [newUserName, setNewUserName] = useState("");
@@ -57,8 +55,6 @@ export default function AdminPanel() {
 
   const [newExamFiles, setNewExamFiles] = useState([]);
   const [newExamFileType, setNewExamFileType] = useState(null);
-
-  const [querySearchTerm, setQuerySearchTerm] = useState("");
 
   const [
     selectedExamForExaminerAssignment,
@@ -88,34 +84,7 @@ export default function AdminPanel() {
     type: "success",
   });
 
-  // Query management states
-  const [selectedQuery, setSelectedQuery] = useState(null);
-  const [isViewQueryModalOpen, setIsViewQueryModalOpen] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [isSubmittingQueryAction, setIsSubmittingQueryAction] = useState(false);
-
-  // Query viewer states
-  const [selectedCopyForQueryView, setSelectedCopyForQueryView] =
-    useState(null);
-  const [queryViewerCurrentPage, setQueryViewerCurrentPage] = useState(1);
-  const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1);
-  const [isQueryViewerAcLoading, setIsQueryViewerAcLoading] = useState(true);
-
-  // Question paper viewer states
-  const [queryViewerQpCurrentPage, setQueryViewerQpCurrentPage] = useState(1);
-  const [queryViewerQpZoomLevel, setQueryViewerQpZoomLevel] = useState(1);
-  const [isQueryViewerQpLoading, setIsQueryViewerQpLoading] = useState(true);
-
-  const [isExaminerDetailsModalOpen, setIsExaminerDetailsModalOpen] =
-    useState(false);
-
-  const ZOOM_STEP = 0.25;
-  const MIN_ZOOM = 1;
-  const MAX_ZOOM = 3;
-
-  // Query filtering states
-  const [selectedExamForQueryView, setSelectedExamForQueryView] = useState("");
-  const [activeQueryTab, setActiveQueryTab] = useState("pending");
+  const navigate = useNavigate();
 
   const showTemporaryToast = useCallback(
     (msg, type = "success") => {
@@ -507,15 +476,12 @@ export default function AdminPanel() {
   // Handles individual, batch, or bulk deletions with appropriate confirmation
   const handleDeleteUsers = async () => {
     let userIdsToDelete = [];
-    let confirmationMessage = "";
 
     if (deleteAllBatches) {
       // Deleting all students across all batches
       userIdsToDelete = users
         .filter((user) => user.role === "student")
         .map((user) => user._id);
-      confirmationMessage =
-        "Are you sure you want to delete ALL students across ALL batches? This action cannot be undone.";
     } else if (deleteCurrentBatch && activeStudentBatchTab !== "all") {
       // Deleting all students in the currently selected batch
       userIdsToDelete = users
@@ -524,15 +490,12 @@ export default function AdminPanel() {
             user.role === "student" && user.batch === activeStudentBatchTab
         )
         .map((user) => user._id);
-      confirmationMessage = `Are you sure you want to delete all students in Batch ${activeStudentBatchTab}? This action cannot be undone.`;
     } else if (selectAllInTab) {
       // Deleting all users in the current tab/filter
       userIdsToDelete = getFilteredUsers(activeUserTab).map((user) => user._id);
-      confirmationMessage = `Are you sure you want to delete all ${activeUserTab}s currently displayed? This action cannot be undone.`;
     } else if (selectedUserIds.length > 0) {
       // Deleting individually selected users
       userIdsToDelete = selectedUserIds;
-      confirmationMessage = `Are you sure you want to delete the ${selectedUserIds.length} selected user(s)? This action cannot be undone.`;
     } else {
       showTemporaryToast("No users selected for deletion.", "info");
       return;
@@ -677,216 +640,6 @@ export default function AdminPanel() {
     </div>
   );
 
-  // Get unique exam titles for query filtering
-  const uniqueExamTitlesWithIds = Array.from(
-    new Map(
-      queries
-        .filter(
-          (q) => q.copy?.questionPaper?.title && q.copy?.questionPaper?._id
-        )
-        .map((q) => [
-          q.copy.questionPaper._id,
-          { _id: q.copy.questionPaper._id, title: q.copy.questionPaper.title },
-        ])
-    ).values()
-  );
-
-  // Open query modal with copy details
-  const handleOpenQueryModal = async (query) => {
-    setSelectedQuery(query);
-    setReplyText(query.response || "");
-    setIsViewQueryModalOpen(true);
-    setQueryViewerCurrentPage(query.pageNumber);
-    setQueryViewerZoomLevel(1);
-    setQueryViewerQpCurrentPage(1);
-    setQueryViewerQpZoomLevel(1);
-
-    if (query.copy?._id) {
-      try {
-        setIsQueryViewerAcLoading(true);
-        setIsQueryViewerQpLoading(true);
-        const copyDetailsRes = await api.get(
-          `/admin/copies/view/${query.copy._id}`
-        );
-        setSelectedCopyForQueryView(copyDetailsRes.data);
-      } catch (err) {
-        console.error("Error fetching copy details for query view:", err);
-        showTemporaryToast("Failed to load copy details for query.", "error");
-        setSelectedCopyForQueryView(null);
-      } finally {
-        setIsQueryViewerAcLoading(false);
-        setIsQueryViewerQpLoading(false);
-      }
-    } else {
-      setSelectedCopyForQueryView(null);
-      setIsQueryViewerAcLoading(false);
-      setIsQueryViewerQpLoading(false);
-    }
-  };
-
-  // Close query modal and reset state
-  const handleCloseQueryModal = () => {
-    setSelectedQuery(null);
-    setReplyText("");
-    setIsViewQueryModalOpen(false);
-    setSelectedCopyForQueryView(null);
-    setQueryViewerCurrentPage(1);
-    setQueryViewerZoomLevel(1);
-    setQueryViewerQpCurrentPage(1);
-    setQueryViewerQpZoomLevel(1);
-    fetchInitialData();
-  };
-
-  // Approve query and forward to examiner
-  const handleApproveQuery = async () => {
-    if (!selectedQuery) return;
-    setIsSubmittingQueryAction(true);
-    try {
-      await api.patch(`/admin/queries/${selectedQuery._id}/approve`);
-      showTemporaryToast(
-        "Query approved and forwarded to examiner!",
-        "success"
-      );
-      handleCloseQueryModal();
-    } catch (error) {
-      console.error("Error approving query:", error);
-      showTemporaryToast(
-        `Error approving query: ${
-          error.response?.data?.message || error.message
-        }`,
-        "error"
-      );
-    } finally {
-      setIsSubmittingQueryAction(false);
-    }
-  };
-
-  // Reject query
-  const handleRejectQuery = async () => {
-    if (!selectedQuery) return;
-    setIsSubmittingQueryAction(true);
-    try {
-      await api.patch(`/admin/queries/${selectedQuery._id}/reject`);
-      showTemporaryToast("Query rejected!", "success");
-      handleCloseQueryModal();
-    } catch (error) {
-      console.error("Error rejecting query:", error);
-      showTemporaryToast(
-        `Error rejecting query: ${
-          error.response?.data?.message || error.message
-        }`,
-        "error"
-      );
-    } finally {
-      setIsSubmittingQueryAction(false);
-    }
-  };
-
-  // Resolve query with admin response
-  const handleResolveQuery = async () => {
-    if (!selectedQuery || !replyText.trim()) {
-      showTemporaryToast(
-        "Please provide a response to resolve the query.",
-        "error"
-      );
-      return;
-    }
-    setIsSubmittingQueryAction(true);
-    try {
-      await api.patch(`/admin/queries/${selectedQuery._id}/resolve`, {
-        responseText: replyText,
-      });
-      showTemporaryToast(
-        "Query resolved successfully with your reply!",
-        "success"
-      );
-      handleCloseQueryModal();
-    } catch (error) {
-      console.error("Error resolving query:", error);
-      showTemporaryToast(
-        `Error resolving query: ${
-          error.response?.data?.message || error.message
-        }`,
-        "error"
-      );
-    } finally {
-      setIsSubmittingQueryAction(false);
-    }
-  };
-
-  // Handle zoom controls for query viewer
-  const handleQueryViewerZoom = useCallback((type, action) => {
-    if (type === "ac") {
-      setQueryViewerZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    } else if (type === "qp") {
-      setQueryViewerQpZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    }
-  }, []);
-
-  // Filter queries based on exam selection, status, and search term
-  // Supports multiple query statuses and text-based search
-  const getFilteredQueries = () => {
-    let filtered = queries;
-
-    if (selectedExamForQueryView) {
-      filtered = filtered.filter(
-        (query) => query.copy?.questionPaper?._id === selectedExamForQueryView
-      );
-    }
-
-    if (activeQueryTab === "pending") {
-      filtered = filtered.filter((query) => query.status === "pending");
-    } else if (activeQueryTab === "approved_by_admin") {
-      filtered = filtered.filter(
-        (query) => query.status === "approved_by_admin"
-      );
-    } else if (activeQueryTab === "rejected_by_admin") {
-      filtered = filtered.filter(
-        (query) => query.status === "rejected_by_admin"
-      );
-    } else if (activeQueryTab === "resolved_by_admin") {
-      filtered = filtered.filter(
-        (query) => query.status === "resolved_by_admin"
-      );
-    } else if (activeQueryTab === "resolved_by_examiner") {
-      filtered = filtered.filter(
-        (query) => query.status === "resolved_by_examiner"
-      );
-    }
-
-    const searchTermLower = querySearchTerm.toLowerCase();
-    if (searchTermLower) {
-      filtered = filtered.filter(
-        (query) =>
-          query.raisedBy?.name?.toLowerCase().includes(searchTermLower) ||
-          query.raisedBy?.email?.toLowerCase().includes(searchTermLower) ||
-          query.text.toLowerCase().includes(searchTermLower)
-      );
-    }
-
-    return filtered;
-  };
-
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
       {showToast && (
@@ -994,7 +747,7 @@ export default function AdminPanel() {
             Review, approve, reject, or resolve student queries.
           </p>
           <button
-            onClick={() => setIsQueriesModalOpen(true)}
+            onClick={() => navigate('/admin/queries')}
             className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
           >
             Manage Queries (
@@ -1010,7 +763,7 @@ export default function AdminPanel() {
             View detailed statistics for each examiner's work.
           </p>
           <button
-            onClick={() => setIsExaminerDetailsModalOpen(true)}
+            onClick={() => navigate('/admin/examiners', { state: { examiners: availableExaminers, copies, exams } })}
             className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
           >
             View Examiner Stats
@@ -1671,270 +1424,7 @@ export default function AdminPanel() {
         students={users.filter((u) => u.role === "student")}
       />
 
-      <Modal
-        isOpen={isQueriesModalOpen}
-        onClose={() => setIsQueriesModalOpen(false)}
-        large
-      >
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">
-          Manage Student Queries
-        </h2>
-
-        <div className="mb-4 p-2 border border-gray-200 rounded-lg bg-gray-50">
-          <label
-            htmlFor="selectExamForQueries"
-            className="block text-sm font-medium text-gray-700 mb-2"
-          >
-            Filter by Exam:
-          </label>
-          <select
-            id="selectExamForQueries"
-            value={selectedExamForQueryView}
-            onChange={(e) => setSelectedExamForQueryView(e.target.value)}
-            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Exams</option>
-            {uniqueExamTitlesWithIds.map((exam) => (
-              <option key={exam._id} value={exam._id}>
-                {exam.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
-          <button
-            className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === "pending"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
-                : "text-gray-500 hover:text-gray-700"
-            } transition duration-150`}
-            onClick={() => setActiveQueryTab("pending")}
-          >
-            Pending (
-            {
-              queries.filter(
-                (q) =>
-                  q.status === "pending" &&
-                  (!selectedExamForQueryView ||
-                    q.copy?.questionPaper?._id === selectedExamForQueryView)
-              ).length
-            }
-            )
-          </button>
-          <button
-            className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === "approved_by_admin"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveQueryTab("approved_by_admin")}
-          >
-            Approved (Sent to Examiner) (
-            {
-              queries.filter(
-                (q) =>
-                  q.status === "approved_by_admin" &&
-                  (!selectedExamForQueryView ||
-                    q.copy?.questionPaper?._id === selectedExamForQueryView)
-              ).length
-            }
-            )
-          </button>
-          <button
-            className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === "rejected_by_admin"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveQueryTab("rejected_by_admin")}
-          >
-            Rejected (
-            {
-              queries.filter(
-                (q) =>
-                  q.status === "rejected_by_admin" &&
-                  (!selectedExamForQueryView ||
-                    q.copy?.questionPaper?._id === selectedExamForQueryView)
-              ).length
-            }
-            )
-          </button>
-          <button
-            className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === "resolved_by_admin"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveQueryTab("resolved_by_admin")}
-          >
-            Resolved by Admin (
-            {
-              queries.filter(
-                (q) =>
-                  q.status === "resolved_by_admin" &&
-                  (!selectedExamForQueryView ||
-                    q.copy?.questionPaper?._id === selectedExamForQueryView)
-              ).length
-            }
-            )
-          </button>
-          <button
-            className={`py-2 px-4 text-sm font-medium ${
-              activeQueryTab === "resolved_by_examiner"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveQueryTab("resolved_by_examiner")}
-          >
-            Resolved by Examiner (
-            {
-              queries.filter(
-                (q) =>
-                  q.status === "resolved_by_examiner" &&
-                  (!selectedExamForQueryView ||
-                    q.copy?.questionPaper?._id === selectedExamForQueryView)
-              ).length
-            }
-            )
-          </button>
-        </div>
-
-        <div className="mb-4 relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon
-              className="h-5 w-5 text-gray-400"
-              aria-hidden="true"
-            />
-          </div>
-          <input
-            type="text"
-            placeholder="Search queries by student, or query text..."
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            value={querySearchTerm}
-            onChange={(e) => setQuerySearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="overflow-x-auto max-h-[500px] overflow-y-auto rounded-lg border border-gray-200 shadow-sm">
-          {" "}
-          {getFilteredQueries().length === 0 ? (
-            <p className="text-gray-600 text-center py-4">
-              No student queries to manage in this category.
-            </p>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Exam Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Page
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Query Text
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {getFilteredQueries().map((query) => (
-                  <tr key={query._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {query.raisedBy?.name || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {query.copy?.questionPaper?.title || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {query.pageNumber}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 truncate max-w-xs">
-                      {query.text}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          query.status === "pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : query.status === "approved_by_admin"
-                            ? "bg-blue-100 text-blue-800"
-                            : query.status === "rejected_by_admin"
-                            ? "bg-red-100 text-red-800"
-                            : query.status === "resolved_by_admin"
-                            ? "bg-green-100 text-green-800"
-                            : query.status === "resolved_by_examiner"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {query.status.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleOpenQueryModal(query)}
-                        className="text-indigo-600 hover:text-indigo-900 ml-4"
-                      >
-                        View / Action
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={() => setIsQueriesModalOpen(false)}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
-          >
-            Close
-          </button>
-        </div>
-      </Modal>
-
-      <AdminQueryViewerModal
-        isOpen={isViewQueryModalOpen}
-        onClose={handleCloseQueryModal}
-        selectedQuery={selectedQuery}
-        selectedCopyForQueryView={selectedCopyForQueryView}
-        queryViewerCurrentPage={queryViewerCurrentPage}
-        setQueryViewerCurrentPage={setQueryViewerCurrentPage}
-        queryViewerZoomLevel={queryViewerZoomLevel}
-        queryViewerQpCurrentPage={queryViewerQpCurrentPage}
-        setQueryViewerQpCurrentPage={setQueryViewerQpCurrentPage}
-        queryViewerQpZoomLevel={queryViewerQpZoomLevel}
-        isQueryViewerAcLoading={isQueryViewerAcLoading}
-        setIsQueryViewerAcLoading={setIsQueryViewerAcLoading}
-        isQueryViewerQpLoading={isQueryViewerQpLoading}
-        setIsQueryViewerQpLoading={setIsQueryViewerQpLoading}
-        handleQueryViewerZoom={handleQueryViewerZoom}
-        replyText={replyText}
-        setReplyText={setReplyText}
-        isSubmittingQueryAction={isSubmittingQueryAction}
-        handleApproveQuery={handleApproveQuery}
-        handleRejectQuery={handleRejectQuery}
-        handleResolveQuery={handleResolveQuery}
-      />
-
-      <AllExaminerDetailsModal
-        isOpen={isExaminerDetailsModalOpen}
-        onClose={() => setIsExaminerDetailsModalOpen(false)}
-        examiners={availableExaminers}
-        copies={copies}
-        exams={exams}
-      />
+      {/* Examiner details moved to /admin/examiners page */}
     </div>
   );
 }
