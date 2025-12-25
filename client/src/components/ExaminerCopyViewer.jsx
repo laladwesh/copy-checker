@@ -185,7 +185,7 @@ export default function ExaminerCopyViewer() {
       </nav>
 
       <div className="p-8">
-        <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center tracking-tight">
+        {/* <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center tracking-tight">
           Viewing Copy for:{" "}
           <span className="text-purple-700">
             {copy.questionPaper?.title || "N/A"}
@@ -195,7 +195,7 @@ export default function ExaminerCopyViewer() {
             Student: {copy.student?.name || "N/A"} (
             {copy.student?.email || "N/A"})
           </span>
-        </h1>
+        </h1> */}
 
         {/* Total Marks Display */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-2xl mx-auto mb-8 text-center">
@@ -212,7 +212,7 @@ export default function ExaminerCopyViewer() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Answer Copy
             </h2>
-            <div className="relative w-full h-[800px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+            <div className="relative w-full h-[80vh] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                   <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
