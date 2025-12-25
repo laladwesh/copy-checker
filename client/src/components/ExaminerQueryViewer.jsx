@@ -11,6 +11,7 @@ import {
   ArrowsPointingInIcon,
   UserCircleIcon, // For student info
   ArrowPathIcon, // Added missing import for ArrowPathIcon
+  BookOpenIcon,
 } from "@heroicons/react/24/outline";
 
 // Import react-pdf components
@@ -35,12 +36,6 @@ export default function ExaminerQueryViewer() {
   const [acZoomLevel, setAcZoomLevel] = useState(1);
   const [isAcLoading, setIsAcLoading] = useState(true);
   const [acNumPages, setAcNumPages] = useState(null); // Total pages for AC
-
-  // Page navigation states for Question Paper
-  const [qpCurrentPage, setQpCurrentPage] = useState(1); // Current page of the Question Paper
-  const [qpZoomLevel, setQpZoomLevel] = useState(1);
-  const [isQpLoading, setIsQpLoading] = useState(true);
-  const [qpNumPages, setQpNumPages] = useState(null); // Total pages for QP
 
   // UI States (for toast messages and loading)
   const [showToast, setShowToast] = useState(false);
@@ -74,11 +69,9 @@ export default function ExaminerQueryViewer() {
         // Fetch the full copy details using the copy ID from the query
         if (queryRes.data.copy?._id) {
           setIsAcLoading(true);
-          setIsQpLoading(true); // Start loading for QP as well
           const copyRes = await api.get(`/examiner/copies/${queryRes.data.copy._id}`);
           setCopy(copyRes.data);
           setCurrentPage(queryRes.data.pageNumber); // Set AC page to the query page
-          setQpCurrentPage(1); // Set QP page to 1
 
           // NEW: Populate mark/comment fields based on the queried page
           const queriedPage = copyRes.data.pages.find(
@@ -118,12 +111,6 @@ export default function ExaminerQueryViewer() {
     setAcZoomLevel(1);
   }, [currentPage]);
 
-  // Reset zoom when current page of question paper changes
-  useEffect(() => {
-    setQpZoomLevel(1);
-  }, [qpCurrentPage]);
-
-
   const showTemporaryToast = (msg, type = "success") => {
     setToastMessage({ message: msg, type: type });
     setShowToast(true);
@@ -134,32 +121,18 @@ export default function ExaminerQueryViewer() {
     return () => clearTimeout(timer);
   };
 
-  const handleZoom = (type, action) => {
-    if (type === "qp") {
-      setQpZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    } else if (type === "ac") {
-      setAcZoomLevel((prevZoom) => {
-        let newZoom = prevZoom;
-        if (action === "in") {
-          newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
-        } else if (action === "out") {
-          newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
-        } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
-        }
-        return parseFloat(newZoom.toFixed(2));
-      });
-    }
+  const handleZoom = (action) => {
+    setAcZoomLevel((prevZoom) => {
+      let newZoom = prevZoom;
+      if (action === "in") {
+        newZoom = Math.min(MAX_ZOOM, prevZoom + ZOOM_STEP);
+      } else if (action === "out") {
+        newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
+      } else if (action === "reset") {
+        newZoom = MIN_ZOOM;
+      }
+      return parseFloat(newZoom.toFixed(2));
+    });
   };
 
   const handleReplySubmit = async (e) => {
@@ -217,16 +190,10 @@ export default function ExaminerQueryViewer() {
     setIsAcLoading(false);
   }, []);
 
-  const onDocumentLoadSuccessQP = useCallback(({ numPages }) => {
-    setQpNumPages(numPages);
-    setIsQpLoading(false);
-  }, []);
-
   const onDocumentError = useCallback((err) => {
     console.error("Error loading PDF document:", err);
     setError(`Failed to load PDF document: ${err.message}`);
     setIsAcLoading(false); // Ensure loading is off on error
-    setIsQpLoading(false); // Ensure loading is off on error
   }, []);
 
   if (error)
@@ -274,7 +241,7 @@ export default function ExaminerQueryViewer() {
       : null;
 
   return (
-    <div className="bg-gray-100 min-h-screen font-sans relative p-8">
+    <div className="bg-gray-100 min-h-screen font-sans relative p-2">
       {/* Toast Notification */}
       {showToast && (
         <div
@@ -316,24 +283,49 @@ export default function ExaminerQueryViewer() {
         <span className="text-purple-700">{copy.questionPaper?.title || 'N/A'}</span>
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]"> {/* Adjusted height for better fit */}
-        {/* Left Column: Answer Copy Viewer */}
-        <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
-          <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">
+      {/* Question Paper Link Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-100 p-2 rounded-md shadow-sm border border-indigo-200 mb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BookOpenIcon className="h-4 w-4 text-indigo-600" />
+            <h3 className="text-sm font-semibold text-gray-800">
+              Question Paper
+            </h3>
+          </div>
+          {qpPdfUrl ? (
+            <a
+              href={qpPdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors text-xs"
+            >
+              <BookOpenIcon className="h-4 w-4 mr-1.5" />
+              Open Question Paper
+            </a>
+          ) : (
+            <div className="text-gray-600 text-xs">Not available</div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-3 h-[calc(100vh-120px)]">
+        {/* Left Column: Answer Copy Viewer - Takes more width */}
+        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-300 flex flex-col lg:w-[72%]">
+          {/* <h3 className="text-lg font-semibold text-gray-800 mb-2 text-center">
             Answer Copy (Page {currentPage} of {acNumPages || 'N/A'})
-          </h3>
-          <div className="flex justify-between items-center w-full mb-3 space-x-2">
+          </h3> */}
+          <div className="flex justify-between items-center w-full mb-2 space-x-2">
             <button
               onClick={() => {
                 setCurrentPage((p) => Math.max(1, p - 1));
                 setIsAcLoading(true);
               }}
               disabled={currentPage === 1}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
+              className=" px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
             >
               Prev
             </button>
-            <span className="text-md font-bold text-gray-800">
+            <span className="text-base font-bold text-gray-800">
               Page {currentPage} / {acNumPages || 'N/A'}
             </span>
             <button
@@ -342,16 +334,16 @@ export default function ExaminerQueryViewer() {
                 setIsAcLoading(true);
               }}
               disabled={currentPage === (acNumPages || 1)}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
+              className=" px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
             >
               Next
             </button>
           </div>
-          <div className="relative w-full flex-grow h-[450px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+          <div className="relative w-full flex-grow rounded-lg overflow-auto border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
             {isAcLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                 <svg
-                  className="animate-spin h-8 w-8 text-indigo-500"
+                  className="animate-spin h-10 w-10 text-indigo-500"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -359,7 +351,7 @@ export default function ExaminerQueryViewer() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="ml-2 text-gray-700">Loading Answer Copy Page...</span>
+                <span className="ml-2 text-lg text-gray-700">Loading Answer Copy...</span>
               </div>
             )}
             {acPdfUrl ? (
@@ -385,147 +377,48 @@ export default function ExaminerQueryViewer() {
               </div>
             )}
           </div>
-          <div className="flex items-center justify-center mt-4 space-x-2">
+          <div className="flex items-center justify-center mt-2 space-x-2">
             <button
-              onClick={() => handleZoom("ac", "out")}
+              onClick={() => handleZoom("out")}
               disabled={acZoomLevel === MIN_ZOOM}
-              className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="p-2.5 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
               title="Zoom Out"
             >
               <MagnifyingGlassMinusIcon className="h-5 w-5" />
             </button>
             <button
-              onClick={() => handleZoom("ac", "in")}
+              onClick={() => handleZoom("in")}
               disabled={acZoomLevel === MAX_ZOOM}
-              className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="p-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
               title="Zoom In"
             >
               <MagnifyingGlassPlusIcon className="h-5 w-5" />
             </button>
             <button
-              onClick={() => handleZoom("ac", "reset")}
+              onClick={() => handleZoom("reset")}
               disabled={acZoomLevel === MIN_ZOOM}
-              className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="p-2.5 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
               title="Reset Zoom"
             >
               <ArrowsPointingInIcon className="h-5 w-5" />
             </button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 font-medium">
               {acZoomLevel.toFixed(2)}x
             </span>
           </div>
         </div>
 
-        {/* Middle Column: Question Paper Viewer */}
-        <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
-          <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">
-            Question Paper (Page {qpCurrentPage} of {qpNumPages || 'N/A'})
-          </h3>
-          <div className="flex justify-between items-center w-full mb-3 space-x-2">
-            <button
-              onClick={() => {
-                setQpCurrentPage((p) => Math.max(1, p - 1));
-                setIsQpLoading(true);
-              }}
-              disabled={qpCurrentPage === 1}
-              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
-            >
-              Prev
-            </button>
-            <span className="text-md font-bold text-gray-800">
-              Page {qpCurrentPage} / {qpNumPages || 'N/A'}
-            </span>
-            <button
-              onClick={() => {
-                setQpCurrentPage((p) => Math.min(qpNumPages || 1, p + 1));
-                setIsQpLoading(true);
-              }}
-              disabled={qpCurrentPage === (qpNumPages || 1)}
-              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-md"
-            >
-              Next
-            </button>
-          </div>
-          <div className="relative w-full flex-grow h-[450px] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
-            {isQpLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-                <svg
-                  className="animate-spin h-8 w-8 text-indigo-500"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span className="ml-2 text-gray-700">Loading Question Paper Page...</span>
-              </div>
-            )}
-            {qpPdfUrl ? (
-              <Document
-                file={qpPdfUrl}
-                onLoadSuccess={onDocumentLoadSuccessQP}
-                onLoadError={onDocumentError}
-                loading={""} // Hide default loading text
-                className="w-full h-full flex justify-center items-center"
-              >
-                <Page
-                  pageNumber={qpCurrentPage}
-                  scale={qpZoomLevel}
-                  renderAnnotationLayer={true}
-                  renderTextLayer={true}
-                  onRenderSuccess={() => setIsQpLoading(false)}
-                  onRenderError={() => setIsQpLoading(false)}
-                />
-              </Document>
-            ) : (
-              <div className="text-gray-500 text-center p-4">
-                Question Paper Not Available.
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-center mt-4 space-x-2">
-            <button
-              onClick={() => handleZoom("qp", "out")}
-              disabled={qpZoomLevel === MIN_ZOOM}
-              className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              title="Zoom Out"
-            >
-              <MagnifyingGlassMinusIcon className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => handleZoom("qp", "in")}
-              disabled={qpZoomLevel === MAX_ZOOM}
-              className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              title="Zoom In"
-            >
-              <MagnifyingGlassPlusIcon className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => handleZoom("qp", "reset")}
-              disabled={qpZoomLevel === MIN_ZOOM}
-              className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              title="Reset Zoom"
-            >
-              <ArrowsPointingInIcon className="h-5 w-5" />
-            </button>
-            <span className="text-sm text-gray-600">
-              {qpZoomLevel.toFixed(2)}x
-            </span>
-          </div>
-        </div>
-
-        {/* Rightmost Column: Query Details and Reply */}
-        <div className="lg:col-span-1 bg-white p-4 rounded-xl shadow-lg border border-gray-200 flex flex-col">
-          <h3 className="text-xl font-semibold text-gray-800 mb-3 text-center">Query Details & Reply</h3>
-          <div className="mb-4 p-4 border rounded-md bg-gray-50 flex-grow">
+        {/* Right Column: Query Details and Reply - Takes less width */}
+        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-300 flex flex-col overflow-y-auto lg:w-[28%]">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2 text-center">Query Details & Reply</h3>
+          <div className="mb-2 p-2 border rounded-md bg-gray-50">
             <p className="text-sm text-gray-600 mb-2">
-              <UserCircleIcon className="inline-block h-5 w-5 mr-1 text-gray-500" />
-              <strong>Student:</strong> {query.raisedBy?.name || 'N/A'} ({query.raisedBy?.email || 'N/A'})
+              {/* <UserCircleIcon className="inline-block h-5 w-5 mr-1 text-gray-500" /> */}
+              {/* <strong>Student:</strong> {query.raisedBy?.name || 'N/A'} ({query.raisedBy?.email || 'N/A'}) */}
             </p>
-            <p className="text-sm text-gray-600 mb-2"><strong>Exam:</strong> {copy.questionPaper?.title || 'N/A'}</p>
-            <p className="text-sm text-gray-600 mb-2"><strong>Page Number:</strong> {query.pageNumber}</p>
-            <p className="text-sm text-gray-600 mb-2"><strong>Status:</strong>{" "}
+            <p className="text-sm text-gray-600 mb-1"><strong>Exam:</strong> {copy.questionPaper?.title || 'N/A'}</p>
+            <p className="text-sm text-gray-600 mb-1"><strong>Page Number:</strong> {query.pageNumber}</p>
+            <p className="text-sm text-gray-600 mb-1"><strong>Status:</strong>{" "}
               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                 query.status === 'approved_by_admin' ? 'bg-yellow-100 text-yellow-800' :
                 query.status === 'resolved_by_examiner' ? 'bg-green-100 text-green-800' :
@@ -534,22 +427,22 @@ export default function ExaminerQueryViewer() {
                 {query.status.replace(/_/g, ' ')}
               </span>
             </p>
-            <div className="mt-3 p-3 border-t border-gray-200 bg-white rounded-md">
-              <p className="text-gray-800 font-bold mb-2">Student's Query:</p>
-              <p className="text-gray-700 whitespace-pre-wrap">{query.text}</p>
+            <div className="mt-2 p-2 border-t border-gray-200 bg-white rounded-md">
+              <p className="text-gray-800 font-bold mb-1 text-sm">Student's Query:</p>
+              <p className="text-gray-700 whitespace-pre-wrap text-sm">{query.text}</p>
             </div>
             {query.response && (
-              <div className="mt-4 p-3 border-t border-gray-200 bg-white rounded-md">
-                <p className="text-gray-800 font-bold mb-2">Your Response:</p>
-                <p className="text-gray-700 whitespace-pre-wrap">{query.response}</p>
+              <div className="mt-2 p-2 border-t border-gray-200 bg-white rounded-md">
+                <p className="text-gray-800 font-bold mb-1 text-sm">Your Response:</p>
+                <p className="text-gray-700 whitespace-pre-wrap text-sm">{query.response}</p>
               </div>
             )}
           </div>
 
-          {/* NEW: Marks, Comments, Annotations Input Fields */}
-          <div className="mt-4 p-4 border rounded-md bg-white">
-            <h4 className="text-lg font-semibold text-gray-800 mb-3">Update Page Details (Page {currentPage})</h4>
-            <div className="mb-3">
+          {/* Marks, Comments, Annotations Input Fields */}
+          <div className="mt-2 p-2 border rounded-md bg-white">
+            <h4 className="text-base font-semibold text-gray-800 mb-2">Update Page Details (Page {currentPage})</h4>
+            <div className="mb-2">
               <label htmlFor="marks" className="block text-sm font-medium text-gray-700">
                 Marks Awarded:
               </label>
@@ -562,23 +455,23 @@ export default function ExaminerQueryViewer() {
                 placeholder="e.g., 10"
               />
             </div>
-            <div className="mb-3">
+            <div className="mb-2">
               <label htmlFor="comments" className="block text-sm font-medium text-gray-700">
                 Comments:
               </label>
               <textarea
                 id="comments"
-                rows="3"
+                rows="2"
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
-                className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 resize-y"
+                className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 resize-y text-sm"
                 placeholder="Add comments for this page..."
               ></textarea>
             </div>
             <button
               onClick={handleUpdatePageDetails}
               disabled={isUpdatingPage || query.status === 'resolved_by_examiner'}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-1.5 px-3 rounded-md focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               {isUpdatingPage ? (
                 <>
@@ -589,24 +482,23 @@ export default function ExaminerQueryViewer() {
               )}
             </button>
           </div>
-          {/* END NEW: Marks, Comments, Annotations Input Fields */}
 
           {query.status === 'resolved_by_examiner' ? (
-            <p className="text-center text-sm text-green-600 mt-4">
+            <p className="text-center text-sm text-green-600 mt-2">
               This query has already been resolved by you.
             </p>
           ) : (
-            <form onSubmit={handleReplySubmit} className="mt-auto pt-4">
-              <div className="mb-4">
-                <label htmlFor="replyText" className="block text-gray-700 text-base font-medium mb-2">
+            <form onSubmit={handleReplySubmit} className="mt-2 pt-2 border-t">
+              <div className="mb-2">
+                <label htmlFor="replyText" className="block text-gray-700 text-sm font-medium mb-1">
                   Your Reply:
                 </label>
                 <textarea
                   id="replyText"
-                  rows="4"
+                  rows="3"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500 resize-y"
+                  className="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-indigo-500 resize-y text-sm"
                   placeholder="Type your response here..."
                   required
                 ></textarea>
@@ -614,7 +506,7 @@ export default function ExaminerQueryViewer() {
               <button
                 type="submit"
                 disabled={isSubmittingReply || query.status !== 'approved_by_admin'} // Only enable if approved by admin
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-3 rounded focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 {isSubmittingReply ? (
                   <>
@@ -627,7 +519,7 @@ export default function ExaminerQueryViewer() {
                 )}
               </button>
               {query.status !== 'approved_by_admin' && (
-                <p className="text-sm text-red-500 text-center mt-3">
+                <p className="text-sm text-red-500 text-center mt-2">
                   This query is not in a state to be replied to (Status: {query.status.replace(/_/g, ' ')}).
                 </p>
               )}
