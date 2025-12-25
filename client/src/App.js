@@ -5,6 +5,8 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginSuccess from './routes/LoginSuccess';
 import AdminPanel from './routes/AdminPanel';
+import AdminExaminers from './routes/AdminExaminers';
+import AdminExaminerDetails from './routes/AdminExaminerDetails';
 import ExaminerPanel from './routes/ExaminerPanel';
 import StudentPanel from './routes/StudentPanel';
 import CopyChecker from './routes/CopyChecker';
@@ -16,6 +18,7 @@ import { setToken }      from './utils/auth';
 import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
 import ExaminerCopyViewer from './components/ExaminerCopyViewer';
+import AdminManageQueries from './routes/AdminManageQueries';
 
 export default function App() {
   const user = getUser();
@@ -71,6 +74,30 @@ export default function App() {
             element={
               <ProtectedRoute user={user} role="admin">
                 <AdminCopyViewer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/examiners"
+            element={
+              <ProtectedRoute user={user} role="admin">
+                <AdminExaminers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/examiners/:examinerId"
+            element={
+              <ProtectedRoute user={user} role="admin">
+                <AdminExaminerDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/queries"
+            element={
+              <ProtectedRoute user={user} role="admin">
+                <AdminManageQueries />
               </ProtectedRoute>
             }
           />
