@@ -161,7 +161,7 @@ export default function ExaminerCopyViewer() {
   return (
     <div className="bg-gray-100 min-h-screen font-sans relative">
       {/* Top Navigation Bar */}
-      <nav className="bg-white shadow-sm py-4 px-8 border-b border-gray-200 flex justify-between items-center w-full">
+      {/* <nav className="bg-white shadow-sm py-4 px-8 border-b border-gray-200 flex justify-between items-center w-full">
         <div className="flex items-center space-x-4">
           <Link
             to={`/examiner`}
@@ -182,7 +182,7 @@ export default function ExaminerCopyViewer() {
             Logout
           </Link>
         </div>
-      </nav>
+      </nav> */}
 
       <div className="p-8">
         {/* <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center tracking-tight">
@@ -198,7 +198,7 @@ export default function ExaminerCopyViewer() {
         </h1> */}
 
         {/* Total Marks Display */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-2xl mx-auto mb-8 text-center">
+        <div className=" max-w-lg mx-auto mb-8 text-center">
           <h3 className="text-2xl font-bold text-gray-800">
             Total Marks:{" "}
             <span className="text-green-700">{totalMarksAwarded}</span> /{" "}
@@ -209,9 +209,9 @@ export default function ExaminerCopyViewer() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
           {/* Main Answer Copy Viewer (center) */}
           <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
+            {/* <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Answer Copy
-            </h2>
+            </h2> */}
             <div className="relative w-full h-[80vh] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
@@ -328,7 +328,7 @@ export default function ExaminerCopyViewer() {
         </div>
 
         {/* Marks and Comments Display */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 w-full max-w-full mx-auto mb-8">
+        {/* <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 w-full max-w-full mx-auto mb-8">
           <h3 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">
             Evaluation for Page {acCurrentPage}
           </h3>
@@ -348,7 +348,7 @@ export default function ExaminerCopyViewer() {
               {comments}
             </p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
