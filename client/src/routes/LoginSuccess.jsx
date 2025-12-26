@@ -55,8 +55,8 @@ export default function LoginSuccess() {
   // Render loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-4 sm:p-6">
-        <div className="flex flex-col items-center justify-center bg-white p-8 sm:p-10 rounded-3xl shadow-2xl transform transition-all duration-500 ease-out-back scale-95 opacity-0 animate-fade-in-up">
+      <div className="min-h-screen flex items-center justify-center  sm:p-6">
+        <div className="flex flex-col items-center justify-center p-8 sm:p-10 rounded-3xl shadow-2xl transform transition-all duration-500 ease-out-back scale-95 opacity-0 animate-fade-in-up">
           <ArrowPathIcon className="animate-spin h-16 w-16 text-indigo-600 mb-6 drop-shadow-md" />
           <p className="text-2xl text-gray-800 font-bold mb-3">
             Signing you in securely...
