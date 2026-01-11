@@ -3,9 +3,11 @@ const Query = require("../models/Query"); // Assuming you have a Query model
 
 exports.listPending = async (req, res, next) => {
   try {
+    // Show copies that are pending OR examining (not yet evaluated)
+    // Only remove from list when examiner clicks "Confirm & Finish" (status becomes "evaluated")
     const copies = await Copy.find({
       examiners: req.user._id,
-      status: "pending",
+      status: { $in: ["pending", "examining"] },
     }).populate("student questionPaper");
     res.json(copies);
   } catch (err) {
@@ -194,20 +196,10 @@ exports.markPage = async (req, res, next) => {
 
 
     // --- Status Update Logic ---
-    const allPagesMarked = copy.pages.length === copy.totalPages &&
-                           copy.pages.every((p) => typeof p.marksAwarded === "number");
-
-    if (allPagesMarked) {
-        if (copy.status !== "evaluated") {
-            copy.status = "evaluated";
-            // If status changes to 'evaluated', append to copy.action
-            if (copyActionMessages.length === 0) {
-                copy.action = "Copy marked complete.";
-            } else {
-                copy.action += " | Copy marked complete.";
-            }
-        }
-    } else if (copy.status === "pending" || copy.status === "assigned") {
+    // DO NOT auto-mark as "evaluated" when all pages are marked
+    // Only change to "evaluated" when examiner explicitly calls completeCopy endpoint
+    // Just update status to "examining" if currently pending/assigned
+    if (copy.status === "pending" || copy.status === "assigned") {
         copy.status = "examining";
     }
     // --- End Status Update Logic ---
