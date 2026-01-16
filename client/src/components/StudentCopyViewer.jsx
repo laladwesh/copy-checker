@@ -178,6 +178,19 @@ export default function StudentCopyViewer() {
       return;
     }
 
+    // Check if a query already exists for this page (regardless of status)
+    const existingQueryForPage = studentQueries.find(
+      (q) => q.pageNumber === Number(queryPage)
+    );
+    if (existingQueryForPage) {
+      showTemporaryToast(
+        `You have already raised a query for page ${queryPage}. Only one query per page is allowed.`,
+        "error"
+      );
+      closeQueryModal();
+      return;
+    }
+
     setIsSubmittingQuery(true);
     try {
       await api.post(`/student/copies/${copyId}/queries`, {
@@ -350,6 +363,31 @@ export default function StudentCopyViewer() {
                     console.error("Error loading AC PDF:", err);
                     setError("Failed to load Answer Copy PDF.");
                   }}
+                  loading={
+                    <div className="flex flex-col items-center justify-center">
+                      <svg
+                        className="animate-spin h-10 w-10 text-indigo-500"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <p className="mt-3 text-gray-600">Loading PDF...</p>
+                    </div>
+                  }
                   className="w-full h-full flex items-center justify-center"
                 >
                   <Page
@@ -357,6 +395,30 @@ export default function StudentCopyViewer() {
                     scale={acZoomLevel}
                     renderAnnotationLayer={true}
                     renderTextLayer={true}
+                    loading={
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className="animate-spin h-8 w-8 text-indigo-500"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      </div>
+                    }
                   />
                 </Document>
               ) : (
@@ -563,6 +625,11 @@ export default function StudentCopyViewer() {
               placeholder="e.g., 5"
               required
             />
+            {queryPage && studentQueries.find((q) => q.pageNumber === Number(queryPage)) && (
+              <p className="mt-2 text-sm text-red-600 font-medium">
+                 You already have a query for page {queryPage}. Only one query per page is allowed.
+              </p>
+            )}
           </div>
           <div>
             <label
