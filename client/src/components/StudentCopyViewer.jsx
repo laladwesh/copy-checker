@@ -307,9 +307,9 @@ export default function StudentCopyViewer() {
 
         {/* Question Paper Link */}
         <div className=" mb-6">
-          {copy.questionPaper?.driveFile?.viewLink ? (
+          {copy.questionPaper?.driveFile?.id ? (
             <a
-              href={copy.questionPaper.driveFile.viewLink}
+              href={`/api/drive/pdf/${copy.questionPaper.driveFile.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2   text-indigo-500 rounded-lg "
