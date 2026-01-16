@@ -19,6 +19,9 @@ import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
 import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 import AdminManageQueries from './routes/AdminManageQueries';
+// Terms and Privacy pages
+import TermsAndConditions from './routes/TermsAndConditions';
+import PrivacyPolicy from './routes/PrivacyPolicy';
 
 export default function App() {
   const user = getUser();
@@ -59,6 +62,10 @@ export default function App() {
           />
 
           <Route path="/auth/success" element={<LoginSuccess />} />
+
+          {/* Public Routes - Terms and Privacy */}
+          <Route path="/terms" element={<TermsAndConditions />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* Admin Routes - More specific routes first */}
           <Route
