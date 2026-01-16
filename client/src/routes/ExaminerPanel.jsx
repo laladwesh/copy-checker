@@ -131,7 +131,7 @@ export default function ExaminerPanel() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.questionPaper?.title || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <a
-                        href={c.driveFile.viewLink || '#'} // Link to original PDF if needed
+                        href={c.driveFile?.id ? `/api/drive/pdf/${c.driveFile.id}` : '#'} // Use internal API endpoint
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
