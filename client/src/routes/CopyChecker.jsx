@@ -195,7 +195,20 @@ export default function CopyChecker() {
         setIsSaving(false);
         return;
       }
-
+      // Check if total marks would exceed the maximum allowed
+      const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+      const currentPageMarks = currentPageData?.marksAwarded || 0;
+      const newTotalMarks = totalMarks - currentPageMarks + parseFloat(marks);
+      const maxMarks = copy.questionPaper?.totalMarks || 0;
+      
+      if (newTotalMarks > maxMarks) {
+        showTemporaryToast(
+          `Cannot save! Total marks would be ${newTotalMarks.toFixed(2)} which exceeds the maximum allowed marks of ${maxMarks}.`,
+          "error"
+        );
+        setIsSaving(false);
+        return;
+      }
       const payload = {
         pageNumber: currentPage,
         marks: parseFloat(marks), // Use parseFloat to support decimal marks
@@ -465,22 +478,47 @@ export default function CopyChecker() {
 
             <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-400px)] overflow-y-auto">
               <h3 className="text-lg font-semibold text-gray-800 mb-2 sticky top-0 bg-white pb-2">Marking for Page {currentPage}</h3>
+              <div className="mb-2 text-xs text-gray-600 bg-blue-50 p-2 rounded border border-blue-200">
+                <strong>Max Total Marks:</strong> {copy.questionPaper?.totalMarks || 'N/A'} | <strong>Current Total:</strong> <span className={(function(){
+                  const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                  const currentPageMarks = currentPageData?.marksAwarded || 0;
+                  const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
+                  const maxMarks = copy.questionPaper?.totalMarks || 0;
+                  return newTotalMarks > maxMarks ? 'text-red-600 font-bold' : 'text-green-600 font-semibold';
+                })()}>{(function(){
+                  const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                  const currentPageMarks = currentPageData?.marksAwarded || 0;
+                  const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
+                  return newTotalMarks.toFixed(2);
+                })()}</span>
+              </div>
               <div className="mb-3">
                 <label htmlFor="marks" className="block text-sm font-medium text-gray-700 mb-2">Marks Awarded:</label>
                 <div className="grid grid-cols-4 gap-2 mb-2">
-                  {Array.from({ length: 21 }, (_, i) => i * 0.5).map((markValue) => (
-                    <button
-                      key={markValue}
-                      onClick={() => setMarks(markValue.toString())}
-                      className={`px-2 py-1 rounded text-xs font-medium transition ${
-                        parseFloat(marks) === markValue
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {markValue}
-                    </button>
-                  ))}
+                  {Array.from({ length: 21 }, (_, i) => i * 0.5).map((markValue) => {
+                    const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                    const currentPageMarks = currentPageData?.marksAwarded || 0;
+                    const newTotalMarks = totalMarks - currentPageMarks + markValue;
+                    const maxMarks = copy.questionPaper?.totalMarks || 0;
+                    const wouldExceed = newTotalMarks > maxMarks;
+                    return (
+                      <button
+                        key={markValue}
+                        onClick={() => setMarks(markValue.toString())}
+                        disabled={wouldExceed}
+                        className={`px-2 py-1 rounded text-xs font-medium transition ${
+                          parseFloat(marks) === markValue
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : wouldExceed
+                            ? 'bg-red-100 text-red-400 cursor-not-allowed'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        title={wouldExceed ? `Would exceed max marks (${maxMarks})` : ''}
+                      >
+                        {markValue}
+                      </button>
+                    );
+                  })}
                 </div>
                 <input id="marks" type="number" min="0" step="0.5" value={marks} onChange={(e) => setMarks(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="Or type custom marks" />
               </div>
@@ -488,8 +526,26 @@ export default function CopyChecker() {
                 <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-1">Comments:</label>
                 <textarea id="comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm resize-y" placeholder="Add comments..."></textarea>
               </div>
+              {(function(){
+                const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                const currentPageMarks = currentPageData?.marksAwarded || 0;
+                const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
+                const maxMarks = copy.questionPaper?.totalMarks || 0;
+                const wouldExceed = newTotalMarks > maxMarks;
+                return wouldExceed && marks !== '' && !isNaN(parseFloat(marks)) ? (
+                  <div className="mb-2 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-700">
+                    <strong>⚠️ Warning:</strong> These marks would exceed the maximum total marks allowed ({maxMarks}). Please reduce the marks.
+                  </div>
+                ) : null;
+              })()}
               <div className="flex justify-end">
-                <button onClick={handleSavePage} disabled={isSaving} className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm flex items-center">
+                <button onClick={handleSavePage} disabled={isSaving || (function(){
+                  const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                  const currentPageMarks = currentPageData?.marksAwarded || 0;
+                  const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
+                  const maxMarks = copy.questionPaper?.totalMarks || 0;
+                  return marks !== '' && !isNaN(parseFloat(marks)) && newTotalMarks > maxMarks;
+                })()} className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm flex items-center">
                   {isSaving ? (
                     <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   ) : (
