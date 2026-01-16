@@ -529,9 +529,9 @@ export default function AdminManageQueries() {
               </svg>
               Question Paper
             </h3>
-            {selectedCopyForQueryView?.questionPaper?.driveFile?.viewLink ? (
+            {selectedCopyForQueryView?.questionPaper?.driveFile?.id ? (
               <a
-                href={selectedCopyForQueryView.questionPaper.driveFile.viewLink}
+                href={`/api/drive/pdf/${selectedCopyForQueryView.questionPaper.driveFile.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition shadow-md hover:shadow-lg"
