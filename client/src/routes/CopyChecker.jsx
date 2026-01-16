@@ -33,8 +33,8 @@ export default function CopyChecker() {
   const [currentPage, setCurrentPage] = useState(1); // Current page of the Answer Copy
   const [marks, setMarks] = useState("");
   const [comments, setComments] = useState("");
-  // Track which pages have been explicitly saved by the examiner (client-side)
-  const [savedPages, setSavedPages] = useState(new Set());
+  // Track pages saved in current session only (for temporary UI feedback)
+  const [justSavedPages, setJustSavedPages] = useState(new Set());
 
   // UI States
   const [showToast, setShowToast] = useState(false);
@@ -66,15 +66,8 @@ export default function CopyChecker() {
         setCurrentPage(1);
         // Reset loading state after initial document fetch
         setIsAcLoading(true); // Will be set to false by onRenderSuccessAC
-        // Initialize savedPages from server data (only pages actually annotated by a user)
-        // Use `lastAnnotatedBy` rather than `marksAwarded` because `marksAwarded` may be 0
-        // for un-annotated pages in some backends and would be incorrectly treated as saved.
-        const initiallySaved = new Set(
-          (res.data.pages || [])
-            .filter((p) => Boolean(p.lastAnnotatedBy))
-            .map((p) => p.pageNumber)
-        );
-        setSavedPages(initiallySaved);
+        // Clear any temporary saved pages from previous session
+        setJustSavedPages(new Set());
       } catch (err) {
         setError(err.response?.data?.error || err.message);
         showTemporaryToast(
@@ -105,15 +98,13 @@ export default function CopyChecker() {
     setIsAcLoading(true);
   }, [currentPage, copy]);
 
-  // Combine server-side marked pages with client-side saved pages for progress/count
-  // Consider only pages where `lastAnnotatedBy` is present as saved on the server.
-  // Avoid using `marksAwarded` here because 0 is a valid numeric value that may
-  // be present for all pages by default and would cause false positives.
-  const serverSavedPages = (copy?.pages || [])
+  // Only use server-side data to determine if a page is truly checked/saved
+  // A page is checked ONLY if it has lastAnnotatedBy set (meaning it was actually saved)
+  const checkedPages = (copy?.pages || [])
     .filter((p) => Boolean(p.lastAnnotatedBy))
     .map((p) => p.pageNumber);
-  const combinedSavedSet = new Set([...Array.from(savedPages), ...serverSavedPages]);
-  const totalChecked = combinedSavedSet.size;
+  const checkedPagesSet = new Set(checkedPages);
+  const totalChecked = checkedPages.length;
 
   // (Question Paper is provided as an external link in the sidebar)
 
@@ -194,12 +185,12 @@ export default function CopyChecker() {
     if (isSaving) return; // Prevent multiple submissions while saving
     setIsSaving(true);
     try {
-      if (marks === "" || isNaN(parseInt(marks))) {
+      if (marks === "" || isNaN(parseFloat(marks))) {
         showTemporaryToast("Please enter a valid number for marks.", "error");
         setIsSaving(false);
         return;
       }
-      if (parseInt(marks) < 0) {
+      if (parseFloat(marks) < 0) {
         showTemporaryToast("Marks cannot be negative.", "error");
         setIsSaving(false);
         return;
@@ -207,13 +198,13 @@ export default function CopyChecker() {
 
       const payload = {
         pageNumber: currentPage,
-        marks: parseInt(marks), // Use parseInt here
+        marks: parseFloat(marks), // Use parseFloat to support decimal marks
         comments,
       };
       const res = await api.patch(`/examiner/copies/${copyId}/mark-page`, payload);
       setCopy(res.data); // Update local copy state with new data from server
-      // Mark this page as saved on the client as well
-      setSavedPages((prev) => {
+      // Mark this page as just saved for temporary UI feedback
+      setJustSavedPages((prev) => {
         const next = new Set(Array.from(prev));
         next.add(currentPage);
         return next;
@@ -244,8 +235,8 @@ export default function CopyChecker() {
   };
 
   // Get the current page URL for Question Paper PDF
-  const qpPdfUrl = copy.questionPaper?.driveFile?.viewLink
-    ? `${copy.questionPaper?.driveFile?.viewLink}`
+  const qpPdfUrl = copy.questionPaper?.driveFile?.id
+    ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
     : "";
 
   // Get the current page URL for Answer Copy PDF
@@ -375,15 +366,44 @@ export default function CopyChecker() {
             ></div>
           </div>
         </div>
-        {/* Main layout: big Answer Copy in center, controls + marking on right sidebar */}
+        {/* Main layout: Page Navigation on left, Answer Copy in center, controls + marking on right sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-          <div className="lg:col-span-9 bg-white flex flex-col items-center">
+          {/* Left Sidebar - Page Navigation */}
+          <aside className="lg:col-span-2 flex flex-col space-y-4">
+            <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-180px)] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3 sticky top-0 bg-white pb-2">Pages</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {Array.from({ length: acNumPages || 0 }, (_, i) => i + 1).map((pageNum) => {
+                  const isChecked = checkedPagesSet.has(pageNum);
+                  const isCurrentPage = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-full text-sm font-semibold transition relative flex items-center justify-center ${
+                        isCurrentPage
+                          ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
+                          : isChecked
+                          ? 'bg-green-500 text-white hover:bg-green-600'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      title={`Page ${pageNum}${isChecked ? ' (Checked)' : ''}`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+
+          <div className="lg:col-span-8 bg-white flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-2">
               <h2 className="text-2xl font-semibold text-gray-800 text-center">Answer Copy</h2>
               {/* Page check indicator */}
               <div className="flex items-center space-x-2 mr-2">
                 {(function(){
-                  const isChecked = combinedSavedSet.has(currentPage);
+                  const isChecked = checkedPagesSet.has(currentPage);
                   return (
                     <>
                       <span className={`h-3 w-3 rounded-full ${isChecked ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -415,14 +435,13 @@ export default function CopyChecker() {
             </div>
           </div>
 
-          {/* Right Sidebar */}
-          <aside className="lg:col-span-3 flex flex-col space-y-4">
+          {/* Right Sidebar - Marking and Controls */}
+          <aside className="lg:col-span-2 flex flex-col space-y-4">
             <div className="bg-white p-3 rounded-md border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3>
-              <div className="flex items-center justify-between mb-3 space-x-3">
-                <button onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); }} disabled={currentPage === 1} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium">Prev</button>
-                <div className="text-center"><div className="text-sm text-gray-600">Page</div><div className="text-lg font-bold text-gray-800">{currentPage} / {acNumPages || "..."}</div></div>
-                <button onClick={() => { setCurrentPage((p) => Math.min(acNumPages, p + 1)); }} disabled={currentPage === acNumPages} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium">Next</button>
+              {/* <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3> */}
+              <div className="text-center mb-3">
+                <div className="text-sm text-gray-600">Page</div>
+                <div className="text-lg font-bold text-gray-800">{currentPage} / {acNumPages || "..."}</div>
               </div>
 
               <div className="flex items-center justify-between mb-3">
@@ -444,11 +463,26 @@ export default function CopyChecker() {
               </div>
             </div>
 
-            <div className="bg-white p-3 rounded-md border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Marking for Page {currentPage}</h3>
+            <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-400px)] overflow-y-auto">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2 sticky top-0 bg-white pb-2">Marking for Page {currentPage}</h3>
               <div className="mb-3">
-                <label htmlFor="marks" className="block text-sm font-medium text-gray-700 mb-1">Marks Awarded:</label>
-                <input id="marks" type="number" min="0" value={marks} onChange={(e) => setMarks(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="e.g., 10" />
+                <label htmlFor="marks" className="block text-sm font-medium text-gray-700 mb-2">Marks Awarded:</label>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {Array.from({ length: 21 }, (_, i) => i * 0.5).map((markValue) => (
+                    <button
+                      key={markValue}
+                      onClick={() => setMarks(markValue.toString())}
+                      className={`px-2 py-1 rounded text-xs font-medium transition ${
+                        parseFloat(marks) === markValue
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {markValue}
+                    </button>
+                  ))}
+                </div>
+                <input id="marks" type="number" min="0" step="0.5" value={marks} onChange={(e) => setMarks(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="Or type custom marks" />
               </div>
               <div className="mb-3">
                 <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-1">Comments:</label>
@@ -511,7 +545,7 @@ export default function CopyChecker() {
                 {copy.pages
                   .sort((a, b) => a.pageNumber - b.pageNumber)
                   .map((page) => {
-                    const isChecked = combinedSavedSet.has(page.pageNumber);
+                    const isChecked = checkedPagesSet.has(page.pageNumber);
                     return (
                       <div
                         key={page.pageNumber}
