@@ -382,9 +382,9 @@ export default function AdminExamDetails() {
                     </td>
                     {/* Answer Copy PDF Link */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {copy.driveFile?.directDownloadLink ? (
+                      {copy.driveFile?.id ? (
                         <a
-                          href={copy.driveFile.directDownloadLink}
+                          href={`/api/drive/pdf/${copy.driveFile.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
