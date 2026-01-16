@@ -75,6 +75,7 @@ export default function AdminPanel() {
   const [deleteCurrentBatch, setDeleteCurrentBatch] = useState(false);
   const [isDeletingUsers, setIsDeletingUsers] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isCreatingExam, setIsCreatingExam] = useState(false);
 
   // Toast notification states
 
@@ -143,6 +144,16 @@ export default function AdminPanel() {
     return ["all", ...Array.from(batches).sort()];
   }, [users]);
 
+  // Get student batches only (without 'all') for exam creation dropdown
+  const studentBatchesForExam = useMemo(() => {
+    const batches = new Set(
+      users
+        .filter((user) => user.role === "student" && user.batch)
+        .map((user) => user.batch)
+    );
+    return Array.from(batches).sort();
+  }, [users]);
+
   // Add new user to the system
   const handleAddUser = async () => {
     try {
@@ -182,6 +193,16 @@ export default function AdminPanel() {
       return;
     }
 
+    if (!newExamCourse) {
+      showTemporaryToast(
+        "Please select a batch for the exam.",
+        "error"
+      );
+      return;
+    }
+
+    setIsCreatingExam(true);
+
     const formData = new FormData();
     formData.append("title", newExamTitle);
     formData.append("course", newExamCourse);
@@ -218,6 +239,8 @@ export default function AdminPanel() {
         `Error creating exam: ${err.response?.data?.message || err.message}`,
         "error"
       );
+    } finally {
+      setIsCreatingExam(false);
     }
   };
 
@@ -1208,7 +1231,7 @@ export default function AdminPanel() {
               htmlFor="examTitle"
               className="block text-sm font-medium text-gray-700"
             >
-              Exam Title:
+              Exam Subject:
             </label>
             <input
               type="text"
@@ -1227,15 +1250,31 @@ export default function AdminPanel() {
             >
               Batch:
             </label>
-            <input
-              type="text"
+            <select
               id="examCourse"
-              placeholder="e.g., Batch 2025"
               value={newExamCourse}
               onChange={(e) => setNewExamCourse(e.target.value)}
               className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
               required
-            />
+            >
+              <option value="">-- Select Batch --</option>
+              {studentBatchesForExam.length === 0 ? (
+                <option value="" disabled>
+                  No students with batches found
+                </option>
+              ) : (
+                studentBatchesForExam.map((batch) => (
+                  <option key={batch} value={batch}>
+                    {batch}
+                  </option>
+                ))
+              )}
+            </select>
+            {studentBatchesForExam.length === 0 && (
+              <p className="text-xs text-red-500 mt-1">
+                Please add students with batch numbers first
+              </p>
+            )}
           </div>
           <div>
             <label
@@ -1311,9 +1350,17 @@ export default function AdminPanel() {
           </div>
           <button
             type="submit"
-            className="bg-blue-600 text-white p-2 rounded-md w-full hover:bg-blue-700 transition duration-150"
+            disabled={isCreatingExam || studentBatchesForExam.length === 0}
+            className="bg-blue-600 text-white p-2 rounded-md w-full hover:bg-blue-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            Create Exam
+            {isCreatingExam ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                Creating Exam...
+              </>
+            ) : (
+              "Create Exam"
+            )}
           </button>
         </form>
       </Modal>
