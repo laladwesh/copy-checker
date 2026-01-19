@@ -18,8 +18,8 @@ const app = express();
 app.use(morgan("dev"));
 
 // Body parsers
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // Initialize Passport (no sessions)
 app.use(passport.initialize());
