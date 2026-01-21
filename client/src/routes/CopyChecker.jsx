@@ -50,7 +50,7 @@ export default function CopyChecker() {
   const [isAcLoading, setIsAcLoading] = useState(true);
 
   // Zoom States
-  const [acZoomLevel, setAcZoomLevel] = useState(1); // Initial zoom level for AC
+  const [acZoomLevel, setAcZoomLevel] = useState(1.25); // Initial zoom level for AC
 
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 0.5; // Adjusted min zoom for better flexibility
@@ -94,7 +94,7 @@ export default function CopyChecker() {
     }
 
     // Reset zoom when AC page changes, and set loading to true
-    setAcZoomLevel(1);
+    setAcZoomLevel(1.25);
     setIsAcLoading(true);
   }, [currentPage, copy]);
 
@@ -294,7 +294,7 @@ export default function CopyChecker() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = 1;
+        newZoom = 1.25;
       }
       return parseFloat(newZoom.toFixed(2));
     });
@@ -379,40 +379,11 @@ export default function CopyChecker() {
             ></div>
           </div>
         </div>
-        {/* Main layout: Page Navigation on left, Answer Copy in center, controls + marking on right sidebar */}
+        {/* Main layout: Answer Copy center-expanded, controls + marking on right sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-          {/* Left Sidebar - Page Navigation */}
-          <aside className="lg:col-span-2 flex flex-col space-y-4">
-            <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-180px)] overflow-y-auto">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3 sticky top-0 bg-white pb-2">Pages</h3>
-              <div className="grid grid-cols-4 gap-2">
-                {Array.from({ length: acNumPages || 0 }, (_, i) => i + 1).map((pageNum) => {
-                  const isChecked = checkedPagesSet.has(pageNum);
-                  const isCurrentPage = pageNum === currentPage;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-10 h-10 rounded-full text-sm font-semibold transition relative flex items-center justify-center ${
-                        isCurrentPage
-                          ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
-                          : isChecked
-                          ? 'bg-green-500 text-white hover:bg-green-600'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      title={`Page ${pageNum}${isChecked ? ' (Checked)' : ''}`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </aside>
-
-          <div className="lg:col-span-8 bg-white flex flex-col items-center">
+          <div className="lg:col-span-10 bg-white flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-2">
-              <h2 className="text-2xl font-semibold text-gray-800 text-center">Answer Copy</h2>
+              <h2 className="text-2xl p-4 font-semibold text-gray-800 text-center">Answer Copy</h2>
               {/* Page check indicator */}
               <div className="flex items-center space-x-2 mr-2">
                 {(function(){
@@ -446,6 +417,32 @@ export default function CopyChecker() {
                 <div className="text-gray-500 text-center p-2">Answer Copy PDF Not Found.</div>
               )}
             </div>
+
+            {/* Horizontal Page Navigation moved below the PDF viewer to use vertical space for the document */}
+            <div className="w-full bg-white p-3 mt-3 flex items-center justify-center overflow-x-auto">
+              <div className="flex flex-wrap gap-2 justify-center">
+                {Array.from({ length: acNumPages || 0 }, (_, i) => i + 1).map((pageNum) => {
+                  const isChecked = checkedPagesSet.has(pageNum);
+                  const isCurrentPage = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-full text-sm font-semibold transition relative flex items-center justify-center ${
+                        isCurrentPage
+                          ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
+                          : isChecked
+                          ? 'bg-green-500 text-white hover:bg-green-600'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      title={`Page ${pageNum}${isChecked ? ' (Checked)' : ''}`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Right Sidebar - Marking and Controls */}
@@ -461,7 +458,7 @@ export default function CopyChecker() {
                 <div className="flex items-center space-x-2">
                   <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
                   <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
-                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
                 </div>
                 <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
               </div>
