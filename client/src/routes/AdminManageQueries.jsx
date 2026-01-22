@@ -10,10 +10,9 @@ import {
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
   ArrowLeftIcon,
-  CheckCircleIcon,
-  XCircleIcon,
   EyeIcon,
 } from "@heroicons/react/24/outline";
+import { toastSuccess, toastError } from "../utils/hotToast";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -39,7 +38,7 @@ export default function AdminManageQueries() {
 
   // PDF viewer states - Answer Copy
   const [queryViewerCurrentPage, setQueryViewerCurrentPage] = useState(1);
-  const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1);
+  const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1.25);
   const [isQueryViewerAcLoading, setIsQueryViewerAcLoading] = useState(true);
   const [numAcPages, setNumAcPages] = useState(null);
 
@@ -47,26 +46,13 @@ export default function AdminManageQueries() {
   const [replyText, setReplyText] = useState("");
   const [isSubmittingQueryAction, setIsSubmittingQueryAction] = useState(false);
 
-  // Toast notification states
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
+  // Toasts provided via react-hot-toast helpers
 
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 3;
 
-  const showTemporaryToast = useCallback((msg, type = "success") => {
-    setToastMessage({ message: msg, type: type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
+  // Use toastSuccess/toastError/toastInfo helpers for notifications
 
   // Fetch queries data
   const fetchData = useCallback(async () => {
@@ -75,9 +61,9 @@ export default function AdminManageQueries() {
       setQueries(queriesRes.data);
     } catch (error) {
       console.error("Error fetching data:", error);
-      showTemporaryToast("Failed to load data.", "error");
+        toastError("Failed to load data.");
     }
-  }, [showTemporaryToast]);
+    }, []);
 
   useEffect(() => {
     fetchData();
@@ -134,7 +120,7 @@ export default function AdminManageQueries() {
     setReplyText(query.response || "");
     setIsViewingQuery(true);
     setQueryViewerCurrentPage(query.pageNumber || 1);
-    setQueryViewerZoomLevel(1);
+    setQueryViewerZoomLevel(1.25);
     setIsQueryViewerAcLoading(true);
     setNumAcPages(null);
 
@@ -144,7 +130,7 @@ export default function AdminManageQueries() {
       setSelectedCopyForQueryView(copyRes.data);
     } catch (error) {
       console.error("Error fetching copy details:", error);
-      showTemporaryToast("Failed to load copy details.", "error");
+        toastError("Failed to load copy details.");
     }
   };
 
@@ -155,7 +141,7 @@ export default function AdminManageQueries() {
     setReplyText("");
     setSelectedCopyForQueryView(null);
     setQueryViewerCurrentPage(1);
-    setQueryViewerZoomLevel(1);
+    setQueryViewerZoomLevel(1.25);
     fetchData();
   };
 
@@ -165,14 +151,11 @@ export default function AdminManageQueries() {
     setIsSubmittingQueryAction(true);
     try {
       await api.patch(`/admin/queries/${selectedQuery._id}/approve`);
-      showTemporaryToast("Query approved and forwarded to examiner!", "success");
+      toastSuccess("Query approved and forwarded to examiner!");
       handleCloseQueryViewer();
     } catch (error) {
       console.error("Error approving query:", error);
-      showTemporaryToast(
-        `Error approving query: ${error.response?.data?.message || error.message}`,
-        "error"
-      );
+      toastError(`Error approving query: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsSubmittingQueryAction(false);
     }
@@ -184,14 +167,11 @@ export default function AdminManageQueries() {
     setIsSubmittingQueryAction(true);
     try {
       await api.patch(`/admin/queries/${selectedQuery._id}/reject`);
-      showTemporaryToast("Query rejected!", "success");
+      toastSuccess("Query rejected!");
       handleCloseQueryViewer();
     } catch (error) {
       console.error("Error rejecting query:", error);
-      showTemporaryToast(
-        `Error rejecting query: ${error.response?.data?.message || error.message}`,
-        "error"
-      );
+      toastError(`Error rejecting query: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsSubmittingQueryAction(false);
     }
@@ -200,7 +180,7 @@ export default function AdminManageQueries() {
   // Resolve query with admin response
   const handleResolveQuery = async () => {
     if (!selectedQuery || !replyText.trim()) {
-      showTemporaryToast("Please provide a response to resolve the query.", "error");
+      toastError("Please provide a response to resolve the query.");
       return;
     }
     setIsSubmittingQueryAction(true);
@@ -208,14 +188,11 @@ export default function AdminManageQueries() {
       await api.patch(`/admin/queries/${selectedQuery._id}/resolve`, {
         responseText: replyText,
       });
-      showTemporaryToast("Query resolved successfully with your reply!", "success");
+      toastSuccess("Query resolved successfully with your reply!");
       handleCloseQueryViewer();
     } catch (error) {
       console.error("Error resolving query:", error);
-      showTemporaryToast(
-        `Error resolving query: ${error.response?.data?.message || error.message}`,
-        "error"
-      );
+      toastError(`Error resolving query: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsSubmittingQueryAction(false);
     }
@@ -230,7 +207,7 @@ export default function AdminManageQueries() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = MIN_ZOOM;
+        newZoom = 1.25;
       }
       return parseFloat(newZoom.toFixed(2));
     });
@@ -250,25 +227,7 @@ export default function AdminManageQueries() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-6">
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-xl ${
-            toastMessage.type === "success"
-              ? "bg-green-500 text-white"
-              : "bg-red-500 text-white"
-          } transition-all duration-300 transform animate-slide-in-right`}
-        >
-          <div className="flex items-center gap-3">
-            {toastMessage.type === "success" ? (
-              <CheckCircleIcon className="h-6 w-6" />
-            ) : (
-              <XCircleIcon className="h-6 w-6" />
-            )}
-            <span className="font-medium">{toastMessage.message}</span>
-          </div>
-        </div>
-      )}
+      {/* Toasts are provided globally via react-hot-toast */}
 
       {!isViewingQuery ? (
         // Query List View
