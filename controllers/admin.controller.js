@@ -11,9 +11,178 @@ const {
 const { PDFDocument } = require("pdf-lib");
 const { google } = require('googleapis');
 const { default: mongoose } = require("mongoose");
+const sendEmail = require("../utils/sendEmail");
+const { assignedCopiesHtml } = require("../utils/emailTemplates");
+const fsSync = require('fs');
+const path = require('path');
+const os = require('os');
 const getDirectDriveDownloadLink = (fileId) => {
     if (!fileId) return null;
     return `https://drive.google.com/uc?export=download&id=${fileId}`;
+};
+
+// Delete a single copy by ID
+// Delete a single copy by ID (also remove associated queries and Drive file)
+exports.deleteCopy = async (req, res, next) => {
+  try {
+    const copyId = req.params.id;
+    if (!copyId) return res.status(400).json({ message: "Copy ID is required." });
+    const copy = await Copy.findById(copyId);
+    if (!copy) return res.status(404).json({ message: "Copy not found." });
+
+    // Allow deleting copies regardless of their status (including 'examining').
+    // Note: previously deletion of 'examining' copies was blocked to avoid
+    // potential conflicts when an examiner is actively working on a copy.
+    // The caller should ensure this action is safe in their workflow.
+
+    // Delete queries associated with this copy
+    await Query.deleteMany({ copy: copy._id });
+
+    // Delete drive file if present
+    try {
+      if (copy.driveFile && copy.driveFile.id && drive) {
+        await drive.files.delete({ fileId: copy.driveFile.id });
+      }
+    } catch (driveErr) {
+      console.error("Warning: failed to delete copy drive file:", driveErr.message);
+      // Do not fail the whole operation on drive errors
+    }
+
+    await Copy.deleteOne({ _id: copyId });
+    res.json({ message: "Copy deleted successfully." });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Delete an exam (Paper) and its copies + queries + Drive files
+exports.deleteExam = async (req, res, next) => {
+  try {
+    const paperId = req.params.id;
+    if (!paperId) return res.status(400).json({ message: "Exam ID is required." });
+
+    const paper = await Paper.findById(paperId);
+    if (!paper) return res.status(404).json({ message: "Exam not found." });
+
+    // Prevent deletion if any copy is currently being examined
+    const activeCopy = await Copy.findOne({ questionPaper: paperId, status: "examining" });
+    if (activeCopy) {
+      return res.status(400).json({ message: "Cannot delete exam while some copies are being examined." });
+    }
+
+    // Find all copies for this paper
+    const paperCopies = await Copy.find({ questionPaper: paperId });
+
+    // Delete queries and drive files for each copy
+    for (const cp of paperCopies) {
+      try {
+        await Query.deleteMany({ copy: cp._id });
+        if (cp.driveFile && cp.driveFile.id && drive) {
+          await drive.files.delete({ fileId: cp.driveFile.id });
+        }
+      } catch (innerErr) {
+        console.error("Warning: error while cleaning a copy during exam delete:", innerErr.message);
+      }
+    }
+
+    // Delete copies
+    await Copy.deleteMany({ questionPaper: paperId });
+
+    // Delete the paper drive file if present
+    try {
+      if (paper.driveFile && paper.driveFile.id && drive) {
+        await drive.files.delete({ fileId: paper.driveFile.id });
+      }
+    } catch (driveErr) {
+      console.error("Warning: failed to delete paper drive file:", driveErr.message);
+    }
+
+    // Finally delete Paper document
+    await Paper.deleteOne({ _id: paperId });
+
+    res.json({ message: "Exam and its copies deleted successfully." });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Bulk delete exams by IDs (body: { examIds: [] })
+exports.deleteExamsBulk = async (req, res, next) => {
+  try {
+    const { examIds } = req.body;
+    if (!Array.isArray(examIds) || examIds.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty examIds array." });
+    }
+
+    // Validate IDs
+    const valid = examIds.every((id) => mongoose.Types.ObjectId.isValid(id));
+    if (!valid) return res.status(400).json({ message: "One or more exam IDs are invalid." });
+
+    // Check for any active copies
+    const active = await Copy.findOne({ questionPaper: { $in: examIds }, status: "examining" });
+    if (active) return res.status(400).json({ message: "Cannot delete exams while some copies are being examined." });
+
+    // For each exam, delete associated copies, queries and drive files
+    for (const id of examIds) {
+      const paper = await Paper.findById(id);
+      const paperCopies = await Copy.find({ questionPaper: id });
+      for (const cp of paperCopies) {
+        try {
+          await Query.deleteMany({ copy: cp._id });
+          if (cp.driveFile && cp.driveFile.id && drive) {
+            await drive.files.delete({ fileId: cp.driveFile.id });
+          }
+        } catch (e) {
+          console.error("Warning: cleaning copy during bulk exam delete:", e.message);
+        }
+      }
+      await Copy.deleteMany({ questionPaper: id });
+      if (paper && paper.driveFile && paper.driveFile.id && drive) {
+        try {
+          await drive.files.delete({ fileId: paper.driveFile.id });
+        } catch (e) {
+          console.error("Warning: deleting paper drive file during bulk delete:", e.message);
+        }
+      }
+      await Paper.deleteOne({ _id: id });
+    }
+
+    res.json({ message: `${examIds.length} exam(s) deleted.` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Bulk delete copies by IDs (body: { copyIds: [] })
+exports.deleteCopiesBulk = async (req, res, next) => {
+  try {
+    const { copyIds } = req.body;
+    if (!Array.isArray(copyIds) || copyIds.length === 0) {
+      return res.status(400).json({ message: "Invalid or empty copyIds array." });
+    }
+    const valid = copyIds.every((id) => mongoose.Types.ObjectId.isValid(id));
+    if (!valid) return res.status(400).json({ message: "One or more copy IDs are invalid." });
+
+    for (const id of copyIds) {
+      const cp = await Copy.findById(id);
+      if (!cp) continue;
+      // Delete queries associated with this copy
+      await Query.deleteMany({ copy: cp._id });
+      // Attempt to delete drive file (non-fatal)
+      if (cp.driveFile && cp.driveFile.id && drive) {
+        try {
+          await drive.files.delete({ fileId: cp.driveFile.id });
+        } catch (e) {
+          console.error("Warning: deleting copy drive file during bulk delete:", e.message);
+        }
+      }
+      await Copy.deleteOne({ _id: id });
+    }
+
+    res.json({ message: "Requested copies processed for deletion." });
+  } catch (err) {
+    next(err);
+  }
 };
 // Utility function to sanitize folder names (replace invalid characters)
 const sanitizeFolderName = (name) => {
@@ -31,44 +200,104 @@ exports.serveDrivePdf = async (req, res, next) => {
             return res.status(400).json({ message: "File ID is required." });
         }
 
-        // Use the imported 'drive' instance for making the Google Drive API call
-        const response = await drive.files.get(
-            { fileId: fileId, alt: 'media' }, // 'alt=media' is crucial for getting the file content
-            { responseType: 'stream' }       // Get the response as a stream
-        );
+        // Implement a simple on-disk cache to speed up repeat requests and support Range requests
+        const cacheDir = path.join(os.tmpdir(), 'pims_pdf_cache');
+        if (!fsSync.existsSync(cacheDir)) {
+          try { fsSync.mkdirSync(cacheDir, { recursive: true }); } catch (e) { /* ignore */ }
+        }
 
-        // Set the appropriate headers for PDF content
+        const cachedFilePath = path.join(cacheDir, `${fileId}.pdf`);
+
+        // Utility: serve from local cache with Range support
+        const serveFromCache = (filePath) => {
+          try {
+            const stat = fsSync.statSync(filePath);
+            const total = stat.size;
+
+            // Support Range header for partial content (enables fast first-page render in browsers)
+            const range = req.headers.range;
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${fileId}.pdf"`);
+            res.setHeader('Accept-Ranges', 'bytes');
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // cache for 1 day
+
+            if (range) {
+              const parts = range.replace(/bytes=/, '').split('-');
+              const start = parseInt(parts[0], 10);
+              const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+              if (start >= total || end >= total) {
+                res.status(416).setHeader('Content-Range', `bytes */${total}`);
+                return res.end();
+              }
+              res.status(206);
+              res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+              res.setHeader('Content-Length', (end - start) + 1);
+              const stream = fsSync.createReadStream(filePath, { start, end });
+              return stream.pipe(res);
+            } else {
+              res.setHeader('Content-Length', total);
+              const stream = fsSync.createReadStream(filePath);
+              return stream.pipe(res);
+            }
+          } catch (e) {
+            console.error('Error serving cached file:', e);
+            // fallback to direct drive streaming below
+          }
+        };
+
+        // If cached file exists, serve it (fast)
+        if (fsSync.existsSync(cachedFilePath)) {
+          console.log(`[Backend] Serving cached PDF for ${fileId}`);
+          return serveFromCache(cachedFilePath);
+        }
+
+        // Otherwise, fetch the file from Drive into a temp file, stream to response and write to cache
+        const tmpPath = path.join(cacheDir, `${fileId}_${Date.now()}.download`);
+        const driveRes = await drive.files.get({ fileId: fileId, alt: 'media' }, { responseType: 'stream' });
+
+        // Set minimal headers for streaming initial content
         res.setHeader('Content-Type', 'application/pdf');
-        // 'inline' means the browser should try to display it; 'attachment' means download
         res.setHeader('Content-Disposition', `inline; filename="${fileId}.pdf"`);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
 
-        // Set CORS headers. IMPORTANT: Adjust this for production.
-        // For development, '*' is generally fine.
-        // For production, change '*' to your actual frontend's domain (e.g., 'https://yourfrontend.com').
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+        // Pipe drive stream into a PassThrough to duplicate for disk write
+        const { PassThrough } = require('stream');
+        const pass = new PassThrough();
+        const writeStream = fsSync.createWriteStream(tmpPath);
 
+        driveRes.data.pipe(pass);
+        pass.pipe(writeStream);
+        pass.pipe(res);
 
-        // Pipe the Google Drive file stream directly to the response for efficient serving
-        response.data
-            .on('end', () => {
-                console.log(`[Backend] Served PDF file successfully: ${fileId}`);
-            })
-            .on('error', err => {
-                console.error(`[Backend] Error streaming PDF file ${fileId} from Drive:`, err);
-                // Handle errors that occur during the streaming process (e.g., connection drops)
-                if (!res.headersSent) { // Only send error if headers haven't been sent yet
-                    if (err.code === 403) {
-                        res.status(403).json({ message: "Access to Google Drive file forbidden. Check file permissions or authentication." });
-                    } else if (err.code === 404) {
-                        res.status(404).json({ message: "Google Drive file not found or deleted." });
-                    } else {
-                        res.status(500).json({ message: "Failed to stream file from Google Drive due to an unexpected error." });
-                    }
-                }
-            })
-            .pipe(res); // Connect the Google Drive stream to the HTTP response stream
+        let wrote = false;
+        writeStream.on('finish', () => {
+          try {
+            fsSync.renameSync(tmpPath, cachedFilePath);
+            wrote = true;
+            console.log(`[Backend] Cached PDF saved for ${fileId} at ${cachedFilePath}`);
+          } catch (e) {
+            console.warn(`[Backend] Failed to move cached PDF for ${fileId}:`, e.message);
+            try { fsSync.unlinkSync(tmpPath); } catch (ee) { }
+          }
+        });
+
+        driveRes.data.on('end', () => {
+          console.log(`[Backend] Finished streaming PDF file from Drive: ${fileId}`);
+        });
+
+        driveRes.data.on('error', (err) => {
+          console.error(`[Backend] Error streaming PDF file ${fileId} from Drive:`, err);
+          if (!res.headersSent) {
+            if (err.code === 403) {
+              res.status(403).json({ message: "Access to Google Drive file forbidden. Check file permissions or authentication." });
+            } else if (err.code === 404) {
+              res.status(404).json({ message: "Google Drive file not found or deleted." });
+            } else {
+              res.status(500).json({ message: "Failed to stream file from Google Drive due to an unexpected error." });
+            }
+          }
+        });
 
     } catch (err) {
         // This catch block handles errors that occur before the stream even starts,
@@ -311,6 +540,15 @@ exports.assignExaminersToExam = async (req, res, next) => {
         .json({ message: "Exam (Question Paper) not found." });
     }
 
+    // Prevent assigning examiners when there are no copies uploaded for this exam.
+    const totalCopiesForExam = await Copy.countDocuments({ questionPaper: paperId });
+    if (totalCopiesForExam === 0) {
+      return res.status(400).json({
+        message:
+          "Cannot assign examiners: there are no uploaded copies for this exam.",
+      });
+    }
+
     const validExaminers = await User.find({
       _id: { $in: examinerIds },
       role: "examiner",
@@ -354,11 +592,44 @@ exports.assignExaminersToExam = async (req, res, next) => {
     }
 
     let examinerIndex = 0;
+    // track how many copies each examiner received in this distribution
+    const assignedCounts = {};
     for (const copy of pendingUnassignedCopies) {
       const currentExaminerId = validExaminerObjectIds[examinerIndex];
       copy.examiners = [currentExaminerId];
       await copy.save();
+      const idStr = currentExaminerId.toString();
+      assignedCounts[idStr] = (assignedCounts[idStr] || 0) + 1;
       examinerIndex = (examinerIndex + 1) % validExaminerObjectIds.length;
+    }
+
+    // Send notification emails to examiners who received copies
+    try {
+      const frontendBase = process.env.FRONTEND_URL;
+      const loginLink = `${frontendBase}/auth/success`;
+      // Fetch examiner user objects from validExaminers (we already have these)
+      for (const examiner of validExaminers) {
+        const idStr = examiner._id.toString();
+        const count = assignedCounts[idStr] || 0;
+        if (count > 0 && examiner.email) {
+          const html = assignedCopiesHtml({
+            examinerName: examiner.name || examiner.email,
+            paperTitle: paper.title || "(Exam)",
+            count,
+            link: loginLink,
+            email: examiner.email,
+          });
+          const subject = `Assigned: ${count} copy(ies) for ${paper.title || "Exam"}`;
+          // fire and forget, but await so we can log failures
+          try {
+            await sendEmail({ to: examiner.email, subject, html });
+          } catch (emailErr) {
+            console.error(`Failed to send assignment email to ${examiner.email}:`, emailErr);
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.error("Error sending assignment emails:", notifyErr);
     }
 
     res.status(200).json({
@@ -367,6 +638,47 @@ exports.assignExaminersToExam = async (req, res, next) => {
     });
   } catch (err) {
     console.error("Error assigning examiners to exam:", err);
+    next(err);
+  }
+};
+
+// Undo / Remove assigned examiners from an exam and unassign copies that aren't evaluated
+exports.unassignExaminersFromExam = async (req, res, next) => {
+  try {
+    const paperId = req.params.id;
+    if (!paperId) {
+      return res.status(400).json({ message: "Exam (Paper) ID is required." });
+    }
+
+    const paper = await Paper.findById(paperId);
+    if (!paper) {
+      return res.status(404).json({ message: "Exam (Question Paper) not found." });
+    }
+
+    const prevAssignedCount = (paper.assignedExaminers || []).length;
+    paper.assignedExaminers = [];
+    await paper.save();
+
+    // Clear examiners only on copies that are still pending (not assigned/being examined/evaluated)
+    // This prevents removing examiners from copies that are currently being checked ('examining')
+    const updateResult = await Copy.updateMany(
+      {
+        questionPaper: paperId,
+        status: "pending",
+        examiners: { $exists: true, $ne: [] },
+      },
+      { $set: { examiners: [] } }
+    );
+
+    const modified = updateResult.modifiedCount ?? updateResult.nModified ?? 0;
+
+    res.status(200).json({
+      message: `Removed ${prevAssignedCount} assigned examiners and unassigned ${modified} copies.`,
+      paper,
+      modifiedCopies: modified,
+    });
+  } catch (err) {
+    console.error("Error unassigning examiners from exam:", err);
     next(err);
   }
 };
@@ -784,14 +1096,22 @@ exports.uploadScannedCopy = async (req, res, next) => {
     if (!questionPaper) {
       return res.status(404).json({ message: "Question Paper not found." });
     }
-    if(questionPaper.assignedExaminers.length !== 0) {
-      return res.status(400).json({
-        message:
-          "Cannot upload scanned copy for this exam as it already has assigned examiners.",
-      });
+    // Allow uploading scanned copies even if exam has assigned examiners.
+    // Previously this returned a 400 and prevented uploads when examiners
+    // were assigned. That blocked admins from adding more copies after
+    // an undo/unassign action or in other workflows. Log a warning but
+    // continue processing the upload.
+    if (questionPaper.assignedExaminers && questionPaper.assignedExaminers.length !== 0) {
+      console.warn(
+        `[ScanCopy] Uploading to exam (${questionPaper._id}) which has ${questionPaper.assignedExaminers.length} assigned examiner(s). Proceeding with upload.`
+      );
     }
-    //add check to ensure student is not already associated with this question paper
-    if (questionPaper.students && questionPaper.students.includes(student._id)) {
+    // Prevent duplicate uploads for the same student & exam by checking existing copies.
+    const existingCopy = await Copy.findOne({
+      questionPaper: questionPaperId,
+      student: student._id,
+    });
+    if (existingCopy) {
       return res.status(400).json({
         message: "This student already has a scanned copy for this exam.",
       });
