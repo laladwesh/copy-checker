@@ -37,7 +37,7 @@ export default function ExaminerCopyViewer() {
   const [numAcPages, setNumAcPages] = useState(null);
   
   // Zoom states
-  const [acZoomLevel, setAcZoomLevel] = useState(1);
+  const [acZoomLevel, setAcZoomLevel] = useState(1.25);
   const [isAcLoading, setIsAcLoading] = useState(true); // State for AC PDF loading
 
   const ZOOM_STEP = 0.25;
@@ -91,7 +91,7 @@ export default function ExaminerCopyViewer() {
 
   // Reset zoom when current page changes (for smooth transition on page change)
   useEffect(() => {
-    setAcZoomLevel(1);
+    setAcZoomLevel(1.25);
   }, [acCurrentPage]);
 
 
@@ -105,7 +105,7 @@ export default function ExaminerCopyViewer() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = 1;
+        newZoom = 1.25;
       }
       return parseFloat(newZoom.toFixed(2));
     });
@@ -206,13 +206,13 @@ export default function ExaminerCopyViewer() {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
           {/* Main Answer Copy Viewer (center) */}
-          <div className="lg:col-span-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center">
+          <div className="lg:col-span-10 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center">
             {/* <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Answer Copy
             </h2> */}
-            <div className="relative w-full h-[80vh] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
+            <div className="relative w-full h-[90vh] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                   <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
@@ -247,7 +247,7 @@ export default function ExaminerCopyViewer() {
           </div>
 
           {/* Right Sidebar: controls, question paper link, evaluation */}
-          <aside className="lg:col-span-4 flex flex-col space-y-6">
+          <aside className="lg:col-span-2 flex flex-col space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3>
               <div className="flex items-center justify-between mb-3 space-x-3">
