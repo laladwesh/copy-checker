@@ -8,6 +8,7 @@ const {
   createExam,
   listPapers,
   assignExaminersToExam,
+  unassignExaminersFromExam,
   uploadCopy,
   listCopies,
   listQueries,
@@ -21,6 +22,10 @@ const {
   resolveQueryByAdmin,
   redistributeCopies, // NEW
   deleteUserBulk, // Assuming deleteUser is defined in the controller
+  deleteCopy,
+  deleteExam,
+  deleteExamsBulk,
+  deleteCopiesBulk,
 } = require("../controllers/admin.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -47,7 +52,10 @@ router.post(
   createExam
 );
 router.get("/exams", listPapers);
+router.delete("/exams/:id", deleteExam);
+router.delete("/exams", deleteExamsBulk);
 router.post("/exams/:id/assign-examiners", assignExaminersToExam);
+router.post("/exams/:id/unassign-examiners", unassignExaminersFromExam);
 
 router.post("/exams/:examId/redistribute-copies", redistributeCopies);
 
@@ -69,6 +77,8 @@ router.patch("/queries/:id/reject", rejectQuery);
 router.patch("/queries/:id/resolve", resolveQueryByAdmin); // NEW ROUTE for admin to resolve
 router.get("/exams/:examId/copies", getCopiesByExam); // Get all copies for a specific exam
 router.get("/copies/view/:id", getAdminCopyDetails); // Get details of a single copy for admin viewing
+router.delete("/copies/:id", deleteCopy);
+router.delete("/copies", deleteCopiesBulk);
 
 // Admin Features
 router.patch("/copies/single/:id/toggle-release", toggleCopyRelease);
