@@ -27,7 +27,7 @@ export default function AdminCopyViewer() {
 
   const [acCurrentPage, setAcCurrentPage] = useState(1);
   const [numAcPages, setNumAcPages] = useState(null);
-  const [acZoomLevel, setAcZoomLevel] = useState(1.0);
+  const [acZoomLevel, setAcZoomLevel] = useState(1.25);
   const [isAcLoading, setIsAcLoading] = useState(true);
 
   const ZOOM_STEP = 0.2;
@@ -71,7 +71,7 @@ export default function AdminCopyViewer() {
 
   // Reset zoom on page change
   useEffect(() => {
-    setAcZoomLevel(1.0);
+    setAcZoomLevel(1.25);
   }, [acCurrentPage]);
 
   const handleZoom = useCallback((action) => {
@@ -82,7 +82,7 @@ export default function AdminCopyViewer() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = 1.0;
+        newZoom = 1.25;
       }
       return parseFloat(newZoom.toFixed(2));
     });
