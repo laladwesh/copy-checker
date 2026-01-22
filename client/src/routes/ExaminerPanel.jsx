@@ -119,7 +119,7 @@ export default function ExaminerPanel() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate (Anonymous)</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paper</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -127,7 +127,7 @@ export default function ExaminerPanel() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {pending.map(c => (
                   <tr key={c._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.student?.email || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Anonymous</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.questionPaper?.title || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <a
@@ -168,7 +168,7 @@ export default function ExaminerPanel() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate (Anonymous)</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paper</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">View</th>
@@ -177,7 +177,7 @@ export default function ExaminerPanel() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {history.map(c => (
                   <tr key={c._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.student?.email || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Anonymous</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.questionPaper?.title || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
