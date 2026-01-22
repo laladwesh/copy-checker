@@ -4,16 +4,15 @@ import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
 import {
   ArrowLeftIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
   PaperAirplaneIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
   QuestionMarkCircleIcon, // For Raise Query button
   ChatBubbleLeftRightIcon, // For displaying queries
-  BookOpenIcon,
+  
 } from "@heroicons/react/24/outline";
+import { toastError, toastSuccess, toastInfo } from "../utils/hotToast";
 
 // Import react-pdf components
 import { Document, Page, pdfjs } from "react-pdf"; //
@@ -33,16 +32,11 @@ export default function StudentCopyViewer() {
   const [qpCurrentPage, setQpCurrentPage] = useState(1); // Current page of the Question Paper
   const [studentQueries, setStudentQueries] = useState([]); // NEW: State for student's queries on this copy
 
-  // Toast Notification states
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
+  // Toasts handled via `react-hot-toast` helpers
 
   // Zoom States
-  const [qpZoomLevel, setQpZoomLevel] = useState(1);
-  const [acZoomLevel, setAcZoomLevel] = useState(1);
+  const [qpZoomLevel, setQpZoomLevel] = useState(1.25);
+  const [acZoomLevel, setAcZoomLevel] = useState(1.25);
 
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 1;
@@ -84,12 +78,7 @@ export default function StudentCopyViewer() {
         setStudentQueries(queriesRes.data);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
-        showTemporaryToast(
-          `Error loading copy or queries: ${
-            err.response?.data?.message || err.message
-          }`,
-          "error"
-        );
+        toastError(`Error loading copy or queries: ${err.response?.data?.message || err.message}`);
       } finally {
         setIsLoadingComponent(false); // End loading for the component
       }
@@ -99,24 +88,15 @@ export default function StudentCopyViewer() {
 
   // 2) Reset zoom when current page of answer copy changes
   useEffect(() => {
-    setAcZoomLevel(1);
+    setAcZoomLevel(1.25);
   }, [currentPage]);
 
   // 3) Reset zoom when current page of question paper changes
   useEffect(() => {
-    setQpZoomLevel(1);
+    setQpZoomLevel(1.25);
   }, [qpCurrentPage]);
 
-  // Toast Notification handler
-  const showTemporaryToast = (msg, type = "success") => {
-    setToastMessage({ message: msg, type: type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 4000); // Hide after 4 seconds
-    return () => clearTimeout(timer);
-  };
+  // Toasts handled via `react-hot-toast` helpers
 
   // Handler for zooming images
   const handleZoom = (type, action) => {
@@ -128,7 +108,7 @@ export default function StudentCopyViewer() {
         } else if (action === "out") {
           newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
         } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
+          newZoom = 1.25;
         }
         return parseFloat(newZoom.toFixed(2));
       });
@@ -140,7 +120,7 @@ export default function StudentCopyViewer() {
         } else if (action === "out") {
           newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
         } else if (action === "reset") {
-          newZoom = MIN_ZOOM;
+          newZoom = 1.25;
         }
         return parseFloat(newZoom.toFixed(2));
       });
@@ -167,14 +147,11 @@ export default function StudentCopyViewer() {
       Number(queryPage) <= 0 ||
       Number(queryPage) > copy.totalPages
     ) {
-      showTemporaryToast(
-        `Please enter a valid page number between 1 and ${copy.totalPages}.`,
-        "error"
-      );
+      toastError(`Please enter a valid page number between 1 and ${copy.totalPages}.`);
       return;
     }
     if (!queryText.trim()) {
-      showTemporaryToast("Query text cannot be empty.", "error");
+      toastError("Query text cannot be empty.");
       return;
     }
 
@@ -183,10 +160,7 @@ export default function StudentCopyViewer() {
       (q) => q.pageNumber === Number(queryPage)
     );
     if (existingQueryForPage) {
-      showTemporaryToast(
-        `You have already raised a query for page ${queryPage}. Only one query per page is allowed.`,
-        "error"
-      );
+      toastError(`You have already raised a query for page ${queryPage}. Only one query per page is allowed.`);
       closeQueryModal();
       return;
     }
@@ -197,7 +171,7 @@ export default function StudentCopyViewer() {
         pageNumber: Number(queryPage),
         text: queryText.trim(),
       });
-      showTemporaryToast("Query submitted successfully!", "success");
+      toastSuccess("Query submitted successfully!");
       closeQueryModal();
       // Re-fetch queries after submission to update the list
       const updatedQueriesRes = await api.get(
@@ -205,10 +179,7 @@ export default function StudentCopyViewer() {
       );
       setStudentQueries(updatedQueriesRes.data);
     } catch (err) {
-      showTemporaryToast(
-        `Error submitting query: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error submitting query: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsSubmittingQuery(false);
     }
@@ -275,33 +246,7 @@ export default function StudentCopyViewer() {
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans relative">
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-xl text-white flex items-center space-x-3 transition-all duration-300 transform ${
-            toastMessage.type === "success"
-              ? "bg-green-500"
-              : toastMessage.type === "error"
-              ? "bg-red-500"
-              : "bg-blue-500"
-          } ${
-            showToast
-              ? "translate-x-0 opacity-100"
-              : "translate-x-full opacity-0"
-          }`}
-        >
-          {toastMessage.type === "success" && (
-            <CheckCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "error" && (
-            <ExclamationCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "info" && (
-            <PaperAirplaneIcon className="h-6 w-6" />
-          )}
-          <span className="font-semibold">{toastMessage.message}</span>
-        </div>
-      )}
+      {/* Toasts shown via global Toaster (react-hot-toast) */}
 
       {/* Top Navigation Bar */}
 
