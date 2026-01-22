@@ -18,12 +18,9 @@ import {
   TrashIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
+import { toastSuccess, toastError, toastInfo } from "../utils/hotToast";
 // AllExaminerDetailsModal moved to a full page: /admin/examiners
 
-/**
- * AdminPanel - Main dashboard for administrators
- * Manages users, exams, copy uploads, examiner assignments, and student queries
- */
 export default function AdminPanel() {
   // Core data states
   const [users, setUsers] = useState([]);
@@ -31,6 +28,11 @@ export default function AdminPanel() {
   const [copies, setCopies] = useState([]);
   const [queries, setQueries] = useState([]);
   const [availableExaminers, setAvailableExaminers] = useState([]);
+
+  // Exam selection / bulk delete states
+  const [selectedExamIds, setSelectedExamIds] = useState([]);
+  const [selectAllExams, setSelectAllExams] = useState(false);
+  const [isDeletingExams, setIsDeletingExams] = useState(false);
 
   // Modal visibility states
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
@@ -40,6 +42,9 @@ export default function AdminPanel() {
     setIsAssignExaminersToExamModalOpen,
   ] = useState(false);
   const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
+
+  // Loading state for assigning examiners
+  const [isAssigning, setIsAssigning] = useState(false);
 
   // Form input states
   const [newUserName, setNewUserName] = useState("");
@@ -77,28 +82,11 @@ export default function AdminPanel() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [isCreatingExam, setIsCreatingExam] = useState(false);
 
-  // Toast notification states
-
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
+  // Toasts provided globally via react-hot-toast (use toastSuccess/toastError/toastInfo)
 
   const navigate = useNavigate();
 
-  const showTemporaryToast = useCallback(
-    (msg, type = "success") => {
-      setToastMessage({ message: msg, type: type });
-      setShowToast(true);
-      const timer = setTimeout(() => {
-        setShowToast(false);
-        setToastMessage({ message: "", type: "success" });
-      }, 5000);
-      return () => clearTimeout(timer);
-    },
-    [setToastMessage, setShowToast]
-  );
+  // Use toastSuccess/toastError/toastInfo from utils/hotToast for notifications
 
   // Fetch all initial data for the admin panel
   const fetchInitialData = useCallback(async () => {
@@ -118,9 +106,9 @@ export default function AdminPanel() {
       setQueries(queriesRes.data);
     } catch (error) {
       console.error("Error fetching initial data:", error);
-      showTemporaryToast("Failed to load initial data.", "error");
+      toastError("Failed to load initial data.");
     }
-  }, [showTemporaryToast]);
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
@@ -167,7 +155,7 @@ export default function AdminPanel() {
         userData.batch = newUserBatch;
       }
       await api.post("/admin/users", userData);
-      showTemporaryToast("User added successfully!", "success");
+      toastSuccess("User added successfully!");
       setNewUserName("");
       setNewUserEmail("");
       setNewUserRole("student");
@@ -175,10 +163,7 @@ export default function AdminPanel() {
       setNewUserBatch("");
       fetchInitialData();
     } catch (err) {
-      showTemporaryToast(
-        `Error adding user: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error adding user: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -186,18 +171,12 @@ export default function AdminPanel() {
   const handleCreateExam = async (e) => {
     e.preventDefault();
     if (!newExamTitle || newExamFiles.length === 0) {
-      showTemporaryToast(
-        "Please provide a title and select a file(s) for the exam.",
-        "error"
-      );
+      toastError("Please provide a title and select a file(s) for the exam.");
       return;
     }
 
     if (!newExamCourse) {
-      showTemporaryToast(
-        "Please select a batch for the exam.",
-        "error"
-      );
+      toastError("Please select a batch for the exam.");
       return;
     }
 
@@ -224,7 +203,7 @@ export default function AdminPanel() {
           "Content-Type": "multipart/form-data",
         },
       });
-      showTemporaryToast("Exam created successfully!", "success");
+      toastSuccess("Exam created successfully!");
       setNewExamTitle("");
       setNewExamCourse("");
       setNewExamExamType("");
@@ -235,10 +214,7 @@ export default function AdminPanel() {
       setIsCreateExamModalOpen(false);
       fetchInitialData();
     } catch (err) {
-      showTemporaryToast(
-        `Error creating exam: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error creating exam: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsCreatingExam(false);
     }
@@ -248,7 +224,7 @@ export default function AdminPanel() {
   // Validates file types: single PDF or multiple images
   const handleExamFileChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length === 0) {
+      if (files.length === 0) {
       setNewExamFiles([]);
       setNewExamFileType(null);
       return;
@@ -256,7 +232,7 @@ export default function AdminPanel() {
 
     if (files[0].type === "application/pdf") {
       if (files.length > 1) {
-        showTemporaryToast("Please select only one PDF file.", "error");
+        toastError("Please select only one PDF file.");
         setNewExamFiles([]);
         setNewExamFileType(null);
         e.target.value = null;
@@ -272,19 +248,13 @@ export default function AdminPanel() {
         setNewExamFiles(files);
         setNewExamFileType("images");
       } else {
-        showTemporaryToast(
-          "Please select only image files or a single PDF.",
-          "error"
-        );
+        toastError("Please select only image files or a single PDF.");
         setNewExamFiles([]);
         setNewExamFileType(null);
         e.target.value = null;
       }
     } else {
-      showTemporaryToast(
-        "Unsupported file type. Please upload PDF or images.",
-        "error"
-      );
+      toastError("Unsupported file type. Please upload PDF or images.");
       setNewExamFiles([]);
       setNewExamFileType(null);
       e.target.value = null;
@@ -312,40 +282,52 @@ export default function AdminPanel() {
   // Assign selected examiners to exam and distribute copies
   const handleAssignExaminersToExam = async () => {
     if (!selectedExamForExaminerAssignment) {
-      showTemporaryToast("Please select an exam.", "error");
+      toastError("Please select an exam.");
       return;
     }
     if (selectedExaminerIds.length === 0) {
-      showTemporaryToast(
-        "Please select at least one examiner to assign.",
-        "error"
-      );
+      toastError("Please select at least one examiner to assign.");
       return;
     }
 
     try {
+      setIsAssigning(true);
       const res = await api.post(
         `/admin/exams/${selectedExamForExaminerAssignment._id}/assign-examiners`,
         {
           examinerIds: selectedExaminerIds,
         }
       );
-      showTemporaryToast(res.data.message, "success");
+      toastSuccess(res.data.message);
       setIsAssignExaminersToExamModalOpen(false);
       fetchInitialData();
     } catch (err) {
-      showTemporaryToast(
-        `Error assigning examiners: ${
-          err.response?.data?.message || err.message
-        }`,
-        "error"
-      );
+      toastError(`Error assigning examiners: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Undo assignment of examiners for an exam (clear paper assignments and unassign non-evaluated copies)
+  const handleUndoExamAssignment = async (exam) => {
+    if (!exam || !exam._id) return;
+    const confirm = window.confirm(
+      "Are you sure you want to undo examiner assignments for this exam? This will remove assigned examiners and unassign copies that are not yet evaluated."
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await api.post(`/admin/exams/${exam._id}/unassign-examiners`);
+      toastSuccess(res.data?.message || "Assignments undone.");
+      fetchInitialData();
+    } catch (err) {
+      toastError(`Error undoing assignments: ${err.response?.data?.message || err.message}`);
     }
   };
 
   // Handle successful scan upload callback
   const handleScanUploadSuccess = () => {
-    showTemporaryToast("Scanned copy uploaded and registered!", "success");
+    toastSuccess("Scanned copy uploaded and registered!");
     setIsScanUploadModalOpen(false);
     fetchInitialData();
   };
@@ -424,6 +406,56 @@ export default function AdminPanel() {
   const filteredExams = exams.filter((exam) =>
     exam.title.toLowerCase().includes(examSearchTerm.toLowerCase())
   );
+
+  // Handlers for selecting and deleting exams (single + bulk)
+  const handleExamCheckboxChange = (examId) => {
+    setSelectedExamIds((prev) =>
+      prev.includes(examId) ? prev.filter((id) => id !== examId) : [...prev, examId]
+    );
+  };
+
+  const handleSelectAllExams = (e) => {
+    const checked = e.target.checked;
+    setSelectAllExams(checked);
+    if (checked) {
+      setSelectedExamIds(filteredExams.map((ex) => ex._id));
+    } else {
+      setSelectedExamIds([]);
+    }
+  };
+
+  const handleDeleteExam = async (examId) => {
+    const confirm = window.confirm("Delete this exam and all its copies and queries? This cannot be undone.");
+    if (!confirm) return;
+    try {
+      await api.delete(`/admin/exams/${examId}`);
+      toastSuccess("Exam deleted.");
+      fetchInitialData();
+    } catch (err) {
+      toastError(`Error deleting exam: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  const handleDeleteSelectedExams = async () => {
+    if (selectedExamIds.length === 0) {
+      toastInfo("No exams selected for deletion.");
+      return;
+    }
+    const confirm = window.confirm(`Delete ${selectedExamIds.length} selected exam(s) and their copies/queries? This cannot be undone.`);
+    if (!confirm) return;
+    setIsDeletingExams(true);
+    try {
+      await api.delete(`/admin/exams`, { data: { examIds: selectedExamIds } });
+      toastSuccess("Selected exams deleted.");
+      setSelectedExamIds([]);
+      setSelectAllExams(false);
+      fetchInitialData();
+    } catch (err) {
+      toastError(`Error deleting exams: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsDeletingExams(false);
+    }
+  };
 
   // Filter users based on role, batch, and search criteria
   const getFilteredUsers = useCallback(
@@ -520,15 +552,12 @@ export default function AdminPanel() {
       // Deleting individually selected users
       userIdsToDelete = selectedUserIds;
     } else {
-      showTemporaryToast("No users selected for deletion.", "info");
+      toastInfo("No users selected for deletion.");
       return;
     }
 
     if (userIdsToDelete.length === 0) {
-      showTemporaryToast(
-        "No users found to delete based on your selection.",
-        "info"
-      );
+      toastInfo("No users found to delete based on your selection.");
       return;
     }
 
@@ -562,17 +591,14 @@ export default function AdminPanel() {
       const res = await api.delete("/admin/users", {
         data: { userIds: userIdsToDelete },
       });
-      showTemporaryToast(res.data.message, "success");
+      toastSuccess(res.data.message);
       fetchInitialData();
       setSelectedUserIds([]);
       setSelectAllInTab(false);
       setDeleteAllBatches(false);
       setDeleteCurrentBatch(false);
     } catch (err) {
-      showTemporaryToast(
-        `Error deleting users: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error deleting users: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsDeletingUsers(false);
     }
@@ -665,32 +691,7 @@ export default function AdminPanel() {
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
-      {showToast && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-xl text-white flex items-center space-x-3 transition-all duration-300 transform ${
-            toastMessage.type === "success"
-              ? "bg-green-500"
-              : toastMessage.type === "error"
-              ? "bg-red-500"
-              : "bg-blue-500"
-          } ${
-            showToast
-              ? "translate-x-0 opacity-100"
-              : "translate-x-full opacity-0"
-          }`}
-        >
-          {toastMessage.type === "success" && (
-            <CheckCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "error" && (
-            <ExclamationCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "info" && (
-            <PaperAirplaneIcon className="h-6 w-6" />
-          )}
-          <span className="font-semibold">{toastMessage.message}</span>
-        </div>
-      )}
+      {/* Toasts are provided globally via react-hot-toast */}
 
       <h1 className="text-5xl font-extrabold text-gray-900 text-center mb-12 tracking-tight">
        Admin Dashboard
@@ -813,6 +814,27 @@ export default function AdminPanel() {
             />
           </div>
         </h2>
+        <div className="flex items-center justify-between mb-4">
+          <div />
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleDeleteSelectedExams}
+              disabled={selectedExamIds.length === 0 || isDeletingExams}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
+            >
+              {isDeletingExams ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" /> Deleting...
+                </>
+              ) : (
+                <>
+                  <TrashIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedExamIds.length})
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
         {filteredExams.length === 0 && exams.length > 0 ? (
           <p className="text-gray-600 text-center py-4">
             No exams found matching your search criteria.
@@ -826,6 +848,14 @@ export default function AdminPanel() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      checked={selectAllExams}
+                      onChange={handleSelectAllExams}
+                    />
+                  </th>
                   <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -862,7 +892,7 @@ export default function AdminPanel() {
                   >
                     Examiner Progress
                   </th>
-                  <th
+                      <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
@@ -883,6 +913,14 @@ export default function AdminPanel() {
                       key={exam._id}
                       className="hover:bg-gray-50 transition-colors duration-150"
                     >
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                          checked={selectedExamIds.includes(exam._id)}
+                          onChange={() => handleExamCheckboxChange(exam._id)}
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {exam.title}
                       </td>
@@ -925,12 +963,31 @@ export default function AdminPanel() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a
-                          href={`/admin/exams/${exam._id}`}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
-                        >
-                          <EyeIcon className="h-4 w-4 mr-1" /> View Details
-                        </a>
+                        <div className="flex items-center justify-end space-x-2">
+                          <a
+                            href={`/admin/exams/${exam._id}`}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                          >
+                            <EyeIcon className="h-4 w-4 mr-1" /> View Details
+                          </a>
+
+                          {exam.assignedExaminers && exam.assignedExaminers.length > 0 && totalCopiesForExam > 0 && (
+                            <button
+                              onClick={() => handleUndoExamAssignment(exam)}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
+                            >
+                              Undo Assignment
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteExam(exam._id)}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150"
+                            title="Delete Exam"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1454,11 +1511,19 @@ export default function AdminPanel() {
             onClick={handleAssignExaminersToExam}
             disabled={
               !selectedExamForExaminerAssignment ||
-              selectedExaminerIds.length === 0
+              selectedExaminerIds.length === 0 ||
+              isAssigning
             }
-            className="bg-purple-600 text-white p-2 rounded-md w-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition duration-150"
+            className="bg-purple-600 text-white p-2 rounded-md w-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition duration-150 flex items-center justify-center"
           >
-            Assign Examiners & Distribute Copies
+            {isAssigning ? (
+              <>
+                <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                Assigning...
+              </>
+            ) : (
+              "Assign Examiners & Distribute Copies"
+            )}
           </button>
         </div>
       </Modal>
@@ -1469,6 +1534,7 @@ export default function AdminPanel() {
         onUploadSuccess={handleScanUploadSuccess}
         questionPapers={exams}
         students={users.filter((u) => u.role === "student")}
+        copies={copies}
       />
 
       {/* Examiner details moved to /admin/examiners page */}
