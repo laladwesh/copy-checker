@@ -14,6 +14,7 @@ export default function ScanCopyUploadModal({
   onUploadSuccess,
   questionPapers,
   students, // This prop should now contain ALL students
+  copies = [],
 }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [studentEmail, setStudentEmail] = useState("");
@@ -26,6 +27,8 @@ export default function ScanCopyUploadModal({
   const [availableBatches, setAvailableBatches] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [filteredQuestionPapers, setFilteredQuestionPapers] = useState([]); // NEW STATE
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentDropdownVisible, setStudentDropdownVisible] = useState(false);
 
   // Effect to reset form when modal opens/closes
   useEffect(() => {
@@ -49,8 +52,9 @@ export default function ScanCopyUploadModal({
       if (selectedBatch) {
         const filtered = students.filter(s => s.batch === selectedBatch);
         setFilteredStudents(filtered);
-        
-        // Reset studentEmail if the current email is no longer valid
+
+        // Reset search and studentEmail if the current email is no longer valid
+        setStudentSearch("");
         if (studentEmail && !filtered.some(s => s.email === studentEmail)) {
           setStudentEmail("");
         }
@@ -90,7 +94,16 @@ export default function ScanCopyUploadModal({
       setFilteredQuestionPapers([]);
     }
 
-  }, [students, selectedBatch, questionPapers]); // Removed filteredStudents, filteredQuestionPapers, studentEmail, and selectedQpId from dependencies
+    // When selectedQpId changes, if copies list provided, we can pre-filter students who already have copies
+  }, [students, selectedBatch, questionPapers]); // Removed filteredStudents, filteredQuestionPapers, studentSearch, and selectedQpId from dependencies
+
+  // derive set of student emails which already have an uploaded copy for the selected question paper
+  const studentsWithCopyForSelectedQp = (selectedQpId && copies && copies.length)
+    ? new Set(copies
+        .filter(c => c.questionPaper && (c.questionPaper._id === selectedQpId || c.questionPaper === selectedQpId))
+        .map(c => c.student?.email || (c.student && c.student.email)))
+    : new Set();
+  
 
   const handleFileChange = (e) => {
     setUploadMessage("");
@@ -123,6 +136,12 @@ export default function ScanCopyUploadModal({
 
     if (!studentEmail || !selectedQpId || selectedFiles.length === 0) {
       setUploadMessage("Please fill all fields and select files.");
+      return;
+    }
+
+    // Client-side guard: prevent uploading if this student already has a copy for the selected QP
+    if (studentsWithCopyForSelectedQp.has(studentEmail)) {
+      setUploadMessage("This student already has a scanned copy for the selected exam.");
       return;
     }
 
@@ -197,32 +216,75 @@ export default function ScanCopyUploadModal({
         {/* Student Email (Disabled until batch is selected) */}
         <div>
           <label
-            htmlFor="studentEmail"
-            className="block text-gray-700 text-base font-medium mb-2"
-          >
-            Student Email:
-          </label>
-          <select
-            id="studentEmail"
-            value={studentEmail}
-            onChange={(e) => setStudentEmail(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
-            required
-            disabled={!selectedBatch || filteredStudents.length === 0} // Disable if no batch is selected or no students in batch
-          >
-            <option value="">-- Select Student --</option>
-            {!selectedBatch ? (
-              <option value="" disabled>Please select a batch first</option>
-            ) : filteredStudents.length === 0 ? (
-              <option value="" disabled>No students found for this batch</option>
-            ) : (
-              filteredStudents.map((student) => (
-                <option key={student._id} value={student.email}>
-                  {student.name} ({student.email})
-                </option>
-              ))
-            )}
-          </select>
+              htmlFor="studentEmail"
+              className="block text-gray-700 text-base font-medium mb-2"
+            >
+              Student Email:
+            </label>
+            {/* Searchable student input shown after batch selection */}
+            <div className="relative">
+              <input
+                id="studentEmail"
+                value={studentSearch || studentEmail}
+                onChange={(e) => {
+                  setStudentSearch(e.target.value);
+                  setStudentDropdownVisible(true);
+                }}
+                onFocus={() => setStudentDropdownVisible(true)}
+                placeholder={!selectedBatch ? "Select batch first" : "Search student by name or email..."}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                required
+                disabled={!selectedBatch || filteredStudents.length === 0}
+              />
+              {/* Dropdown of matching students */}
+              {studentDropdownVisible && selectedBatch && filteredStudents.length > 0 && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto">
+                  {filteredStudents
+                    .filter(s => {
+                      const q = (studentSearch || "").toLowerCase();
+                      if (!q) return true;
+                      return (
+                        (s.name || "").toLowerCase().includes(q) ||
+                        (s.email || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 50)
+                    .map((s) => {
+                      const hasCopy = studentsWithCopyForSelectedQp.has(s.email);
+                      return (
+                        <button
+                          key={s._id}
+                          type="button"
+                          onClick={() => {
+                            if (hasCopy) {
+                              setUploadMessage("This student already has a copy uploaded for the selected exam.");
+                              setStudentDropdownVisible(false);
+                              return;
+                            }
+                            setStudentEmail(s.email);
+                            setStudentSearch(s.email);
+                            setStudentDropdownVisible(false);
+                            setUploadMessage("");
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm ${hasCopy ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                        >
+                          {s.name} ({s.email}) {hasCopy && <span className="text-xs text-red-500 ml-2">(already uploaded)</span>}
+                        </button>
+                      );
+                    })}
+                  {filteredStudents.filter(s => {
+                      const q = (studentSearch || "").toLowerCase();
+                      if (!q) return true;
+                      return (
+                        (s.name || "").toLowerCase().includes(q) ||
+                        (s.email || "").toLowerCase().includes(q)
+                      );
+                    }).length === 0 && (
+                    <div className="p-3 text-sm text-gray-500">No students found.</div>
+                  )}
+                </div>
+              )}
+            </div>
         </div>
 
         {/* Question Paper (Disabled until batch is selected) */}
