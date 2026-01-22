@@ -5,8 +5,8 @@ import {
   ArrowLeftIcon,
   EyeIcon, // For viewing copies
   ArrowPathIcon, // For loading spinner and Release/Unrelease button
-  CheckCircleIcon, // For toast
-  ExclamationCircleIcon, // For toast
+  CheckCircleIcon,
+  ExclamationCircleIcon,
   MagnifyingGlassIcon, // For search bar
   DocumentTextIcon, // For PDF icon
   CalendarDaysIcon, // For exam date
@@ -16,7 +16,10 @@ import {
   UsersIcon, // For assigned examiners search
   ClipboardDocumentListIcon, // For total copies
   TagIcon, // For exam type
+  TrashIcon,
 } from "@heroicons/react/24/outline";
+import Modal from "../components/Modal";
+import { toastSuccess, toastError, toastInfo } from "../utils/hotToast";
 
 export default function AdminExamDetails() {
   const { examId } = useParams();
@@ -27,12 +30,18 @@ export default function AdminExamDetails() {
   const [studentSearchTerm, setStudentSearchTerm] = useState(""); // Renamed for clarity: search by student
   const [examinerSearchTerm, setExaminerSearchTerm] = useState(""); // NEW: State for examiner search term
 
-  // State for toast notifications
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
+  // Selection & bulk-delete states for copies
+  const [selectedCopyIds, setSelectedCopyIds] = useState([]);
+  const [selectAllCopies, setSelectAllCopies] = useState(false);
+  const [isDeletingCopies, setIsDeletingCopies] = useState(false);
+
+  // (Using react-hot-toast) — no local toast state required
+
+  // Deletion modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(null); // 'single' | 'bulk'
+  const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   // Function to fetch exam details and copies
   const fetchExamDetailsAndCopies = async () => {
@@ -61,30 +70,15 @@ export default function AdminExamDetails() {
       );
 
       const action = anyEvaluatedAndReleased ? "Unreleasing" : "Releasing";
-      setToastMessage({
-        message: `${action} all evaluated copies for this exam...`,
-        type: "info",
-      });
-      setShowToast(true);
+      toastInfo(`${action} all evaluated copies for this exam...`);
 
       const res = await api.patch(`/admin/copies/${examId}/toggle-release`);
 
-      setToastMessage({
-        message: res.data.message,
-        type: "success",
-      });
+      toastSuccess(res.data.message);
       fetchExamDetailsAndCopies(); // Re-fetch data to reflect the changes
     } catch (err) {
       console.error("Error toggling release status for exam copies:", err);
-      setToastMessage({
-        message: `Failed to toggle release status: ${
-          err.response?.data?.message || err.message
-        }`,
-        type: "error",
-      });
-    } finally {
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000); // Hide toast after 3 seconds
+      toastError(`Failed to toggle release status: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -94,22 +88,13 @@ export default function AdminExamDetails() {
     currentReleaseStatus
   ) => {
     try {
-      setToastMessage({
-        message: `${
-          currentReleaseStatus ? "Unreleasing" : "Releasing"
-        } single copy...`,
-        type: "info",
-      });
-      setShowToast(true);
+      toastInfo(`${currentReleaseStatus ? "Unreleasing" : "Releasing"} single copy...`);
 
       const res = await api.patch(
         `/admin/copies/single/${copyId}/toggle-release`
       );
 
-      setToastMessage({
-        message: res.data.message,
-        type: "success",
-      });
+      toastSuccess(res.data.message);
       // Update the specific copy's release status in the local state
       setCopies((prevCopies) =>
         prevCopies.map((copy) =>
@@ -120,15 +105,7 @@ export default function AdminExamDetails() {
       );
     } catch (err) {
       console.error("Error toggling single copy release status:", err);
-      setToastMessage({
-        message: `Failed to toggle single copy release: ${
-          err.response?.data?.message || err.message
-        }`,
-        type: "error",
-      });
-    } finally {
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000); // Hide toast after 3 seconds
+      toastError(`Failed to toggle single copy release: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -150,6 +127,65 @@ export default function AdminExamDetails() {
          examiner.email.toLowerCase().includes(examinerSearchTerm.toLowerCase())
        )))
   );
+
+  // Handlers for selecting copies and bulk delete (use modal confirmations)
+  const handleCopyCheckboxChange = (copyId) => {
+    setSelectedCopyIds((prev) =>
+      prev.includes(copyId) ? prev.filter((id) => id !== copyId) : [...prev, copyId]
+    );
+  };
+
+  const handleSelectAllCopies = (e) => {
+    const checked = e.target.checked;
+    setSelectAllCopies(checked);
+    if (checked) {
+      setSelectedCopyIds(filteredCopies.map((c) => c._id));
+    } else {
+      setSelectedCopyIds([]);
+    }
+  };
+
+  const promptDeleteSelectedCopies = () => {
+    if (selectedCopyIds.length === 0) {
+      toastInfo("No copies selected.");
+      return;
+    }
+    setDeleteMode("bulk");
+    setPendingDeleteIds(selectedCopyIds.slice());
+    setDeleteMessage(`Delete ${selectedCopyIds.length} selected copy(s)? This will remove associated queries and Drive files.`);
+    setShowDeleteModal(true);
+  };
+
+  const promptDeleteSingle = (copyId) => {
+    setDeleteMode("single");
+    setPendingDeleteIds([copyId]);
+    setDeleteMessage("Delete this copy? This will remove associated queries and Drive files.");
+    setShowDeleteModal(true);
+  };
+
+  const performPendingDelete = async () => {
+    if (!pendingDeleteIds || pendingDeleteIds.length === 0) return;
+    setIsDeletingCopies(true);
+    try {
+      if (deleteMode === "single") {
+        const id = pendingDeleteIds[0];
+        await api.delete(`/admin/copies/${id}`);
+      } else {
+        await api.delete(`/admin/copies`, { data: { copyIds: pendingDeleteIds } });
+      }
+      toastSuccess("Deletion successful.");
+      setSelectedCopyIds((prev) => prev.filter((id) => !pendingDeleteIds.includes(id)));
+      setPendingDeleteIds([]);
+      setSelectAllCopies(false);
+      fetchExamDetailsAndCopies();
+    } catch (err) {
+      console.error("Error deleting copies:", err);
+      toastError(`Error: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setShowDeleteModal(false);
+      setIsDeletingCopies(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -283,6 +319,27 @@ export default function AdminExamDetails() {
           </div>
         </div>
 
+        <div className="flex items-center justify-between mb-3">
+          <div />
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={promptDeleteSelectedCopies}
+              disabled={selectedCopyIds.length === 0 || isDeletingCopies}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
+            >
+              {isDeletingCopies ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" /> Deleting...
+                </>
+              ) : (
+                <>
+                  <DocumentTextIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedCopyIds.length})
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
         {filteredCopies.length === 0 ? (
           <p className="text-gray-600 text-center py-4">
             {studentSearchTerm || examinerSearchTerm ? "No matching copies found." : "No answer copies uploaded for this exam yet."}
@@ -292,6 +349,14 @@ export default function AdminExamDetails() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      checked={selectAllCopies}
+                      onChange={handleSelectAllCopies}
+                    />
+                  </th>
                   <th
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -342,6 +407,14 @@ export default function AdminExamDetails() {
                     key={copy._id}
                     className="hover:bg-gray-50 transition-colors duration-150"
                   >
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                        checked={selectedCopyIds.includes(copy._id)}
+                        onChange={() => handleCopyCheckboxChange(copy._id)}
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {copy.student?.name || "N/A"} (
                       {copy.student?.email || "N/A"})
@@ -427,6 +500,14 @@ export default function AdminExamDetails() {
                       >
                         <EyeIcon className="h-4 w-4 mr-1" /> View Details
                       </Link>
+
+                      <button
+                        onClick={() => promptDeleteSingle(copy._id)}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150"
+                        title="Delete Copy"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -436,27 +517,31 @@ export default function AdminExamDetails() {
         )}
       </div>
 
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-xl flex items-center space-x-3 ${
-            toastMessage.type === "success"
-              ? "bg-green-500"
-              : toastMessage.type === "info"
-              ? "bg-blue-500"
-              : "bg-red-500"
-          } text-white transition-all duration-300 transform`}
-        >
-          {toastMessage.type === "success" ? (
-            <CheckCircleIcon className="h-6 w-6" />
-          ) : toastMessage.type === "info" ? (
-            <ArrowPathIcon className="h-6 w-6 animate-spin" />
-          ) : (
-            <ExclamationCircleIcon className="h-6 w-6" />
-          )}
-          <p className="font-semibold">{toastMessage.message}</p>
+      {/* Toasts are provided globally via react-hot-toast */}
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title={deleteMode === "single" ? "Delete Copy" : "Delete Copies"}
+      >
+        <div className="p-4 text-center">
+          <p className="text-lg text-gray-700 mb-6">{deleteMessage}</p>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={performPendingDelete}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+            >
+              {isDeletingCopies ? "Deleting..." : "Delete"}
+            </button>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
