@@ -5,10 +5,11 @@ exports.listPending = async (req, res, next) => {
   try {
     // Show copies that are pending OR examining (not yet evaluated)
     // Only remove from list when examiner clicks "Confirm & Finish" (status becomes "evaluated")
+    // Do NOT populate student information - keep copies anonymous for examiners
     const copies = await Copy.find({
       examiners: req.user._id,
       status: { $in: ["pending", "examining"] },
-    }).populate("student questionPaper");
+    }).populate("questionPaper");
     res.json(copies);
   } catch (err) {
     next(err);
@@ -20,7 +21,7 @@ exports.listHistory = async (req, res, next) => {
     const copies = await Copy.find({
       examiners: req.user._id,
       status: "evaluated", // Corrected: Use 'evaluated' status for history
-    }).populate("student questionPaper");
+    }).populate("questionPaper");
     res.json(copies);
   } catch (err) {
     next(err);
@@ -31,12 +32,12 @@ exports.getExaminerCopyDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
         const copy = await Copy.findById(id)
-            .populate("student", "name email")
-            .populate({
-                path: "questionPaper",
-                select: "title totalPages driveFile.id totalMarks",
-            })
-            .populate("examiners", "name email");
+          // Do NOT populate student details for examiner - keep anonymous
+          .populate({
+            path: "questionPaper",
+            select: "title totalPages driveFile.id totalMarks",
+          })
+          .populate("examiners", "name email");
 
         if (!copy) {
             return res.status(404).json({ message: "Copy not found." });
@@ -56,18 +57,20 @@ exports.getExaminerCopyDetails = async (req, res, next) => {
 
         // 2. Create a modified response object to include the new direct links
         const responseCopy = {
-            ...copy.toObject(), // Convert Mongoose document to a plain JavaScript object
+          ...copy.toObject(), // Convert Mongoose document to a plain JavaScript object
+          // Remove or anonymize student info for examiner
+          student: undefined,
+          driveFile: {
+            ...(copy.driveFile ? copy.driveFile.toObject() : {}), // Ensure driveFile exists before toObject
+            directDownloadLink: answerCopyDirectLink // Replace external link with internal proxy link
+          },
+          questionPaper: {
+            ...(copy.questionPaper ? copy.questionPaper.toObject() : {}), // Ensure questionPaper exists
             driveFile: {
-                ...(copy.driveFile ? copy.driveFile.toObject() : {}), // Ensure driveFile exists before toObject
-                directDownloadLink: answerCopyDirectLink // Replace external link with internal proxy link
-            },
-            questionPaper: {
-                ...(copy.questionPaper ? copy.questionPaper.toObject() : {}), // Ensure questionPaper exists
-                driveFile: {
-                    ...(copy.questionPaper && copy.questionPaper.driveFile ? copy.questionPaper.driveFile.toObject() : {}),
-                    directDownloadLink: questionPaperDirectLink // Replace external link with internal proxy link
-                }
+              ...(copy.questionPaper && copy.questionPaper.driveFile ? copy.questionPaper.driveFile.toObject() : {}),
+              directDownloadLink: questionPaperDirectLink // Replace external link with internal proxy link
             }
+          }
         };
 
         // --- END MODIFIED LOGIC ---
@@ -83,9 +86,8 @@ exports.getCopy = async (req, res, next) => {
   try {
 
     //check that is that the same examiner assigned to this copy if not return 403 unauthorized
-    const copy = await Copy.findById(req.params.id)
-      .populate("student") // Populate student details
-      .populate("questionPaper"); // Populate questionPaper details
+    // Do not populate student details for examiner (anonymous)
+    const copy = await Copy.findById(req.params.id).populate("questionPaper"); // Populate questionPaper details
     const examiner = req.user._id;
     if (!copy) {
       return res.status(404).json({ message: "Copy not found" });
@@ -95,7 +97,10 @@ exports.getCopy = async (req, res, next) => {
         .status(403)
         .json({ message: "Forbidden: You are not assigned to this copy." });
     }
-    res.json(copy);
+    // Remove student before sending to examiner
+    const response = copy.toObject();
+    delete response.student;
+    res.json(response);
   } catch (err) {
     next(err);
   }
@@ -206,10 +211,11 @@ exports.markPage = async (req, res, next) => {
 
     await copy.save();
     const updatedCopy = await Copy.findById(req.params.id)
-      .populate("student")
       .populate("questionPaper")
       .populate("examiners");
-    res.json(updatedCopy);
+    const resp = updatedCopy.toObject();
+    delete resp.student;
+    res.json(resp);
   } catch (err) {
     next(err);
   }
@@ -278,9 +284,16 @@ exports.listQueries = async (req, res, next) => {
       });
 
     // Manually filter queries where the associated copy is assigned to the current examiner
-    const examinerQueries = queries.filter(
-      (q) => q.copy && q.copy.examiners.includes(req.user._id.toString())
-    );
+    const examinerQueries = queries
+      .filter((q) => q.copy && q.copy.examiners.includes(req.user._id.toString()))
+      .map((q) => {
+        const obj = q.toObject();
+        // anonymize who raised the query
+        if (obj.raisedBy) obj.raisedBy = { email: 'Anonymous' };
+        // ensure student info on copy is not leaked
+        if (obj.copy && obj.copy.student) delete obj.copy.student;
+        return obj;
+      });
 
     res.json(examinerQueries);
   } catch (err) {
@@ -317,11 +330,12 @@ exports.markCompleteCopy = async (req, res, next) => {
     await copy.save();
 
     const updatedCopy = await Copy.findById(req.params.id)
-      .populate("student")
       .populate("questionPaper")
       .populate("examiners");
 
-    res.json(updatedCopy);
+    const resp = updatedCopy.toObject();
+    delete resp.student;
+    res.json(resp);
   } catch (err) {
     next(err);
   }
@@ -330,6 +344,7 @@ exports.markCompleteCopy = async (req, res, next) => {
 exports.getSingleQuery = async (req, res, next) => {
   try {
     const query = await Query.findById(req.params.id)
+      // Do not reveal student identity to examiner; keep raisedBy anonymous
       .populate("raisedBy", "email name")
       .populate({
         path: "copy",
@@ -353,7 +368,17 @@ exports.getSingleQuery = async (req, res, next) => {
         .json({ message: "Unauthorized to view this query." });
     }
 
-    res.json(query);
+    // Anonymize raisedBy before returning to examiner
+    const qObj = query.toObject();
+    if (qObj.raisedBy) {
+      qObj.raisedBy = { email: "Anonymous" };
+    }
+    if (qObj.copy && qObj.copy.examiners) {
+      // ensure student info on copy not leaked
+      if (qObj.copy.student) delete qObj.copy.student;
+    }
+
+    res.json(qObj);
   } catch (err) {
     next(err);
   }
