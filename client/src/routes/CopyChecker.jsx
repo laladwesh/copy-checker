@@ -4,14 +4,13 @@ import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
 import {
   ArrowLeftIcon,
-  CheckCircleIcon,
   ClipboardDocumentCheckIcon,
-  ExclamationCircleIcon,
   PaperAirplaneIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
 } from "@heroicons/react/24/outline";
+import { toastSuccess, toastError, toastInfo } from "../utils/hotToast";
 
 // Import react-pdf components
 import { Document, Page, pdfjs } from "react-pdf";
@@ -37,11 +36,6 @@ export default function CopyChecker() {
   const [justSavedPages, setJustSavedPages] = useState(new Set());
 
   // UI States
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // For Save & Next button loading
 
@@ -49,6 +43,9 @@ export default function CopyChecker() {
   const [acNumPages, setAcNumPages] = useState(null);
   const [isAcLoading, setIsAcLoading] = useState(true);
 
+  // Blank page identification UI state (transient only during this session)
+  const [isBlankModalOpen, setIsBlankModalOpen] = useState(true); // open immediately on landing
+  const [blankPagesArr, setBlankPagesArr] = useState([]); // store as array (transient)
   // Zoom States
   const [acZoomLevel, setAcZoomLevel] = useState(1.25); // Initial zoom level for AC
 
@@ -70,15 +67,31 @@ export default function CopyChecker() {
         setJustSavedPages(new Set());
       } catch (err) {
         setError(err.response?.data?.error || err.message);
-        showTemporaryToast(
-          `Error loading copy: ${err.response?.data?.message || err.message}`,
-          "error"
-        );
+        toastError(`Error loading copy: ${err.response?.data?.message || err.message}`);
         setIsAcLoading(false); // Ensure loading is off if there's an error
       }
     };
     fetchCopy();
   }, [copyId]);
+
+  // No persistent storage: blank page selections are transient and cleared on refresh.
+  const toggleBlankPage = (pageNumber) => {
+    setBlankPagesArr((prev) => {
+      const has = prev.includes(pageNumber);
+      if (has) return prev.filter((p) => p !== pageNumber);
+      return [...prev, pageNumber].sort((a, b) => a - b);
+    });
+  };
+
+  const findNextNonBlank = (fromPage) => {
+    if (!copy) return fromPage;
+    let p = fromPage + 1;
+    while (p <= copy.totalPages) {
+      if (!blankPagesArr.includes(p)) return p;
+      p += 1;
+    }
+    return fromPage; // no non-blank ahead
+  };
 
   // 2) Prefill marks/comments when current page of answer copy changes or copy data changes
   // Also, reset zoom for AC when page changes.
@@ -100,11 +113,11 @@ export default function CopyChecker() {
 
   // Only use server-side data to determine if a page is truly checked/saved
   // A page is checked ONLY if it has lastAnnotatedBy set (meaning it was actually saved)
-  const checkedPages = (copy?.pages || [])
-    .filter((p) => Boolean(p.lastAnnotatedBy))
-    .map((p) => p.pageNumber);
+  const checkedPages = (copy?.pages || []).filter((p) => Boolean(p.lastAnnotatedBy)).map((p) => p.pageNumber);
   const checkedPagesSet = new Set(checkedPages);
-  const totalChecked = checkedPages.length;
+  // Combine server-checked pages with blank-identified pages (transient) so blanks count as checked for the session
+  const combinedCheckedSet = new Set([...checkedPages, ...blankPagesArr]);
+  const totalChecked = combinedCheckedSet.size;
 
   // (Question Paper is provided as an external link in the sidebar)
 
@@ -123,16 +136,13 @@ export default function CopyChecker() {
     setIsAcLoading(false); // Page finished rendering
   }, []);
 
-  // Toast Notification handler
-  const showTemporaryToast = (message, type = "success") => {
-    setToastMessage({ message, type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 4000); // Hide after 4 seconds
-    return () => clearTimeout(timer);
-  };
+  // Safe PDF URLs (do not rely on later-initialized variables)
+  const qpPdfUrlSafe = copy?.questionPaper?.driveFile?.id
+    ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
+    : "";
+  const acPdfUrlSafe = copy?.driveFile?.id ? `/api/drive/pdf/${copy.driveFile.id}` : "";
+
+  // Toasts provided via react-hot-toast helpers (toastSuccess/toastError/toastInfo)
 
   // Early returns
   if (error)
@@ -167,6 +177,38 @@ export default function CopyChecker() {
           </svg>
           <p className="mt-4">Loading copy details...</p>
         </div>
+        {/* Still show the blank-page identification modal immediately so the user can begin marking while the copy loads in background */}
+        <Modal
+          isOpen={isBlankModalOpen}
+          onClose={() => setIsBlankModalOpen(false)}
+          title="Identify Blank Pages"
+        >
+          <div className="max-h-[70vh] overflow-y-auto pr-2 -mr-2">
+            {acPdfUrlSafe ? (
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {Array.from({ length: acNumPages || 0 }, (_, i) => {
+                  const pageNum = i + 1;
+                  const isMarkedBlank = blankPagesArr.includes(pageNum);
+                  return (
+                    <div key={pageNum} className={`p-1 border rounded cursor-pointer flex flex-col items-center ${isMarkedBlank ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`} onClick={() => toggleBlankPage(pageNum)}>
+                      <div className="w-full flex items-center justify-center overflow-hidden" style={{ height: 140 }}>
+                        <Document file={acPdfUrlSafe}>
+                          <Page pageNumber={pageNum} scale={0.45} renderTextLayer={false} renderAnnotationLayer={false} />
+                        </Document>
+                      </div>
+                      <div className="text-xs text-gray-700 mt-1">Page {pageNum}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-gray-600">Answer copy PDF not available for thumbnail rendering.</div>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+            <button onClick={() => setIsBlankModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Done</button>
+          </div>
+        </Modal>
       </div>
     );
 
@@ -186,12 +228,12 @@ export default function CopyChecker() {
     setIsSaving(true);
     try {
       if (marks === "" || isNaN(parseFloat(marks))) {
-        showTemporaryToast("Please enter a valid number for marks.", "error");
+        toastError("Please enter a valid number for marks.");
         setIsSaving(false);
         return;
       }
       if (parseFloat(marks) < 0) {
-        showTemporaryToast("Marks cannot be negative.", "error");
+        toastError("Marks cannot be negative.");
         setIsSaving(false);
         return;
       }
@@ -202,9 +244,8 @@ export default function CopyChecker() {
       const maxMarks = copy.questionPaper?.totalMarks || 0;
       
       if (newTotalMarks > maxMarks) {
-        showTemporaryToast(
-          `Cannot save! Total marks would be ${newTotalMarks.toFixed(2)} which exceeds the maximum allowed marks of ${maxMarks}.`,
-          "error"
+        toastError(
+          `Cannot save! Total marks would be ${newTotalMarks.toFixed(2)} which exceeds the maximum allowed marks of ${maxMarks}.`
         );
         setIsSaving(false);
         return;
@@ -222,26 +263,27 @@ export default function CopyChecker() {
         next.add(currentPage);
         return next;
       });
-      showTemporaryToast("Page marks saved successfully!", "success");
+      toastSuccess("Page marks saved successfully!");
 
-      // Advance to the next page only if it's not the last page
+      // Advance to the next non-blank page only if available, otherwise show review
       if (currentPage < copy.totalPages) {
-        setCurrentPage((p) => p + 1);
+        const next = findNextNonBlank(currentPage);
+        if (next > currentPage) {
+          setCurrentPage(next);
+        } else {
+          // No non-blank ahead - behave like last page
+          setIsAcLoading(false);
+          setShowReviewModal(true);
+          toastInfo("You've reached the last page. Please review and submit.");
+        }
       } else {
         setIsAcLoading(false); // Stop loading state if on last page
-        // question-paper loading not used here (QP is opened via link)
         setShowReviewModal(true); // Show review modal if on last page
-        showTemporaryToast(
-          "You've reached the last page. Please review and submit.",
-          "info"
-        );
+        toastInfo("You've reached the last page. Please review and submit.");
       }
     } catch (err) {
       setError(err.response?.data?.error || err.message);
-      showTemporaryToast(
-        `Error saving marks: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error saving marks: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -262,10 +304,7 @@ export default function CopyChecker() {
       if (copy.status !== "evaluated") {
         const res = await api.patch(`/examiner/copies/${copyId}/complete`);
         setCopy(res.data); // Update local copy state with new data from server
-        showTemporaryToast(
-          "All pages marked! You can now confirm final submission.",
-          "success"
-        );
+        toastSuccess("All pages marked! You can now confirm final submission.");
         setTimeout(() => {
           navigate("/examiner"); // Navigate back to examiner dashboard
         }, 500); // Give time for toast to be seen
@@ -277,10 +316,7 @@ export default function CopyChecker() {
       }, 500); // Give time for toast to be seen
     } catch (err) {
       setError(err.response?.data?.error || err.message);
-      showTemporaryToast(
-        `Error completing copy: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error completing copy: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -306,33 +342,7 @@ export default function CopyChecker() {
     <div className="bg-gray-100 min-h-screen font-sans relative">
       {" "}
       {/* Added relative for toast positioning */}
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-xl text-white flex items-center space-x-3 transition-all duration-300 transform ${
-            toastMessage.type === "success"
-              ? "bg-green-500"
-              : toastMessage.type === "error"
-              ? "bg-red-500"
-              : "bg-blue-500"
-          } ${
-            showToast
-              ? "translate-x-0 opacity-100"
-              : "translate-x-full opacity-0"
-          }`}
-        >
-          {toastMessage.type === "success" && (
-            <CheckCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "error" && (
-            <ExclamationCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "info" && (
-            <PaperAirplaneIcon className="h-6 w-6" />
-          )}
-          <span className="font-semibold">{toastMessage.message}</span>
-        </div>
-      )}
+      {/* Toasts are provided globally via react-hot-toast */}
       {/* Top Navigation Bar */}
       <nav className="bg-white shadow-sm py-4 px-8 border-b border-gray-200 flex justify-between items-center w-full">
         <div className="flex items-center space-x-4">
@@ -387,7 +397,7 @@ export default function CopyChecker() {
               {/* Page check indicator */}
               <div className="flex items-center space-x-2 mr-2">
                 {(function(){
-                  const isChecked = checkedPagesSet.has(currentPage);
+                  const isChecked = combinedCheckedSet.has(currentPage);
                   return (
                     <>
                       <span className={`h-3 w-3 rounded-full ${isChecked ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -422,8 +432,9 @@ export default function CopyChecker() {
             <div className="w-full bg-white p-3 mt-3 flex items-center justify-center overflow-x-auto">
               <div className="flex flex-wrap gap-2 justify-center">
                 {Array.from({ length: acNumPages || 0 }, (_, i) => i + 1).map((pageNum) => {
-                  const isChecked = checkedPagesSet.has(pageNum);
+                  const isChecked = combinedCheckedSet.has(pageNum);
                   const isCurrentPage = pageNum === currentPage;
+                  const isBlank = blankPagesArr.includes(pageNum);
                   return (
                     <button
                       key={pageNum}
@@ -431,11 +442,13 @@ export default function CopyChecker() {
                       className={`w-10 h-10 rounded-full text-sm font-semibold transition relative flex items-center justify-center ${
                         isCurrentPage
                           ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
+                          : isBlank
+                          ? 'bg-yellow-300 text-yellow-900 hover:bg-yellow-400'
                           : isChecked
                           ? 'bg-green-500 text-white hover:bg-green-600'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       }`}
-                      title={`Page ${pageNum}${isChecked ? ' (Checked)' : ''}`}
+                      title={`Page ${pageNum}${isChecked ? ' (Checked)' : ''}${isBlank ? ' (Identified as blank)' : ''}`}
                     >
                       {pageNum}
                     </button>
@@ -470,6 +483,11 @@ export default function CopyChecker() {
                 ) : (
                   <div className="text-gray-500">Question paper link not available.</div>
                 )}
+                <div className="mt-3">
+                  <button onClick={() => setIsBlankModalOpen(true)} className="w-full bg-yellow-400 text-yellow-900 px-3 py-1 rounded-md hover:bg-yellow-500 text-sm flex items-center justify-center" title="Identify blank pages">
+                    Identify Blank Pages
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -598,7 +616,7 @@ export default function CopyChecker() {
                 {copy.pages
                   .sort((a, b) => a.pageNumber - b.pageNumber)
                   .map((page) => {
-                    const isChecked = checkedPagesSet.has(page.pageNumber);
+                    const isChecked = combinedCheckedSet.has(page.pageNumber);
                     return (
                       <div
                         key={page.pageNumber}
@@ -651,6 +669,38 @@ export default function CopyChecker() {
               submission. {copy.totalPages - totalChecked} page(s) left.
             </p>
           )}
+        </Modal>
+        {/* Blank Pages Identification Modal */}
+        <Modal
+          isOpen={isBlankModalOpen}
+          onClose={() => setIsBlankModalOpen(false)}
+          title="Identify Blank Pages"
+        >
+          <div className="max-h-[70vh] overflow-y-auto pr-2 -mr-2">
+              {acPdfUrl ? (
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {Array.from({ length: acNumPages || 0 }, (_, i) => {
+                  const pageNum = i + 1;
+                  const isMarkedBlank = blankPagesArr.includes(pageNum);
+                  return (
+                    <div key={pageNum} className={`p-1 border rounded cursor-pointer flex flex-col items-center ${isMarkedBlank ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`} onClick={() => toggleBlankPage(pageNum)}>
+                      <div className="w-full flex items-center justify-center overflow-hidden" style={{ height: 140 }}>
+                        <Document file={acPdfUrl}>
+                          <Page pageNumber={pageNum} scale={0.45} renderTextLayer={false} renderAnnotationLayer={false} />
+                        </Document>
+                      </div>
+                      <div className="text-xs text-gray-700 mt-1">Page {pageNum}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-gray-600">Answer copy PDF not available for thumbnail rendering.</div>
+            )}
+          </div>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+            <button onClick={() => setIsBlankModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Done</button>
+          </div>
         </Modal>
       </div>
     </div>
