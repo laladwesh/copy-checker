@@ -22,6 +22,7 @@ import AdminManageQueries from './routes/AdminManageQueries';
 // Terms and Privacy pages
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const user = getUser();
@@ -51,6 +52,7 @@ export default function App() {
       <Navbar user={user} onLogout={handleLogout} />
 
       <main className=" p-4">
+        <Toaster position="top-center" reverseOrder={false} />
         <Routes>
           <Route
             path="/"
