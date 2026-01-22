@@ -3,22 +3,16 @@ import api from "../services/api";
 import { Link } from "react-router-dom"; // Import Link for navigation
 import {
   BookOpenIcon,
-  ChatBubbleLeftRightIcon,
   CheckCircleIcon,
-  ExclamationCircleIcon,
-  PaperAirplaneIcon,
   DocumentTextIcon, // For View PDF
   QuestionMarkCircleIcon, // For Raise Query
 } from "@heroicons/react/24/outline"; // Import icons
+import { toastError, toastSuccess, toastInfo } from "../utils/hotToast";
 
 export default function StudentPanel() {
   const [copies, setCopies] = useState([]);
   const [studentQueries, setStudentQueries] = useState([]); // NEW: State for student queries
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
+  // Using global react-hot-toast via helpers
 
   useEffect(() => {
     fetchCopies();
@@ -30,10 +24,7 @@ export default function StudentPanel() {
       const r = await api.get("/student/copies");
       setCopies(r.data);
     } catch (err) {
-      showTemporaryToast(
-        `Error loading copies: ${err.response?.data?.error || err.message}`,
-        "error"
-      );
+      toastError(`Error loading copies: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -45,44 +36,15 @@ export default function StudentPanel() {
       setStudentQueries(res.data);
     } catch (err) {
       console.error("Error fetching student queries:", err);
-      showTemporaryToast(
-        `Error loading queries: ${err.response?.data?.error || err.message}`,
-        "error"
-      );
+      toastError(`Error loading queries: ${err.response?.data?.error || err.message}`);
     }
   };
 
-  // Toast Notification handler
-  const showTemporaryToast = (msg, type = "success") => {
-    setToastMessage({ message: msg, type: type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 5000);
-    return () => clearTimeout(timer);
-  };
+  // Toasts handled via `react-hot-toast` helpers: `toastSuccess`, `toastError`, `toastInfo`.
 
   return (
     <div className="container mx-auto p-4">
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          className={`fixed top-5 right-5 z-50 p-4 rounded-md shadow-lg flex items-center space-x-3 ${
-            toastMessage.type === "success"
-              ? "bg-green-500 text-white"
-              : "bg-red-500 text-white"
-          }`}
-          role="alert"
-        >
-          {toastMessage.type === "success" ? (
-            <CheckCircleIcon className="h-6 w-6" />
-          ) : (
-            <ExclamationCircleIcon className="h-6 w-6" />
-          )}
-          <span>{toastMessage.message}</span>
-        </div>
-      )}
+      {/* Toasts shown via global Toaster (react-hot-toast) */}
 
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Student Panel</h1>
 
