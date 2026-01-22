@@ -80,10 +80,9 @@ export default function ExaminerQueries() {
     const searchTermLower = querySearchTerm.toLowerCase();
     if (searchTermLower) {
       filtered = filtered.filter(query =>
-        query.raisedBy?.name?.toLowerCase().includes(searchTermLower) ||
-        query.raisedBy?.email?.toLowerCase().includes(searchTermLower) ||
         query.text.toLowerCase().includes(searchTermLower) ||
-        query.response?.toLowerCase().includes(searchTermLower) // Search in response too
+        query.response?.toLowerCase().includes(searchTermLower) ||
+        query.copy?.questionPaper?.title?.toLowerCase().includes(searchTermLower)
       );
     }
 
@@ -181,7 +180,7 @@ export default function ExaminerQueries() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate (Anonymous)</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paper</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Query Text</th>
@@ -192,7 +191,7 @@ export default function ExaminerQueries() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {getFilteredQueries().map(q => (
                   <tr key={q._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q.raisedBy?.email || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Anonymous</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q.copy?.questionPaper?.title || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q.pageNumber}</td>
                     <td className="px-6 py-4 text-sm text-gray-900 truncate max-w-xs">{q.text}</td>
