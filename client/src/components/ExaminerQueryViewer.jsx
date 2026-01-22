@@ -3,16 +3,14 @@ import { useParams, Link } from "react-router-dom";
 import api from "../services/api";
 import {
   ArrowLeftIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
   PaperAirplaneIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
-  UserCircleIcon, // For student info
   ArrowPathIcon, // Added missing import for ArrowPathIcon
   BookOpenIcon,
 } from "@heroicons/react/24/outline";
+import { toastSuccess, toastError } from "../utils/hotToast";
 
 // Import react-pdf components
 import { Document, Page, pdfjs } from "react-pdf";
@@ -33,16 +31,11 @@ export default function ExaminerQueryViewer() {
 
   // Page navigation states for Answer Copy
   const [currentPage, setCurrentPage] = useState(1); // Current page of the Answer Copy
-  const [acZoomLevel, setAcZoomLevel] = useState(1);
+  const [acZoomLevel, setAcZoomLevel] = useState(1.25);
   const [isAcLoading, setIsAcLoading] = useState(true);
   const [acNumPages, setAcNumPages] = useState(null); // Total pages for AC
 
-  // UI States (for toast messages and loading)
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState({
-    message: "",
-    type: "success",
-  });
+  // UI States (for loading)
 
   // Reply state
   const [replyText, setReplyText] = useState("");
@@ -93,10 +86,7 @@ export default function ExaminerQueryViewer() {
       } catch (err) {
         console.error("Error fetching query or copy:", err);
         setError(err.response?.data?.message || err.message);
-        showTemporaryToast(
-          `Error loading query: ${err.response?.data?.message || err.message}`,
-          "error"
-        );
+        toastError(`Error loading query: ${err.response?.data?.message || err.message}`);
       } finally {
         // These will be set by react-pdf's onLoadSuccess
         // setIsAcLoading(false);
@@ -108,18 +98,10 @@ export default function ExaminerQueryViewer() {
 
   // Reset zoom when current page of answer copy changes
   useEffect(() => {
-    setAcZoomLevel(1);
+    setAcZoomLevel(1.25);
   }, [currentPage]);
 
-  const showTemporaryToast = (msg, type = "success") => {
-    setToastMessage({ message: msg, type: type });
-    setShowToast(true);
-    const timer = setTimeout(() => {
-      setShowToast(false);
-      setToastMessage({ message: "", type: "success" });
-    }, 4000); // Hide after 4 seconds
-    return () => clearTimeout(timer);
-  };
+  // Use toastSuccess/toastError/toastInfo for notifications
 
   const handleZoom = (action) => {
     setAcZoomLevel((prevZoom) => {
@@ -129,7 +111,7 @@ export default function ExaminerQueryViewer() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = MIN_ZOOM;
+        newZoom = 1.25;
       }
       return parseFloat(newZoom.toFixed(2));
     });
@@ -138,7 +120,7 @@ export default function ExaminerQueryViewer() {
   const handleReplySubmit = async (e) => {
     e.preventDefault();
     if (!replyText.trim()) {
-      showTemporaryToast("Reply text cannot be empty.", "error");
+      toastError("Reply text cannot be empty.");
       return;
     }
     setIsSubmittingReply(true);
@@ -147,13 +129,10 @@ export default function ExaminerQueryViewer() {
         response: replyText.trim(),
       });
       setQuery(res.data); // Update query with new status and response
-      showTemporaryToast("Reply sent and query resolved!", "success");
+      toastSuccess("Reply sent and query resolved!");
     } catch (err) {
       console.error("Error submitting reply:", err);
-      showTemporaryToast(
-        `Error submitting reply: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error submitting reply: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsSubmittingReply(false);
     }
@@ -172,13 +151,10 @@ export default function ExaminerQueryViewer() {
       };
       const res = await api.patch(`/examiner/copies/${copy._id}/mark-page`, payload);
       setCopy(res.data); // Update the copy state with the new page details
-      showTemporaryToast("Page details updated successfully!", "success");
+      toastSuccess("Page details updated successfully!");
     } catch (err) {
       console.error("Error updating page details:", err);
-      showTemporaryToast(
-        `Error updating page: ${err.response?.data?.message || err.message}`,
-        "error"
-      );
+      toastError(`Error updating page: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsUpdatingPage(false);
     }
@@ -242,33 +218,7 @@ export default function ExaminerQueryViewer() {
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans relative p-2">
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-xl text-white flex items-center space-x-3 transition-all duration-300 transform ${
-            toastMessage.type === "success"
-              ? "bg-green-500"
-              : toastMessage.type === "error"
-              ? "bg-red-500"
-              : "bg-blue-500"
-          } ${
-            showToast
-              ? "translate-x-0 opacity-100"
-              : "translate-x-full opacity-0"
-          }`}
-        >
-          {toastMessage.type === "success" && (
-            <CheckCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "error" && (
-            <ExclamationCircleIcon className="h-6 w-6" />
-          )}
-          {toastMessage.type === "info" && (
-            <PaperAirplaneIcon className="h-6 w-6" />
-          )}
-          <span className="font-semibold">{toastMessage.message}</span>
-        </div>
-      )}
+      {/* Toasts are provided globally via react-hot-toast */}
 
       {/* Back to Queries Button */}
       <Link
