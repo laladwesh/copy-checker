@@ -1,0 +1,41 @@
+name: Deploy CopyChecker
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+
+          script: |
+            set -e
+
+            echo "🚀 Pulling latest code..."
+            cd ~/copy-checker
+            git pull origin main
+
+            echo "📦 Installing frontend deps..."
+            cd client
+            npm install
+
+            echo "🏗 Building frontend..."
+            npm run build
+
+            echo "♻ Reloading backend..."
+            cd ..
+            pm2 reload copy-checker
+
+            echo "✅ Deployment completed successfully!"
