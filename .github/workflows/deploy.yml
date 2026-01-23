@@ -23,19 +23,19 @@ jobs:
           script: |
             set -e
 
-            echo "🚀 Pulling latest code..."
+            echo "Pulling latest code..."
             cd ~/copy-checker
             git pull origin main
 
-            echo "📦 Installing frontend deps..."
+            echo "Installing frontend deps..."
             cd client
             npm install
 
-            echo "🏗 Building frontend..."
+            echo "Building frontend..."
             npm run build
 
-            echo "♻ Reloading backend..."
+            echo "Reloading backend..."
             cd ..
             pm2 reload copy-checker
 
-            echo "✅ Deployment completed successfully!"
+            echo "Deployment completed successfully!"
