@@ -732,22 +732,6 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
-          <div className="flex flex-col items-center text-center mb-3">
-            <div className="p-3 bg-gray-900 rounded-xl mb-3">
-              <UsersIcon className="h-6 w-6 text-white" />
-            </div>
-            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
-              Assign Examiners
-            </h2>
-          </div>
-          <button
-            onClick={() => openAssignExaminersModal(null)}
-            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
-          >
-            Assign
-          </button>
-        </div>
 
         <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
           <div className="flex flex-col items-center text-center mb-3">
@@ -763,6 +747,25 @@ export default function AdminPanel() {
             className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
           >
             Upload
+          </button>
+        </div>
+
+
+        
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <UsersIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Assign Examiners
+            </h2>
+          </div>
+          <button
+            onClick={() => openAssignExaminersModal(null)}
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
+          >
+            Assign
           </button>
         </div>
 
