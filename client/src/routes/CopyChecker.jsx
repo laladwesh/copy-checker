@@ -22,12 +22,12 @@ import "react-pdf/dist/Page/TextLayer.css"; // Essential for selectable text
 // Using unpkg CDN for robustness. Make sure the pdfjs.version matches your installed react-pdf version.
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-// Draggable Mark Component
-const DraggableMark = ({ type, onDragStart }) => {
+// Draggable Mark Component (numeric value)
+const DraggableMark = ({ value, onDragStart }) => {
   const handleDragStart = (e) => {
     e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData('markType', type);
-    onDragStart(type);
+    e.dataTransfer.setData('markValue', String(value));
+    onDragStart(value);
   };
 
   return (
@@ -37,15 +37,9 @@ const DraggableMark = ({ type, onDragStart }) => {
       className="cursor-move select-none"
       style={{ touchAction: 'none' }}
     >
-      {type === 'correct' ? (
-        <div className="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full text-white text-3xl font-bold hover:bg-green-600 transition shadow-lg">
-          ✓
-        </div>
-      ) : (
-        <div className="w-12 h-12 flex items-center justify-center bg-red-500 rounded-full text-white text-3xl font-bold hover:bg-red-600 transition shadow-lg">
-          ✗
-        </div>
-      )}
+      <div className="w-12 h-12 flex items-center justify-center bg-gray-900 text-white rounded-full text-sm font-bold hover:scale-105 transition shadow-lg">
+        {Number(value).toFixed(value % 1 === 0 ? 0 : 1)}
+      </div>
     </div>
   );
 };
@@ -62,9 +56,8 @@ function CopyChecker() {
   const [comments, setComments] = useState("");
   // Track pages saved in current session only (for temporary UI feedback)
   const [justSavedPages, setJustSavedPages] = useState(new Set());
-  // Track multiple marks entries for breakdown
-  const [marksBreakdown, setMarksBreakdown] = useState([]);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  // Pool of draggable numeric marks (examiner can add from grid or custom input)
+  const [marksPool, setMarksPool] = useState([]); // e.g. [0, 0.5, 1, ...]
 
   // UI States
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -81,8 +74,8 @@ function CopyChecker() {
   const [acZoomLevel, setAcZoomLevel] = useState(1.25); // Initial zoom level for AC
   
   // Draggable marks state - stores marks for each page
-  const [pageMarks, setPageMarks] = useState({}); // { pageNumber: [{ type, x, y, id }] }
-  const [draggedMarkType, setDraggedMarkType] = useState(null);
+  const [pageMarks, setPageMarks] = useState({}); // { pageNumber: [{ value, x, y, id }] }
+  const [draggedMarkValue, setDraggedMarkValue] = useState(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const ZOOM_STEP = 0.25;
@@ -93,24 +86,32 @@ function CopyChecker() {
   useEffect(() => {
     const fetchCopy = async () => {
       try {
-        const res = await api.get(`/examiner/copies/${copyId}`);
-        setCopy(res.data);
-        
-        // Load existing marks from server with safety checks
-        const loadedMarks = {};
-        if (res.data && res.data.pages && Array.isArray(res.data.pages)) {
-          res.data.pages.forEach(page => {
-            if (page.marks && Array.isArray(page.marks) && page.marks.length > 0) {
-              loadedMarks[page.pageNumber] = page.marks.map(mark => ({
-                type: mark.type || 'correct',
-                x: Number(mark.x) || 0,
-                y: Number(mark.y) || 0,
-                id: Math.random().toString(36).substr(2, 9)
-              }));
-            }
-          });
-        }
-        setPageMarks(loadedMarks);
+          const res = await api.get(`/examiner/copies/${copyId}`);
+          setCopy(res.data);
+
+          // Load existing marks from server with safety checks
+          const loadedMarks = {};
+          if (res.data && res.data.pages && Array.isArray(res.data.pages)) {
+            res.data.pages.forEach(page => {
+              if (page.pageMarks && Array.isArray(page.pageMarks) && page.pageMarks.length > 0) {
+                loadedMarks[page.pageNumber] = page.pageMarks.map(mark => ({
+                  value: typeof mark.value !== 'undefined' ? Number(mark.value) : (mark.type === 'wrong' ? 0 : 1),
+                  x: Number(mark.x) || 0,
+                  y: Number(mark.y) || 0,
+                  id: Math.random().toString(36).substr(2, 9)
+                }));
+              } else if (page.marks && Array.isArray(page.marks) && page.marks.length > 0) {
+                // Legacy support: map type -> value (correct->1, wrong->0)
+                loadedMarks[page.pageNumber] = page.marks.map(mark => ({
+                  value: mark.type === 'wrong' ? 0 : 1,
+                  x: Number(mark.x) || 0,
+                  y: Number(mark.y) || 0,
+                  id: Math.random().toString(36).substr(2, 9)
+                }));
+              }
+            });
+          }
+          setPageMarks(loadedMarks);
         
         // Set Answer Copy to page 1 on load
         setCurrentPage(1);
@@ -152,41 +153,19 @@ function CopyChecker() {
     if (!copy) return;
     const foundPageData = copy.pages.find((p) => p.pageNumber === currentPage);
     if (foundPageData) {
-      setMarks(""); // Always keep marks input empty when loading
-      // Parse breakdown from comments if it exists
-      const commentsText = String(foundPageData.comments || "");
-      const breakdownMatch = commentsText.match(/Marks Breakdown: ([\d.+\s]+)/);
-      
-      if (breakdownMatch) {
-        const breakdownStr = breakdownMatch[1].trim();
-        const marksArray = breakdownStr.split('+').map(m => parseFloat(m.trim())).filter(m => !isNaN(m));
-        
-        // Parse individual comments for each mark
-        const afterBreakdown = commentsText.substring(commentsText.indexOf('\n', commentsText.indexOf('Marks Breakdown:')) + 1);
-        const lines = afterBreakdown.split('\n');
-        const breakdown = marksArray.map((m, idx) => {
-          // Look for comment in format "1. comment text"
-          const commentLine = lines.find(line => line.trim().startsWith(`${idx + 1}.`));
-          const comment = commentLine ? commentLine.substring(commentLine.indexOf('.') + 1).trim() : '';
-          return { marks: m, comment };
-        });
-        
-        setMarksBreakdown(breakdown);
-        setShowBreakdown(true);
-        
-        // Extract examiner's comment after "Examiner's comment:"
-        const examinerCommentMatch = commentsText.match(/Examiner's comment:\s*([\s\S]*)/i);
-        setComments(examinerCommentMatch ? examinerCommentMatch[1].trim() : "");
-      } else {
-        setComments(foundPageData.comments ?? "");
-        setMarksBreakdown([]);
-        setShowBreakdown(false);
+      setMarks(""); // Keep custom input empty when loading
+      setComments(foundPageData.comments ?? "");
+
+      // Ensure any server-saved pageMarks are loaded into UI mapping
+      if (Array.isArray(foundPageData.pageMarks) && foundPageData.pageMarks.length > 0) {
+        setPageMarks(prev => ({
+          ...prev,
+          [currentPage]: foundPageData.pageMarks.map(m => ({ value: Number(m.value || 0), x: Number(m.x) || 0, y: Number(m.y) || 0, id: Math.random().toString(36).substr(2,9) }))
+        }));
       }
     } else {
       setMarks("");
       setComments("");
-      setMarksBreakdown([]);
-      setShowBreakdown(false);
     }
 
     // Reset zoom when AC page changes, and set loading to true
@@ -202,34 +181,27 @@ function CopyChecker() {
   const combinedCheckedSet = new Set([...checkedPages, ...blankPagesArr]);
   const totalChecked = combinedCheckedSet.size;
 
-  // Functions to manage marks breakdown
-  const addMarkToBreakdown = () => {
-    if (marks === "" || isNaN(parseFloat(marks)) || parseFloat(marks) < 0) {
-      toastError("Please enter valid marks before adding to breakdown");
+  // Add a mark value into the pool (from grid or custom input)
+  const addToPool = (value) => {
+    const v = parseFloat(value);
+    if (isNaN(v) || v < 0) {
+      toastError('Enter a valid mark value');
       return;
     }
-    setMarksBreakdown([...marksBreakdown, { marks: parseFloat(marks), comment: '' }]);
-    setMarks("");
-    setShowBreakdown(true);
-    toastSuccess("Marks added to breakdown");
+    setMarksPool(prev => {
+      if (prev.includes(v)) return prev;
+      return [...prev, v].sort((a,b) => a - b);
+    });
+    setMarks('');
+    toastSuccess(`${v} added to marking tools`);
   };
 
-  const removeMarkFromBreakdown = (index) => {
-    const newBreakdown = marksBreakdown.filter((_, i) => i !== index);
-    setMarksBreakdown(newBreakdown);
-    if (newBreakdown.length === 0) {
-      setShowBreakdown(false);
-    }
-  };
-
-  const updateBreakdownComment = (index, comment) => {
-    const newBreakdown = [...marksBreakdown];
-    newBreakdown[index].comment = comment;
-    setMarksBreakdown(newBreakdown);
-  };
-
-  const getTotalFromBreakdown = () => {
-    return marksBreakdown.reduce((sum, item) => sum + item.marks, 0);
+  const getCurrentPageMarkValue = () => {
+    const placed = Array.isArray(pageMarks[currentPage]) ? pageMarks[currentPage] : [];
+    const placedSum = placed.reduce((s, m) => s + Number(m.value || 0), 0);
+    if (placedSum > 0) return placedSum;
+    if (marks !== '' && !isNaN(parseFloat(marks))) return parseFloat(marks);
+    return 0;
   };
 
   // (Question Paper is provided as an external link in the sidebar)
@@ -335,8 +307,8 @@ function CopyChecker() {
   const completionPercentage =
     copy.totalPages > 0 ? (totalChecked / copy.totalPages) * 100 : 0;
   // Drag and drop handlers
-  const handleDragStart = (type) => {
-    setDraggedMarkType(type);
+  const handleDragStart = (value) => {
+    setDraggedMarkValue(value);
   };
 
   const handleDragOver = (e) => {
@@ -352,22 +324,23 @@ function CopyChecker() {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDraggingOver(false);
-    
-    const markType = e.dataTransfer.getData('markType');
-    if (!markType || (markType !== 'correct' && markType !== 'wrong')) return;
+
+    const markValueRaw = e.dataTransfer.getData('markValue');
+    const markValue = parseFloat(markValueRaw);
+    if (isNaN(markValue)) return; // invalid drop
 
     // Get the PDF container and calculate relative position
     const pdfContainer = e.currentTarget;
     const rect = pdfContainer.getBoundingClientRect();
-    
+
     // Safety check for rect
     if (!rect || rect.width === 0 || rect.height === 0) return;
-    
+
     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)); // Percentage, clamped 0-100
     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)); // Percentage, clamped 0-100
 
     const newMark = {
-      type: markType,
+      value: markValue,
       x,
       y,
       id: Math.random().toString(36).substr(2, 9)
@@ -377,9 +350,9 @@ function CopyChecker() {
       ...prev,
       [currentPage]: [...(prev[currentPage] || []), newMark]
     }));
-    
-    setDraggedMarkType(null);
-    toastSuccess(`${markType === 'correct' ? 'Right' : 'Wrong'} mark added to page ${currentPage}`);
+
+    setDraggedMarkValue(null);
+    toastSuccess(`${markValue} mark added to page ${currentPage}`);
   };
 
   const removeMark = (markId) => {
@@ -394,79 +367,35 @@ function CopyChecker() {
     if (isSaving) return; // Prevent multiple submissions while saving
     setIsSaving(true);
     try {
-      // Determine the final marks to save
-      let finalMarks;
-      
-      if (marksBreakdown.length > 0) {
-        // Using breakdown mode - calculate total
-        finalMarks = getTotalFromBreakdown();
-      } else {
-        // Single marks mode - allow empty marks (defaults to 0)
-        if (marks === "" || marks === null || marks === undefined) {
-          finalMarks = 0; // Default to 0 if no marks entered
-        } else if (isNaN(parseFloat(marks))) {
-          toastError("Please enter a valid number for marks.");
-          setIsSaving(false);
-          return;
-        } else if (parseFloat(marks) < 0) {
-          toastError("Marks cannot be negative.");
-          setIsSaving(false);
-          return;
-        } else {
-          finalMarks = parseFloat(marks);
-        }
-      }
-      
+      const placed = Array.isArray(pageMarks[currentPage]) ? pageMarks[currentPage] : [];
+      const pageMarksPayload = placed
+        .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
+        .map(mark => ({ value: Number(mark.value), x: Math.max(0, Math.min(100, mark.x)), y: Math.max(0, Math.min(100, mark.y)) }));
+
+      const marksAwarded = pageMarksPayload.reduce((s, m) => s + Number(m.value || 0), 0);
+
       // Check if total marks would exceed the maximum allowed
       const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
       const currentPageMarksAwarded = currentPageData?.marksAwarded || 0;
-      const newTotalMarks = totalMarks - currentPageMarksAwarded + finalMarks;
+      const newTotalMarks = totalMarks - currentPageMarksAwarded + marksAwarded;
       const maxMarks = copy.questionPaper?.totalMarks || 0;
-      
+
       if (newTotalMarks > maxMarks) {
-        toastError(
-          `Cannot save! Total marks would be ${newTotalMarks.toFixed(2)} which exceeds the maximum allowed marks of ${maxMarks}.`
-        );
+        toastError(`Cannot save! Total marks would be ${newTotalMarks.toFixed(2)} which exceeds the maximum allowed marks of ${maxMarks}.`);
         setIsSaving(false);
         return;
       }
-      
-      // Format comments with breakdown if exists
-      let finalComments = '';
-      
-      if (marksBreakdown.length > 0) {
-        const breakdownStr = marksBreakdown.map(item => item.marks).join(' + ');
-        const breakdownComments = marksBreakdown
-          .map((item, idx) => item.comment ? `${idx + 1}. ${item.comment}` : '')
-          .filter(c => c)
-          .join('\n');
-        
-        finalComments = `Marks Breakdown: ${breakdownStr}\n${breakdownComments}${breakdownComments ? '\n' : ''}`;
-        const commentsStr = String(comments || '');
-        if (commentsStr.trim()) {
-          finalComments += `Examiner's comment: ${commentsStr}`;
-        }
-      } else {
-        finalComments = String(comments || '');
-      }
-      
-      // Get marks for current page with validation
-      const currentPageMarks = Array.isArray(pageMarks[currentPage]) ? pageMarks[currentPage] : [];
-      
+
       const payload = {
         pageNumber: currentPage,
-        marks: finalMarks,
-        comments: finalComments.trim(),
-        pageMarks: currentPageMarks
-          .filter(mark => mark && mark.type && typeof mark.x === 'number' && typeof mark.y === 'number')
-          .map(mark => ({
-            type: mark.type,
-            x: Math.max(0, Math.min(100, mark.x)),
-            y: Math.max(0, Math.min(100, mark.y))
-          }))
+        marks: marksAwarded,
+        comments: String(comments || ''),
+        pageMarks: pageMarksPayload
       };
+
       const res = await api.patch(`/examiner/copies/${copyId}/mark-page`, payload);
       setCopy(res.data); // Update local copy state with new data from server
+
       // Mark this page as just saved for temporary UI feedback
       setJustSavedPages((prev) => {
         const next = new Set(Array.from(prev));
@@ -587,13 +516,13 @@ function CopyChecker() {
                 <h2 className="text-2xl font-bold text-gray-900">Answer Copy</h2>
                 <div className="text-xs text-gray-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                   <strong>Max:</strong> {copy.questionPaper?.totalMarks || 'N/A'} <span className={(function(){
-                    const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
-                    const currentPageMarks = currentPageData?.marksAwarded || 0;
-                    const pageMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
-                    const newTotalMarks = totalMarks - currentPageMarks + pageMarks;
-                    const maxMarks = copy.questionPaper?.totalMarks || 0;
-                    return newTotalMarks > maxMarks ? 'text-red-600 font-bold' : 'text-green-600 font-semibold';
-                  })()}></span>
+                      const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                      const currentPageMarks = currentPageData?.marksAwarded || 0;
+                      const pageMarksVal = getCurrentPageMarkValue();
+                      const newTotalMarks = totalMarks - currentPageMarks + pageMarksVal;
+                      const maxMarks = copy.questionPaper?.totalMarks || 0;
+                      return newTotalMarks > maxMarks ? 'text-red-600 font-bold' : 'text-green-600 font-semibold';
+                    })()}></span>
                 </div>
               </div>
               {/* Page check indicator */}
@@ -637,7 +566,7 @@ function CopyChecker() {
               
               {/* Render placed marks on the current page */}
               {pageMarks[currentPage] && Array.isArray(pageMarks[currentPage]) && pageMarks[currentPage]
-                .filter(mark => mark && mark.id && mark.type && typeof mark.x === 'number' && typeof mark.y === 'number')
+                .filter(mark => mark && mark.id && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
                 .map((mark) => (
                 <div
                   key={mark.id}
@@ -651,15 +580,9 @@ function CopyChecker() {
                   onClick={() => removeMark(mark.id)}
                   title="Click to remove"
                 >
-                  {mark.type === 'correct' ? (
-                    <div className="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full text-white text-3xl font-bold shadow-lg group-hover:bg-green-600 transition">
-                      ✓
-                    </div>
-                  ) : (
-                    <div className="w-12 h-12 flex items-center justify-center bg-red-500 rounded-full text-white text-3xl font-bold shadow-lg group-hover:bg-red-600 transition">
-                      ✗
-                    </div>
-                  )}
+                  <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg transition ${mark.value > 0 ? 'bg-green-500 group-hover:bg-green-600' : 'bg-red-500 group-hover:bg-red-600'}`}>
+                    {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -700,15 +623,17 @@ function CopyChecker() {
             <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-md border-2 border-dashed border-blue-300 shadow-sm">
               <h3 className="text-sm font-bold text-gray-900 mb-3 text-center">Marking Tools</h3>
               <p className="text-xs text-gray-600 mb-3 text-center">Drag and drop marks onto the answer copy</p>
-              <div className="flex justify-center gap-4">
-                <div className="flex flex-col items-center">
-                  <DraggableMark type="correct" onDragStart={handleDragStart} />
-                  <span className="text-xs text-gray-700 mt-1 font-medium">Right</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <DraggableMark type="wrong" onDragStart={handleDragStart} />
-                  <span className="text-xs text-gray-700 mt-1 font-medium">Wrong</span>
-                </div>
+              <div className="flex justify-center gap-3 flex-wrap">
+                {marksPool.length === 0 ? (
+                  <div className="text-xs text-gray-500">Add values from the grid below or enter a custom mark</div>
+                ) : (
+                  marksPool.map((v) => (
+                    <div key={v} className="flex flex-col items-center mr-2 mb-2">
+                      <DraggableMark value={v} onDragStart={handleDragStart} />
+                      <span className="text-xs text-gray-700 mt-1 font-medium">{v % 1 === 0 ? v : v.toFixed(1)}</span>
+                    </div>
+                  ))
+                )}
               </div>
               {pageMarks[currentPage] && pageMarks[currentPage].length > 0 && (
                 <div className="mt-3 text-xs text-center text-gray-600 bg-white p-2 rounded">
@@ -727,7 +652,7 @@ function CopyChecker() {
                   {(function(){
                     const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
                     const savedMarks = currentPageData?.marksAwarded || 0;
-                    const currentMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
+                    const currentMarks = getCurrentPageMarkValue();
                     const hasUnsavedChanges = currentMarks !== savedMarks && currentMarks > 0;
                     
                     if (savedMarks > 0) {
@@ -771,66 +696,23 @@ function CopyChecker() {
             </div>
 
             <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-400px)] overflow-y-auto">
-              {/* Show breakdown as read-only display if exists */}
-              {showBreakdown && marksBreakdown.length > 0 && (
-                <div className="mb-3 p-2 bg-blue-50 border border-blue-300 rounded">
-                  <div className="text-xs font-bold text-blue-900 mb-1">Breakdown:</div>
-                  <div className="text-sm text-blue-900">
-                    {marksBreakdown.map(item => item.marks).join(' + ')} = <strong>{getTotalFromBreakdown()}</strong>
-                  </div>
-                  {marksBreakdown.some(item => item.comment) && (
-                    <div className="mt-2 space-y-1 text-xs text-gray-700">
-                      {marksBreakdown.map((item, idx) => item.comment ? (
-                        <div key={idx}>• {item.comment}</div>
-                      ) : null)}
-                    </div>
-                  )}
-                </div>
-              )}
-              
               <div className="mb-3">
-                {/* Show breakdown editor if in breakdown mode */}
-                {showBreakdown && marksBreakdown.length > 0 && (
-                  <div className="mb-3 p-2 bg-green-50 border border-green-300 rounded">
-                    <div className="text-xs font-bold text-green-900 mb-2">Edit Breakdown:</div>
-                    <div className="space-y-2">
-                      {marksBreakdown.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 bg-white p-2 rounded border border-green-200">
-                          <span className="font-bold text-sm text-gray-900 min-w-[40px]">{item.marks}</span>
-                          <input
-                            type="text"
-                            value={item.comment}
-                            onChange={(e) => updateBreakdownComment(index, e.target.value)}
-                            placeholder="Optional note"
-                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
-                          />
-                          <button
-                            onClick={() => removeMarkFromBreakdown(index)}
-                            className="text-red-600 hover:text-red-800 text-xs font-bold"
-                            title="Remove"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   {Array.from({ length: 21 }, (_, i) => i * 0.5).map((markValue) => {
                     const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
-                    const currentPageMarks = currentPageData?.marksAwarded || 0;
-                    const newTotalMarks = totalMarks - currentPageMarks + markValue;
+                    const currentPageMarksSaved = currentPageData?.marksAwarded || 0;
+                    const placedSum = Array.isArray(pageMarks[currentPage]) ? pageMarks[currentPage].reduce((s, m) => s + Number(m.value || 0), 0) : 0;
+                    const candidate = placedSum > 0 ? placedSum : markValue;
+                    const newTotalMarks = totalMarks - currentPageMarksSaved + candidate;
                     const maxMarks = copy.questionPaper?.totalMarks || 0;
                     const wouldExceed = newTotalMarks > maxMarks;
                     return (
                       <button
                         key={markValue}
-                        onClick={() => setMarks(markValue.toString())}
+                        onClick={() => addToPool(markValue)}
                         disabled={wouldExceed}
                         className={`px-2 py-1 rounded text-xs font-bold transition ${
-                          parseFloat(marks) === markValue
+                          marksPool.includes(markValue)
                             ? 'bg-gray-900 text-white shadow-md'
                             : wouldExceed
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -852,14 +734,14 @@ function CopyChecker() {
                     value={marks} 
                     onChange={(e) => setMarks(e.target.value)} 
                     className="flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm" 
-                    placeholder="Enter marks" 
+                    placeholder="Enter custom mark" 
                   />
                   <button
-                    onClick={addMarkToBreakdown}
+                    onClick={() => addToPool(marks)}
                     className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-bold whitespace-nowrap"
-                    title="Add marks to breakdown"
+                    title="Add mark to tools"
                   >
-                    + Give Multiple Marks
+                    Add to Tools
                   </button>
                 </div>
               </div>
@@ -870,11 +752,11 @@ function CopyChecker() {
               {(function(){
                 const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
                 const currentPageMarks = currentPageData?.marksAwarded || 0;
-                const pageMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
-                const newTotalMarks = totalMarks - currentPageMarks + pageMarks;
+                const pageMarksVal = getCurrentPageMarkValue();
+                const newTotalMarks = totalMarks - currentPageMarks + pageMarksVal;
                 const maxMarks = copy.questionPaper?.totalMarks || 0;
                 const wouldExceed = newTotalMarks > maxMarks;
-                const hasMarks = showBreakdown && marksBreakdown.length > 0 || (marks !== '' && !isNaN(parseFloat(marks)));
+                const hasMarks = pageMarksVal > 0;
                 return wouldExceed && hasMarks ? (
                   <div className="mb-2 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-700">
                     <strong> Warning:</strong> These marks would exceed the maximum total marks allowed ({maxMarks}). Please reduce the marks.
@@ -885,10 +767,10 @@ function CopyChecker() {
                 <button onClick={handleSavePage} disabled={isSaving || (function(){
                   const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
                   const currentPageMarks = currentPageData?.marksAwarded || 0;
-                  const pageMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
-                  const newTotalMarks = totalMarks - currentPageMarks + pageMarks;
+                  const pageMarksVal = getCurrentPageMarkValue();
+                  const newTotalMarks = totalMarks - currentPageMarks + pageMarksVal;
                   const maxMarks = copy.questionPaper?.totalMarks || 0;
-                  const hasMarks = showBreakdown && marksBreakdown.length > 0 || (marks !== '' && !isNaN(parseFloat(marks)));
+                  const hasMarks = pageMarksVal > 0;
                   return hasMarks && newTotalMarks > maxMarks;
                 })()} className="bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-bold flex items-center">
                   {isSaving ? (
