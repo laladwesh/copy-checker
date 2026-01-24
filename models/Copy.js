@@ -8,6 +8,17 @@ const PageSchema = new mongoose.Schema(
     marksAwarded: { type: Number, default: 0 },
     comments: [{ type: String }], // Array of strings for multiple comments
     annotations: { type: String, default: "{}" }, // Store JSON string of annotations (e.g., SVG paths, coordinates)
+    marks: {
+      type: [
+        {
+          type: { type: String, enum: ["correct", "wrong"], required: true },
+          x: { type: Number, required: true },
+          y: { type: Number, required: true },
+          timestamp: { type: Date, default: Date.now }
+        }
+      ],
+      default: []
+    }, // Array of draggable marks (right/wrong) with positions
     lastAnnotatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

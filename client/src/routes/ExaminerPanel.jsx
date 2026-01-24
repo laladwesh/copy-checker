@@ -22,22 +22,21 @@ export default function ExaminerPanel() {
 
   // --- Load initial data on mount ---
   useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [pendingRes, historyRes] = await Promise.all([
+          api.get('/examiner/copies/pending'),
+          api.get('/examiner/copies/history')
+        ]);
+        setPending(pendingRes.data);
+        setHistory(historyRes.data);
+      } catch (err) {
+        console.error('Error loading examiner panel data:', err);
+        setMessage('Error loading data. Please refresh the page.');
+      }
+    };
     fetchInitialData();
   }, []);
-
-  const fetchInitialData = async () => {
-    try {
-      const [pendingRes, historyRes] = await Promise.all([
-        api.get('/examiner/copies/pending'),
-        api.get('/examiner/copies/history')
-      ]);
-      setPending(pendingRes.data);
-      setHistory(historyRes.data);
-    } catch (error) {
-      console.error("Error fetching initial data:", error);
-      showMessage(`Error loading data: ${error.message}`, 'error');
-    }
-  };
 
   // --- Message/Toast Handler ---
   const showMessage = (msg, type = 'success') => {

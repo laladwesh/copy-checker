@@ -22,7 +22,35 @@ import "react-pdf/dist/Page/TextLayer.css"; // Essential for selectable text
 // Using unpkg CDN for robustness. Make sure the pdfjs.version matches your installed react-pdf version.
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export default function CopyChecker() {
+// Draggable Mark Component
+const DraggableMark = ({ type, onDragStart }) => {
+  const handleDragStart = (e) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('markType', type);
+    onDragStart(type);
+  };
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      className="cursor-move select-none"
+      style={{ touchAction: 'none' }}
+    >
+      {type === 'correct' ? (
+        <div className="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full text-white text-3xl font-bold hover:bg-green-600 transition shadow-lg">
+          ✓
+        </div>
+      ) : (
+        <div className="w-12 h-12 flex items-center justify-center bg-red-500 rounded-full text-white text-3xl font-bold hover:bg-red-600 transition shadow-lg">
+          ✗
+        </div>
+      )}
+    </div>
+  );
+};
+
+function CopyChecker() {
   const { copyId } = useParams();
   const navigate = useNavigate();
 
@@ -51,6 +79,11 @@ export default function CopyChecker() {
   const [blankPagesArr, setBlankPagesArr] = useState([]); // store as array (transient)
   // Zoom States
   const [acZoomLevel, setAcZoomLevel] = useState(1.25); // Initial zoom level for AC
+  
+  // Draggable marks state - stores marks for each page
+  const [pageMarks, setPageMarks] = useState({}); // { pageNumber: [{ type, x, y, id }] }
+  const [draggedMarkType, setDraggedMarkType] = useState(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 0.5; // Adjusted min zoom for better flexibility
@@ -62,6 +95,23 @@ export default function CopyChecker() {
       try {
         const res = await api.get(`/examiner/copies/${copyId}`);
         setCopy(res.data);
+        
+        // Load existing marks from server with safety checks
+        const loadedMarks = {};
+        if (res.data && res.data.pages && Array.isArray(res.data.pages)) {
+          res.data.pages.forEach(page => {
+            if (page.marks && Array.isArray(page.marks) && page.marks.length > 0) {
+              loadedMarks[page.pageNumber] = page.marks.map(mark => ({
+                type: mark.type || 'correct',
+                x: Number(mark.x) || 0,
+                y: Number(mark.y) || 0,
+                id: Math.random().toString(36).substr(2, 9)
+              }));
+            }
+          });
+        }
+        setPageMarks(loadedMarks);
+        
         // Set Answer Copy to page 1 on load
         setCurrentPage(1);
         // Reset loading state after initial document fetch
@@ -284,7 +334,61 @@ export default function CopyChecker() {
   // Calculate completion percentage for the timeline (use combined saved state)
   const completionPercentage =
     copy.totalPages > 0 ? (totalChecked / copy.totalPages) * 100 : 0;
+  // Drag and drop handlers
+  const handleDragStart = (type) => {
+    setDraggedMarkType(type);
+  };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    
+    const markType = e.dataTransfer.getData('markType');
+    if (!markType || (markType !== 'correct' && markType !== 'wrong')) return;
+
+    // Get the PDF container and calculate relative position
+    const pdfContainer = e.currentTarget;
+    const rect = pdfContainer.getBoundingClientRect();
+    
+    // Safety check for rect
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+    
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)); // Percentage, clamped 0-100
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)); // Percentage, clamped 0-100
+
+    const newMark = {
+      type: markType,
+      x,
+      y,
+      id: Math.random().toString(36).substr(2, 9)
+    };
+
+    setPageMarks(prev => ({
+      ...prev,
+      [currentPage]: [...(prev[currentPage] || []), newMark]
+    }));
+    
+    setDraggedMarkType(null);
+    toastSuccess(`${markType === 'correct' ? 'Right' : 'Wrong'} mark added to page ${currentPage}`);
+  };
+
+  const removeMark = (markId) => {
+    setPageMarks(prev => ({
+      ...prev,
+      [currentPage]: (prev[currentPage] || []).filter(mark => mark.id !== markId)
+    }));
+    toastInfo('Mark removed');
+  };
   // Handler: save this page’s marks, then advance
   const handleSavePage = async () => {
     if (isSaving) return; // Prevent multiple submissions while saving
@@ -315,8 +419,8 @@ export default function CopyChecker() {
       
       // Check if total marks would exceed the maximum allowed
       const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
-      const currentPageMarks = currentPageData?.marksAwarded || 0;
-      const newTotalMarks = totalMarks - currentPageMarks + finalMarks;
+      const currentPageMarksAwarded = currentPageData?.marksAwarded || 0;
+      const newTotalMarks = totalMarks - currentPageMarksAwarded + finalMarks;
       const maxMarks = copy.questionPaper?.totalMarks || 0;
       
       if (newTotalMarks > maxMarks) {
@@ -346,10 +450,20 @@ export default function CopyChecker() {
         finalComments = String(comments || '');
       }
       
+      // Get marks for current page with validation
+      const currentPageMarks = Array.isArray(pageMarks[currentPage]) ? pageMarks[currentPage] : [];
+      
       const payload = {
         pageNumber: currentPage,
         marks: finalMarks,
         comments: finalComments.trim(),
+        pageMarks: currentPageMarks
+          .filter(mark => mark && mark.type && typeof mark.x === 'number' && typeof mark.y === 'number')
+          .map(mark => ({
+            type: mark.type,
+            x: Math.max(0, Math.min(100, mark.x)),
+            y: Math.max(0, Math.min(100, mark.y))
+          }))
       };
       const res = await api.patch(`/examiner/copies/${copyId}/mark-page`, payload);
       setCopy(res.data); // Update local copy state with new data from server
@@ -495,7 +609,13 @@ export default function CopyChecker() {
                 })()}
               </div>
             </div>
-            <div className="relative w-full overflow-hidden flex items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
+            <div 
+              className={`relative w-full overflow-hidden flex items-center justify-center ${isDraggingOver ? 'ring-4 ring-blue-500 ring-opacity-50' : ''}`} 
+              style={{ height: 'calc(100vh - 180px)' }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                   <svg className="animate-spin h-8 w-8 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -514,6 +634,34 @@ export default function CopyChecker() {
               ) : (
                 <div className="text-gray-500 text-center p-2">Answer Copy PDF Not Found.</div>
               )}
+              
+              {/* Render placed marks on the current page */}
+              {pageMarks[currentPage] && Array.isArray(pageMarks[currentPage]) && pageMarks[currentPage]
+                .filter(mark => mark && mark.id && mark.type && typeof mark.x === 'number' && typeof mark.y === 'number')
+                .map((mark) => (
+                <div
+                  key={mark.id}
+                  className="absolute cursor-pointer group"
+                  style={{
+                    left: `${mark.x}%`,
+                    top: `${mark.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 20
+                  }}
+                  onClick={() => removeMark(mark.id)}
+                  title="Click to remove"
+                >
+                  {mark.type === 'correct' ? (
+                    <div className="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full text-white text-3xl font-bold shadow-lg group-hover:bg-green-600 transition">
+                      ✓
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 flex items-center justify-center bg-red-500 rounded-full text-white text-3xl font-bold shadow-lg group-hover:bg-red-600 transition">
+                      ✗
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* Horizontal Page Navigation moved below the PDF viewer to use vertical space for the document */}
@@ -548,6 +696,28 @@ export default function CopyChecker() {
 
           {/* Right Sidebar - Marking and Controls */}
           <aside className="lg:col-span-3 flex flex-col space-y-4">
+            {/* Draggable Marking Tools */}
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-md border-2 border-dashed border-blue-300 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 text-center">Marking Tools</h3>
+              <p className="text-xs text-gray-600 mb-3 text-center">Drag and drop marks onto the answer copy</p>
+              <div className="flex justify-center gap-4">
+                <div className="flex flex-col items-center">
+                  <DraggableMark type="correct" onDragStart={handleDragStart} />
+                  <span className="text-xs text-gray-700 mt-1 font-medium">Right</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <DraggableMark type="wrong" onDragStart={handleDragStart} />
+                  <span className="text-xs text-gray-700 mt-1 font-medium">Wrong</span>
+                </div>
+              </div>
+              {pageMarks[currentPage] && pageMarks[currentPage].length > 0 && (
+                <div className="mt-3 text-xs text-center text-gray-600 bg-white p-2 rounded">
+                  {pageMarks[currentPage].length} mark(s) on this page
+                  <div className="text-xs text-gray-500 mt-1">Click marks to remove</div>
+                </div>
+              )}
+            </div>
+            
             <div className="bg-white p-3 rounded-md border border-gray-200">
               {/* <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3> */}
               <div className="text-center mb-3">
@@ -874,3 +1044,5 @@ export default function CopyChecker() {
     </div>
   );
 }
+
+export default CopyChecker;

@@ -108,7 +108,7 @@ exports.getCopy = async (req, res, next) => {
 
 exports.markPage = async (req, res, next) => {
   try {
-    const { pageNumber, marks, comments, annotations, queryId } = req.body; // Capture queryId from request body
+    const { pageNumber, marks, comments, annotations, pageMarks, queryId } = req.body; // Capture queryId and pageMarks from request body
     const copy = await Copy.findById(req.params.id);
 
     if (!copy) {
@@ -137,15 +137,37 @@ exports.markPage = async (req, res, next) => {
       copy.pages[pageIndex].marksAwarded = marks;
       copy.pages[pageIndex].comments = comments;
       copy.pages[pageIndex].annotations = annotations;
+      // Validate and sanitize pageMarks
+      if (pageMarks && Array.isArray(pageMarks)) {
+        copy.pages[pageIndex].marks = pageMarks.map(mark => ({
+          type: mark.type === 'correct' || mark.type === 'wrong' ? mark.type : 'correct',
+          x: Math.max(0, Math.min(100, Number(mark.x) || 0)),
+          y: Math.max(0, Math.min(100, Number(mark.y) || 0)),
+          timestamp: new Date()
+        }));
+      } else {
+        copy.pages[pageIndex].marks = copy.pages[pageIndex].marks || [];
+      }
       copy.pages[pageIndex].lastAnnotatedBy = req.user._id;
       copy.pages[pageIndex].lastAnnotatedAt = new Date();
     } else {
       // New page entry (this scenario is less common for query updates)
+      // Validate and sanitize pageMarks for new page
+      let validatedMarks = [];
+      if (pageMarks && Array.isArray(pageMarks)) {
+        validatedMarks = pageMarks.map(mark => ({
+          type: mark.type === 'correct' || mark.type === 'wrong' ? mark.type : 'correct',
+          x: Math.max(0, Math.min(100, Number(mark.x) || 0)),
+          y: Math.max(0, Math.min(100, Number(mark.y) || 0)),
+          timestamp: new Date()
+        }));
+      }
       copy.pages.push({
         pageNumber,
         marksAwarded: marks,
         comments,
         annotations,
+        marks: validatedMarks,
         lastAnnotatedBy: req.user._id,
         lastAnnotatedAt: new Date(),
       });

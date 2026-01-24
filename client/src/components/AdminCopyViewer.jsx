@@ -213,6 +213,38 @@ export default function AdminCopyViewer() {
                     Answer Copy Not Found.
                   </div>
                 )}
+                
+                {/* Render examiner's marks on the current page (read-only) */}
+                {copy && copy.pages && Array.isArray(copy.pages) && (() => {
+                  const pageData = copy.pages.find(p => p && p.pageNumber === acCurrentPage);
+                  if (pageData && pageData.marks && Array.isArray(pageData.marks) && pageData.marks.length > 0) {
+                    return pageData.marks
+                      .filter(mark => mark && mark.type && typeof mark.x === 'number' && typeof mark.y === 'number')
+                      .map((mark, idx) => (
+                      <div
+                        key={idx}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${mark.x}%`,
+                          top: `${mark.y}%`,
+                          transform: 'translate(-50%, -50%)',
+                          zIndex: 20
+                        }}
+                      >
+                        {mark.type === 'correct' ? (
+                          <div className="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full text-white text-3xl font-bold shadow-lg">
+                            ✓
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 flex items-center justify-center bg-red-500 rounded-full text-white text-3xl font-bold shadow-lg">
+                            ✗
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 

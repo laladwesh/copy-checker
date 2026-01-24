@@ -120,7 +120,7 @@ export default function ManageUsers() {
 
       return filtered;
     },
-    [users, activeUserTab, activeStudentBatchTab, userSearchTerm]
+    [users, activeStudentBatchTab, userSearchTerm]
   );
 
   // Toggle individual user selection

@@ -7,7 +7,7 @@ import {
   DocumentTextIcon, // For View PDF
   QuestionMarkCircleIcon, // For Raise Query
 } from "@heroicons/react/24/outline"; // Import icons
-import { toastError, toastSuccess, toastInfo } from "../utils/hotToast";
+import { toastError } from "../utils/hotToast";
 
 export default function StudentPanel() {
   const [copies, setCopies] = useState([]);

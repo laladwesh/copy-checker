@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { PaperAirplaneIcon, ArrowLeftIcon, ArrowPathIcon, CheckCircleIcon, ExclamationCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ArrowPathIcon, CheckCircleIcon, ExclamationCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
 
 export default function ExaminerQueries() {
   const [queries, setQueries] = useState([]);
@@ -15,6 +15,17 @@ export default function ExaminerQueries() {
   const [querySearchTerm, setQuerySearchTerm] = useState(''); // Search within queries
 
   useEffect(() => {
+    const fetchQueries = async () => {
+      setIsLoading(true);
+      try {
+        const res = await api.get('/examiner/queries');
+        setQueries(res.data);
+      } catch (err) {
+        showMessage(`Failed to load queries: ${err.response?.data?.message || err.message}`, 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchQueries();
   }, []);
 
@@ -26,19 +37,6 @@ export default function ExaminerQueries() {
       setMessageType('success');
     }, 5000);
     return () => clearTimeout(timer);
-  };
-
-  const fetchQueries = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.get('/examiner/queries');
-      setQueries(res.data);
-    } catch (error) {
-      console.error("Error fetching queries:", error);
-      showMessage(`Error loading queries: ${error.response?.data?.error || error.message}`, 'error');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const getMessageIcon = (type) => {
