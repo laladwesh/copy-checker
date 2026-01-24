@@ -30,6 +30,23 @@ export default function AdminExamDetails() {
   const [studentSearchTerm, setStudentSearchTerm] = useState(""); // Renamed for clarity: search by student
   const [examinerSearchTerm, setExaminerSearchTerm] = useState(""); // NEW: State for examiner search term
 
+  // NEW: Examiner management states
+  const [allExaminers, setAllExaminers] = useState([]); // All users with role examiner
+  const [showAddExaminerModal, setShowAddExaminerModal] = useState(false);
+  const [selectedNewExaminer, setSelectedNewExaminer] = useState("");
+  const [isAddingExaminer, setIsAddingExaminer] = useState(false);
+  const [showMoveCopyModal, setShowMoveCopyModal] = useState(false);
+  const [copyToMove, setCopyToMove] = useState(null);
+  const [targetExaminerId, setTargetExaminerId] = useState("");
+  const [isMovingCopy, setIsMovingCopy] = useState(false);
+  
+  // NEW: Bulk move states
+  const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+  const [bulkMoveTargetExaminerId, setBulkMoveTargetExaminerId] = useState("");
+  const [isBulkMoving, setIsBulkMoving] = useState(false);
+  const [selectedExaminerCopies, setSelectedExaminerCopies] = useState({}); // {examinerId: [copyId1, copyId2]}
+  const [sourceExaminerId, setSourceExaminerId] = useState(""); // Track which examiner we're moving from
+
   // Selection & bulk-delete states for copies
   const [selectedCopyIds, setSelectedCopyIds] = useState([]);
   const [selectAllCopies, setSelectAllCopies] = useState(false);
@@ -47,9 +64,14 @@ export default function AdminExamDetails() {
   const fetchExamDetailsAndCopies = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get(`/admin/exams/${examId}/copies`);
-      setExam(response.data.exam);
-      setCopies(response.data.copies);
+      const [examResponse, examinersResponse] = await Promise.all([
+        api.get(`/admin/exams/${examId}/copies`),
+        api.get('/admin/examiners') // Fetch all examiners
+      ]);
+      
+      setExam(examResponse.data.exam);
+      setCopies(examResponse.data.copies);
+      setAllExaminers(examinersResponse.data);
     } catch (err) {
       console.error("Error fetching exam details or copies:", err);
       setError(err.response?.data?.message || err.message);
@@ -187,6 +209,214 @@ export default function AdminExamDetails() {
     }
   };
 
+  // NEW: Bulk move copies handler
+  const promptBulkMoveCopies = () => {
+    if (selectedCopyIds.length === 0) {
+      toastInfo("No copies selected.");
+      return;
+    }
+    
+    // Check if any selected copies are evaluated
+    const selectedCopies = copies.filter(c => selectedCopyIds.includes(c._id));
+    const hasEvaluated = selectedCopies.some(c => c.status === 'evaluated');
+    
+    if (hasEvaluated) {
+      toastError("Cannot move evaluated copies. Please unselect evaluated copies.");
+      return;
+    }
+    
+    setShowBulkMoveModal(true);
+  };
+
+  const handleBulkMoveCopies = async () => {
+    if (!bulkMoveTargetExaminerId) {
+      toastError("Please select a target examiner");
+      return;
+    }
+
+    const copyIdsToMove = selectedExaminerCopies[sourceExaminerId] || [];
+    if (copyIdsToMove.length === 0) {
+      toastError("No copies selected");
+      return;
+    }
+
+    setIsBulkMoving(true);
+    try {
+      const res = await api.patch('/admin/copies/bulk-move', {
+        copyIds: copyIdsToMove,
+        newExaminerId: bulkMoveTargetExaminerId
+      });
+      
+      toastSuccess(res.data.message || `${copyIdsToMove.length} copies moved successfully`);
+      setShowBulkMoveModal(false);
+      setBulkMoveTargetExaminerId("");
+      setSelectedExaminerCopies({});
+      setSourceExaminerId("");
+      fetchExamDetailsAndCopies();
+    } catch (err) {
+      console.error("Error bulk moving copies:", err);
+      toastError(`Failed to move copies: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsBulkMoving(false);
+    }
+  };
+
+  // Toggle selection of a copy within an examiner's list
+  const toggleExaminerCopySelection = (examinerId, copyId) => {
+    setSelectedExaminerCopies(prev => {
+      const examinerCopies = prev[examinerId] || [];
+      if (examinerCopies.includes(copyId)) {
+        return {
+          ...prev,
+          [examinerId]: examinerCopies.filter(id => id !== copyId)
+        };
+      } else {
+        return {
+          ...prev,
+          [examinerId]: [...examinerCopies, copyId]
+        };
+      }
+    });
+  };
+
+  // Select all copies for an examiner
+  const toggleSelectAllExaminerCopies = (examinerId, copies) => {
+    const pendingCopies = copies.filter(c => c.status !== 'evaluated');
+    const allSelected = (selectedExaminerCopies[examinerId] || []).length === pendingCopies.length && pendingCopies.length > 0;
+    
+    if (allSelected) {
+      setSelectedExaminerCopies(prev => ({
+        ...prev,
+        [examinerId]: []
+      }));
+    } else {
+      setSelectedExaminerCopies(prev => ({
+        ...prev,
+        [examinerId]: pendingCopies.map(c => c._id)
+      }));
+    }
+  };
+
+  // Prompt bulk move from examiner card
+  const promptBulkMoveFromExaminer = (examinerId) => {
+    const selected = selectedExaminerCopies[examinerId] || [];
+    if (selected.length === 0) {
+      toastInfo("No copies selected");
+      return;
+    }
+    setSourceExaminerId(examinerId);
+    setShowBulkMoveModal(true);
+  };
+
+  // NEW: Add examiner to exam
+  const handleAddExaminer = async () => {
+    if (!selectedNewExaminer) {
+      toastError("Please select an examiner");
+      return;
+    }
+    
+    setIsAddingExaminer(true);
+    try {
+      const res = await api.patch(`/admin/exams/${examId}/add-examiner`, {
+        examinerId: selectedNewExaminer
+      });
+      
+      toastSuccess(res.data.message || "Examiner added successfully");
+      setShowAddExaminerModal(false);
+      setSelectedNewExaminer("");
+      fetchExamDetailsAndCopies();
+    } catch (err) {
+      console.error("Error adding examiner:", err);
+      toastError(`Failed to add examiner: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsAddingExaminer(false);
+    }
+  };
+
+  // NEW: Move copy to different examiner
+  const handleMoveCopy = async () => {
+    if (!targetExaminerId) {
+      toastError("Please select a target examiner");
+      return;
+    }
+
+    setIsMovingCopy(true);
+    try {
+      const res = await api.patch(`/admin/copies/${copyToMove._id}/move-examiner`, {
+        newExaminerId: targetExaminerId
+      });
+      
+      toastSuccess(res.data.message || "Copy moved successfully");
+      setShowMoveCopyModal(false);
+      setCopyToMove(null);
+      setTargetExaminerId("");
+      fetchExamDetailsAndCopies();
+    } catch (err) {
+      console.error("Error moving copy:", err);
+      toastError(`Failed to move copy: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsMovingCopy(false);
+    }
+  };
+
+  // NEW: Group copies by examiner
+  const getExaminerStats = () => {
+    const stats = {};
+    
+    // Get assigned examiners from exam
+    const assignedExaminers = exam?.assignedExaminers || [];
+    
+    // Initialize stats for each assigned examiner
+    assignedExaminers.forEach(examinerId => {
+      const examiner = allExaminers.find(e => e._id === examinerId);
+      if (examiner) {
+        stats[examinerId] = {
+          examiner,
+          totalCopies: 0,
+          evaluatedCopies: 0,
+          pendingCopies: 0,
+          copies: []
+        };
+      }
+    });
+
+    // Group copies by examiner
+    copies.forEach(copy => {
+      if (copy.examiners && copy.examiners.length > 0) {
+        copy.examiners.forEach(examiner => {
+          const examinerId = examiner._id || examiner;
+          if (!stats[examinerId]) {
+            stats[examinerId] = {
+              examiner,
+              totalCopies: 0,
+              evaluatedCopies: 0,
+              pendingCopies: 0,
+              copies: []
+            };
+          }
+          
+          stats[examinerId].totalCopies++;
+          stats[examinerId].copies.push(copy);
+          
+          if (copy.status === 'evaluated') {
+            stats[examinerId].evaluatedCopies++;
+          } else {
+            stats[examinerId].pendingCopies++;
+          }
+        });
+      }
+    });
+
+    return stats;
+  };
+
+  const examinerStats = getExaminerStats();
+
+  // Get examiners not yet assigned to this exam
+  const availableExaminers = allExaminers.filter(
+    examiner => !exam?.assignedExaminers?.includes(examiner._id)
+  );
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-white" style={{fontFamily: 'Dosis, sans-serif'}}>
@@ -271,6 +501,147 @@ export default function AdminExamDetails() {
         </div>
       </div>
 
+      {/* NEW: Examiners Info Section */}
+      <div className="bg-white p-6 rounded-xl border-2 border-gray-900 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Examiners Info & Copy Distribution</h2>
+          <button
+            onClick={() => setShowAddExaminerModal(true)}
+            disabled={availableExaminers.length === 0}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            <UsersIcon className="h-5 w-5 mr-2" />
+            Add Examiner
+          </button>
+        </div>
+
+        {Object.keys(examinerStats).length === 0 ? (
+          <p className="text-gray-600 text-center py-4 font-bold">No examiners assigned to this exam yet.</p>
+        ) : (
+          <div className="space-y-6">
+            {Object.values(examinerStats).map(stat => {
+              const progressPercentage = stat.totalCopies > 0 
+                ? ((stat.evaluatedCopies / stat.totalCopies) * 100).toFixed(1)
+                : 0;
+
+              return (
+                <div key={stat.examiner._id} className="border-2 border-gray-900 rounded-xl p-4">
+                  {/* Examiner Header */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">{stat.examiner.name}</h3>
+                      <p className="text-sm text-gray-600 font-semibold">{stat.examiner.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-gray-900">{progressPercentage}%</div>
+                      <div className="text-xs text-gray-600 font-semibold">Progress</div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm font-bold mb-2">
+                      <span className="text-gray-700">Evaluated: {stat.evaluatedCopies}</span>
+                      <span className="text-gray-700">Pending: {stat.pendingCopies}</span>
+                      <span className="text-gray-700">Total: {stat.totalCopies}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-4 border-2 border-gray-900">
+                      <div
+                        className="bg-gray-900 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${progressPercentage}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Copies List */}
+                  {stat.copies.length > 0 && (
+                    <details className="mt-4" open>
+                      <summary className="cursor-pointer font-bold text-gray-900 hover:text-[#1e3a8a] flex items-center justify-between">
+                        <span>View Assigned Copies ({stat.copies.length})</span>
+                        {stat.pendingCopies > 0 && Object.keys(examinerStats).length > 1 && (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                toggleSelectAllExaminerCopies(stat.examiner._id, stat.copies);
+                              }}
+                              className="px-3 py-1 bg-gray-200 text-gray-900 text-xs font-bold rounded hover:bg-gray-300 transition"
+                            >
+                              {(selectedExaminerCopies[stat.examiner._id] || []).length === stat.pendingCopies && stat.pendingCopies > 0 ? 'Deselect All' : 'Select All Pending'}
+                            </button>
+                            {(selectedExaminerCopies[stat.examiner._id] || []).length > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  promptBulkMoveFromExaminer(stat.examiner._id);
+                                }}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition flex items-center"
+                              >
+                                <UsersIcon className="h-3 w-3 mr-1" />
+                                Move {(selectedExaminerCopies[stat.examiner._id] || []).length} Selected
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </summary>
+                      <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
+                        {stat.copies.map(copy => {
+                          const isSelected = (selectedExaminerCopies[stat.examiner._id] || []).includes(copy._id);
+                          return (
+                            <div
+                              key={copy._id}
+                              className={`flex justify-between items-center p-3 border rounded-lg transition ${
+                                isSelected ? 'bg-blue-50 border-blue-400 border-2' : 'bg-gray-50 border-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-center flex-1">
+                                {copy.status !== 'evaluated' && Object.keys(examinerStats).length > 1 && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleExaminerCopySelection(stat.examiner._id, copy._id)}
+                                    className="mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                )}
+                                <div className="flex-1">
+                                  <p className="font-bold text-gray-900">{copy.student?.name || 'N/A'}</p>
+                                  <p className="text-xs text-gray-600">{copy.student?.email || 'N/A'}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-1 text-xs font-bold rounded-md ${
+                                  copy.status === 'evaluated' 
+                                    ? 'bg-green-100 text-green-800 border border-green-300' 
+                                    : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                                }`}>
+                                  {copy.status === 'evaluated' ? 'Evaluated' : 'Pending'}
+                                </span>
+                                {copy.status !== 'evaluated' && Object.keys(examinerStats).length > 1 && (
+                                  <button
+                                    onClick={() => {
+                                      setCopyToMove(copy);
+                                      setShowMoveCopyModal(true);
+                                    }}
+                                    className="px-3 py-1 bg-gray-900 text-white text-xs font-bold rounded hover:bg-[#1e3a8a] transition"
+                                    title="Move to another examiner"
+                                  >
+                                    Move
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="bg-white p-6 rounded-xl border-2 border-gray-900">
         <h2 className="text-2xl font-bold text-gray-800 mb-4  border-gray-900 pb-2 flex justify-between items-center">
           <span>All Answer Copies</span>
@@ -318,12 +689,14 @@ export default function AdminExamDetails() {
         </div>
 
         <div className="flex items-center justify-between mb-3">
-          <div />
+          <div className="text-sm text-gray-600 font-semibold">
+            {selectedCopyIds.length > 0 && `${selectedCopyIds.length} copy(ies) selected`}
+          </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={promptDeleteSelectedCopies}
               disabled={selectedCopyIds.length === 0 || isDeletingCopies}
-              className="inline-flex items-center px-3 py-2 border-2 border-gray-900 text-sm font-bold rounded-md text-white bg-gray-900 hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
+              className="inline-flex items-center px-4 py-2 border-2 border-red-600 text-sm font-bold rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 shadow-md"
             >
               {isDeletingCopies ? (
                 <>
@@ -331,7 +704,7 @@ export default function AdminExamDetails() {
                 </>
               ) : (
                 <>
-                  <DocumentTextIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedCopyIds.length})
+                  <TrashIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedCopyIds.length})
                 </>
               )}
             </button>
@@ -503,6 +876,185 @@ export default function AdminExamDetails() {
 
       {/* Toasts are provided globally via react-hot-toast */}
 
+      {/* Add Examiner Modal */}
+      <Modal
+        isOpen={showAddExaminerModal}
+        onClose={() => {
+          setShowAddExaminerModal(false);
+          setSelectedNewExaminer("");
+        }}
+        title="Add Examiner to Exam"
+      >
+        <div className="p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
+          <label className="block text-gray-900 font-bold mb-2">
+            Select Examiner:
+          </label>
+          <select
+            value={selectedNewExaminer}
+            onChange={(e) => setSelectedNewExaminer(e.target.value)}
+            className="w-full px-4 py-2 border-2 border-gray-900 rounded-lg font-bold mb-4"
+          >
+            <option value="">-- Choose Examiner --</option>
+            {availableExaminers.map(examiner => (
+              <option key={examiner._id} value={examiner._id}>
+                {examiner.name} ({examiner.email})
+              </option>
+            ))}
+          </select>
+          
+          {availableExaminers.length === 0 && (
+            <p className="text-sm text-gray-600 font-semibold mb-4">
+              All available examiners are already assigned to this exam.
+            </p>
+          )}
+
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => {
+                setShowAddExaminerModal(false);
+                setSelectedNewExaminer("");
+              }}
+              className="px-4 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-100 font-bold transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddExaminer}
+              disabled={!selectedNewExaminer || isAddingExaminer}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAddingExaminer ? "Adding..." : "Add Examiner"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Move Copy Modal */}
+      <Modal
+        isOpen={showMoveCopyModal}
+        onClose={() => {
+          setShowMoveCopyModal(false);
+          setCopyToMove(null);
+          setTargetExaminerId("");
+        }}
+        title="Move Copy to Another Examiner"
+      >
+        <div className="p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
+          {copyToMove && (
+            <>
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-300 rounded-lg">
+                <p className="font-bold text-gray-900">Student: {copyToMove.student?.name}</p>
+                <p className="text-sm text-gray-600">{copyToMove.student?.email}</p>
+              </div>
+
+              <label className="block text-gray-900 font-bold mb-2">
+                Move to Examiner:
+              </label>
+              <select
+                value={targetExaminerId}
+                onChange={(e) => setTargetExaminerId(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-900 rounded-lg font-bold mb-4"
+              >
+                <option value="">-- Select Target Examiner --</option>
+                {Object.values(examinerStats)
+                  .filter(stat => !copyToMove.examiners?.some(e => (e._id || e) === stat.examiner._id))
+                  .map(stat => (
+                    <option key={stat.examiner._id} value={stat.examiner._id}>
+                      {stat.examiner.name} ({stat.totalCopies} copies, {stat.evaluatedCopies} evaluated)
+                    </option>
+                  ))}
+              </select>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowMoveCopyModal(false);
+                    setCopyToMove(null);
+                    setTargetExaminerId("");
+                  }}
+                  className="px-4 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-100 font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMoveCopy}
+                  disabled={!targetExaminerId || isMovingCopy}
+                  className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isMovingCopy ? "Moving..." : "Move Copy"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Bulk Move Modal */}
+      <Modal
+        isOpen={showBulkMoveModal}
+        onClose={() => {
+          setShowBulkMoveModal(false);
+          setBulkMoveTargetExaminerId("");
+          setSourceExaminerId("");
+        }}
+        title={`Move ${(selectedExaminerCopies[sourceExaminerId] || []).length} Copies to Another Examiner`}
+      >
+        <div className="p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
+          <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+            <p className="font-bold text-gray-900">
+              📋 Selected: {(selectedExaminerCopies[sourceExaminerId] || []).length} copy(ies)
+            </p>
+            {sourceExaminerId && examinerStats[sourceExaminerId] && (
+              <p className="text-sm text-gray-600 mt-1">
+                Moving from: <span className="font-bold">{examinerStats[sourceExaminerId].examiner.name}</span>
+              </p>
+            )}
+            <p className="text-sm text-gray-600 mt-1">
+              All selected copies will be moved to the chosen examiner and email notification will be sent.
+            </p>
+          </div>
+
+          <label className="block text-gray-900 font-bold mb-2">
+            Move to Examiner:
+          </label>
+          <select
+            value={bulkMoveTargetExaminerId}
+            onChange={(e) => setBulkMoveTargetExaminerId(e.target.value)}
+            className="w-full px-4 py-2 border-2 border-gray-900 rounded-lg font-bold mb-4"
+          >
+            <option value="">-- Select Target Examiner --</option>
+            {Object.values(examinerStats)
+              .filter(stat => stat.examiner._id !== sourceExaminerId)
+              .map(stat => (
+                <option key={stat.examiner._id} value={stat.examiner._id}>
+                  {stat.examiner.name} - {stat.examiner.email} ({stat.totalCopies} copies, {stat.evaluatedCopies} evaluated)
+                </option>
+              ))}
+          </select>
+
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => {
+                setShowBulkMoveModal(false);
+                setBulkMoveTargetExaminerId("");
+                setSourceExaminerId("");
+              }}
+              className="px-4 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-100 font-bold transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkMoveCopies}
+              disabled={!bulkMoveTargetExaminerId || isBulkMoving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBulkMoving ? "Moving..." : `Move ${(selectedExaminerCopies[sourceExaminerId] || []).length} Copies`}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}

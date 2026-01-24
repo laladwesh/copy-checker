@@ -1351,6 +1351,191 @@ exports.toggleCopyRelease = async (req, res, next) => {
   }
 };
 
+// NEW: Add examiner to exam
+exports.addExaminerToExam = async (req, res, next) => {
+  try {
+    const { examId } = req.params;
+    const { examinerId } = req.body;
+
+    if (!examinerId) {
+      return res.status(400).json({ message: "Examiner ID is required." });
+    }
+
+    // Validate examiner exists and has examiner role
+    const examiner = await User.findById(examinerId);
+    if (!examiner) {
+      return res.status(404).json({ message: "Examiner not found." });
+    }
+    if (examiner.role !== 'examiner') {
+      return res.status(400).json({ message: "User is not an examiner." });
+    }
+
+    // Find exam
+    const exam = await Paper.findById(examId);
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found." });
+    }
+
+    // Check if examiner already assigned
+    if (exam.assignedExaminers?.includes(examinerId)) {
+      return res.status(400).json({ message: "Examiner already assigned to this exam." });
+    }
+
+    // Add examiner to exam
+    exam.assignedExaminers = exam.assignedExaminers || [];
+    exam.assignedExaminers.push(examinerId);
+    await exam.save();
+
+    res.json({ 
+      message: "Examiner added successfully.",
+      exam 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// NEW: Move copy to different examiner
+exports.moveCopyToExaminer = async (req, res, next) => {
+  try {
+    const { copyId } = req.params;
+    const { newExaminerId } = req.body;
+
+    if (!newExaminerId) {
+      return res.status(400).json({ message: "New examiner ID is required." });
+    }
+
+    // Validate new examiner exists and has examiner role
+    const newExaminer = await User.findById(newExaminerId);
+    if (!newExaminer) {
+      return res.status(404).json({ message: "New examiner not found." });
+    }
+    if (newExaminer.role !== 'examiner') {
+      return res.status(400).json({ message: "User is not an examiner." });
+    }
+
+    // Find copy with populated data
+    const copy = await Copy.findById(copyId).populate('questionPaper').populate('student');
+    if (!copy) {
+      return res.status(404).json({ message: "Copy not found." });
+    }
+
+    // Only allow moving if copy is not evaluated
+    if (copy.status === 'evaluated') {
+      return res.status(400).json({ message: "Cannot move an evaluated copy." });
+    }
+
+    // Update copy examiners
+    copy.examiners = [newExaminerId];
+    copy.status = 'pending'; // Reset to pending status
+    await copy.save();
+
+    // Send email notification to new examiner
+    try {
+      const frontendBase = process.env.FRONTEND_URL;
+      const loginLink = `${frontendBase}/auth/success`;
+      const paperTitle = copy.questionPaper?.title || 'Exam';
+      const studentName = copy.student?.name || 'Student';
+      
+      const html = assignedCopiesHtml({
+        examinerName: newExaminer.name || newExaminer.email,
+        paperTitle: paperTitle,
+        count: 1,
+        link: loginLink,
+        email: newExaminer.email,
+      });
+      const subject = `New Copy Assigned: ${studentName}'s answer for ${paperTitle}`;
+      
+      await sendEmail({ to: newExaminer.email, subject, html });
+    } catch (emailErr) {
+      console.error(`Failed to send email to ${newExaminer.email}:`, emailErr);
+      // Don't fail the request if email fails
+    }
+
+    res.json({ 
+      message: "Copy moved to new examiner successfully.",
+      copy 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// NEW: Bulk move copies to different examiner
+exports.bulkMoveCopies = async (req, res, next) => {
+  try {
+    const { copyIds, newExaminerId } = req.body;
+
+    if (!copyIds || !Array.isArray(copyIds) || copyIds.length === 0) {
+      return res.status(400).json({ message: "Copy IDs array is required." });
+    }
+
+    if (!newExaminerId) {
+      return res.status(400).json({ message: "New examiner ID is required." });
+    }
+
+    // Validate new examiner exists and has examiner role
+    const newExaminer = await User.findById(newExaminerId);
+    if (!newExaminer) {
+      return res.status(404).json({ message: "New examiner not found." });
+    }
+    if (newExaminer.role !== 'examiner') {
+      return res.status(400).json({ message: "User is not an examiner." });
+    }
+
+    // Find all copies
+    const copies = await Copy.find({ _id: { $in: copyIds } }).populate('questionPaper').populate('student');
+    
+    if (copies.length === 0) {
+      return res.status(404).json({ message: "No copies found." });
+    }
+
+    // Check if any copy is evaluated
+    const evaluatedCopy = copies.find(c => c.status === 'evaluated');
+    if (evaluatedCopy) {
+      return res.status(400).json({ message: "Cannot move evaluated copies. Please unselect evaluated copies." });
+    }
+
+    // Update all copies
+    let movedCount = 0;
+    for (const copy of copies) {
+      copy.examiners = [newExaminerId];
+      copy.status = 'pending'; // Reset to pending status
+      await copy.save();
+      movedCount++;
+    }
+
+    // Send email notification to new examiner
+    try {
+      const frontendBase = process.env.FRONTEND_URL;
+      const loginLink = `${frontendBase}/auth/success`;
+      const paperTitle = copies[0]?.questionPaper?.title || 'Exam';
+      
+      const html = assignedCopiesHtml({
+        examinerName: newExaminer.name || newExaminer.email,
+        paperTitle: paperTitle,
+        count: movedCount,
+        link: loginLink,
+        email: newExaminer.email,
+      });
+      const subject = `New Assignment: ${movedCount} copy(ies) for ${paperTitle}`;
+      
+      await sendEmail({ to: newExaminer.email, subject, html });
+    } catch (emailErr) {
+      console.error(`Failed to send email to ${newExaminer.email}:`, emailErr);
+      // Don't fail the request if email fails
+    }
+
+    res.json({ 
+      message: `${movedCount} copies moved to new examiner successfully.`,
+      movedCount
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Bulk delete users
 exports.deleteUserBulk = async (req, res, next) => {
   try {
     const { userIds } = req.body; // Expecting an array of user IDs to delete
@@ -1379,4 +1564,4 @@ exports.deleteUserBulk = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-}
+};
