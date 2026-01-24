@@ -137,26 +137,26 @@ exports.markPage = async (req, res, next) => {
       copy.pages[pageIndex].marksAwarded = marks;
       copy.pages[pageIndex].comments = comments;
       copy.pages[pageIndex].annotations = annotations;
-      // Validate and sanitize pageMarks
+      // Validate and sanitize pageMarks (numeric marks placed by drag/drop)
       if (pageMarks && Array.isArray(pageMarks)) {
-        copy.pages[pageIndex].marks = pageMarks.map(mark => ({
-          type: mark.type === 'correct' || mark.type === 'wrong' ? mark.type : 'correct',
+        copy.pages[pageIndex].pageMarks = pageMarks.map(mark => ({
+          value: typeof mark.value === 'number' ? Number(mark.value) : 0,
           x: Math.max(0, Math.min(100, Number(mark.x) || 0)),
           y: Math.max(0, Math.min(100, Number(mark.y) || 0)),
           timestamp: new Date()
         }));
       } else {
-        copy.pages[pageIndex].marks = copy.pages[pageIndex].marks || [];
+        copy.pages[pageIndex].pageMarks = copy.pages[pageIndex].pageMarks || [];
       }
       copy.pages[pageIndex].lastAnnotatedBy = req.user._id;
       copy.pages[pageIndex].lastAnnotatedAt = new Date();
     } else {
       // New page entry (this scenario is less common for query updates)
-      // Validate and sanitize pageMarks for new page
+      // Validate and sanitize pageMarks for new page (numeric marks placed by drag/drop)
       let validatedMarks = [];
       if (pageMarks && Array.isArray(pageMarks)) {
         validatedMarks = pageMarks.map(mark => ({
-          type: mark.type === 'correct' || mark.type === 'wrong' ? mark.type : 'correct',
+          value: typeof mark.value === 'number' ? Number(mark.value) : 0,
           x: Math.max(0, Math.min(100, Number(mark.x) || 0)),
           y: Math.max(0, Math.min(100, Number(mark.y) || 0)),
           timestamp: new Date()
@@ -167,7 +167,7 @@ exports.markPage = async (req, res, next) => {
         marksAwarded: marks,
         comments,
         annotations,
-        marks: validatedMarks,
+        pageMarks: validatedMarks,
         lastAnnotatedBy: req.user._id,
         lastAnnotatedAt: new Date(),
       });
