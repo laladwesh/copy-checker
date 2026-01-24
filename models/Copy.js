@@ -18,7 +18,18 @@ const PageSchema = new mongoose.Schema(
         }
       ],
       default: []
-    }, // Array of draggable marks (right/wrong) with positions
+    }, // Array of draggable marks (right/wrong) with positions - LEGACY
+    pageMarks: {
+      type: [
+        {
+          value: { type: Number, required: true }, // Numeric mark value (e.g., 0, 0.5, 1, 2, etc.)
+          x: { type: Number, required: true },
+          y: { type: Number, required: true },
+          timestamp: { type: Date, default: Date.now }
+        }
+      ],
+      default: []
+    }, // Array of numeric marks placed by drag/drop with positions
     lastAnnotatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
