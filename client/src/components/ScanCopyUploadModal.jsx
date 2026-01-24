@@ -22,6 +22,12 @@ export default function ScanCopyUploadModal({
   const [uploadMessage, setUploadMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
+  // NEW: Remember Question Paper feature for bulk uploads
+  const [rememberQp, setRememberQp] = useState(false);
+  const [lockedQpId, setLockedQpId] = useState("");
+  const [lockedBatch, setLockedBatch] = useState(""); // Remember batch too
+  const [showQpChangeWarning, setShowQpChangeWarning] = useState(false);
+
   // STATES FOR BATCH FILTERING
   const [selectedBatch, setSelectedBatch] = useState("");
   const [availableBatches, setAvailableBatches] = useState([]);
@@ -35,12 +41,28 @@ export default function ScanCopyUploadModal({
     if (!isOpen) {
       setSelectedFiles([]);
       setStudentEmail("");
-      setSelectedQpId("");
+      // Don't reset selectedQpId and batch if rememberQp is enabled
+      if (!rememberQp) {
+        setSelectedQpId("");
+        setLockedQpId("");
+        setSelectedBatch("");
+        setLockedBatch("");
+      } else {
+        // If rememberQp is enabled, auto-select locked batch when modal opens
+        if (lockedBatch) {
+          setSelectedBatch(lockedBatch);
+        }
+      }
       setUploadMessage("");
       setIsUploading(false);
-      setSelectedBatch(""); // Reset batch selection on close
+      setShowQpChangeWarning(false);
+    } else {
+      // Modal just opened - auto-select batch if locked
+      if (rememberQp && lockedBatch) {
+        setSelectedBatch(lockedBatch);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, rememberQp, lockedBatch]);
 
   // Effect to populate available batches and filter students and question papers
   useEffect(() => {
@@ -79,8 +101,17 @@ export default function ScanCopyUploadModal({
         );
         setFilteredQuestionPapers(qpsByBatch);
         
-        // Reset selected QP if the current QP is no longer valid
-        if (selectedQpId && !qpsByBatch.some(qp => qp._id === selectedQpId)) {
+        // AUTO-SELECT LOCKED QP IF REMEMBER IS ENABLED
+        if (rememberQp && lockedQpId) {
+          // Check if locked QP is in the filtered list
+          if (qpsByBatch.some(qp => qp._id === lockedQpId)) {
+            setSelectedQpId(lockedQpId);
+          } else {
+            // Locked QP not available in this batch, clear selection
+            setSelectedQpId("");
+          }
+        } else if (selectedQpId && !qpsByBatch.some(qp => qp._id === selectedQpId)) {
+          // Reset selected QP if the current QP is no longer valid
           setSelectedQpId("");
         }
       } else {
@@ -95,7 +126,7 @@ export default function ScanCopyUploadModal({
     }
 
     // When selectedQpId changes, if copies list provided, we can pre-filter students who already have copies
-  }, [students, selectedBatch, questionPapers]); // Removed filteredStudents, filteredQuestionPapers, studentSearch, and selectedQpId from dependencies
+  }, [students, selectedBatch, questionPapers, rememberQp, lockedQpId]); // Added rememberQp and lockedQpId
 
   // derive set of student emails which already have an uploaded copy for the selected question paper
   const studentsWithCopyForSelectedQp = (selectedQpId && copies && copies.length)
@@ -170,6 +201,13 @@ export default function ScanCopyUploadModal({
         },
       });
       setUploadMessage(res.data.message || "Upload successful!");
+      
+      // If rememberQp is enabled, lock the current QP and batch for next uploads
+      if (rememberQp && selectedQpId && selectedBatch) {
+        setLockedQpId(selectedQpId);
+        setLockedBatch(selectedBatch);
+      }
+      
       onUploadSuccess(); // Notify parent component
       onClose(); // Close modal on success
     } catch (err) {
@@ -192,6 +230,11 @@ export default function ScanCopyUploadModal({
             className="block text-gray-700 text-base font-medium mb-2"
           >
             Student Batch:
+            {rememberQp && lockedBatch && selectedBatch === lockedBatch && (
+              <span className="ml-2 text-xs text-green-700 font-bold bg-green-100 px-2 py-1 rounded">
+                Auto-Selected
+              </span>
+            )}
           </label>
           <select
             id="studentBatch"
@@ -298,7 +341,18 @@ export default function ScanCopyUploadModal({
           <select
             id="questionPaper"
             value={selectedQpId}
-            onChange={(e) => setSelectedQpId(e.target.value)}
+            onChange={(e) => {
+              const newQpId = e.target.value;
+              
+              // If rememberQp is enabled and locked QP exists, show warning
+              if (rememberQp && lockedQpId && newQpId !== lockedQpId) {
+                setShowQpChangeWarning(true);
+                // Don't change yet, wait for confirmation
+              } else {
+                setSelectedQpId(newQpId);
+                setShowQpChangeWarning(false);
+              }
+            }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-base"
             required
             disabled={!selectedBatch || filteredQuestionPapers.length === 0} // Disable if no batch selected or no QPs in batch
@@ -316,6 +370,82 @@ export default function ScanCopyUploadModal({
               ))
             )}
           </select>
+
+          {/* Remember Question Paper Checkbox */}
+          {selectedQpId && (
+            <div className="mt-3 flex items-start space-x-2 bg-green-50 border-2 border-green-600 rounded-lg p-3">
+              <input
+                id="rememberQp"
+                type="checkbox"
+                checked={rememberQp}
+                onChange={(e) => {
+                  setRememberQp(e.target.checked);
+                  if (e.target.checked) {
+                    setLockedQpId(selectedQpId);
+                    setLockedBatch(selectedBatch); // Lock batch too
+                  } else {
+                    setLockedQpId("");
+                    setLockedBatch(""); // Unlock batch
+                  }
+                }}
+                className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded mt-0.5"
+              />
+              <label htmlFor="rememberQp" className="text-sm text-gray-900 cursor-pointer">
+                <span className="font-bold text-green-800">Remember this setup for bulk uploads</span>
+                <br />
+                <span className="text-xs text-gray-700 font-semibold">
+                  ✓ Batch & Question paper will auto-select when modal reopens<br/>
+                  ✓ You only need to select the student - super fast!<br/>
+                </span>
+              </label>
+            </div>
+          )}
+
+          {/* Show locked status */}
+          {rememberQp && lockedQpId && selectedQpId === lockedQpId && (
+            <div className="mt-2 text-xs text-green-700 font-bold bg-green-100 border border-green-300 rounded px-3 py-2">
+              Batch "{lockedBatch}" and Question Paper are locked for bulk uploads. They will auto-select on next upload.
+            </div>
+          )}
+
+          {/* Warning when trying to change locked QP */}
+          {showQpChangeWarning && (
+            <div className="mt-3 bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+              <p className="text-sm text-yellow-800 font-semibold mb-2">
+                ⚠️ Change Question Paper?
+              </p>
+              <p className="text-xs text-yellow-700 mb-3">
+                You have "Remember question paper" enabled. Changing the question paper will update it for all subsequent uploads.
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Get the new value from the select element
+                    const selectElement = document.getElementById("questionPaper");
+                    const newQpId = selectElement.value;
+                    setSelectedQpId(newQpId);
+                    setLockedQpId(newQpId);
+                    setShowQpChangeWarning(false);
+                  }}
+                  className="px-3 py-1 bg-yellow-600 text-white rounded text-xs font-semibold hover:bg-yellow-700"
+                >
+                  Yes, Change It
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Revert to locked QP
+                    setSelectedQpId(lockedQpId);
+                    setShowQpChangeWarning(false);
+                  }}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs font-semibold hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
