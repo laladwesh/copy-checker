@@ -305,9 +305,9 @@ export default function ExaminerQueryViewer() {
             {/* Render examiner's marks on the current page (read-only) */}
             {copy && copy.pages && Array.isArray(copy.pages) && (() => {
               const pageData = copy.pages.find(p => p && p.pageNumber === currentPage);
-              if (pageData && pageData.marks && Array.isArray(pageData.marks) && pageData.marks.length > 0) {
-                return pageData.marks
-                  .filter(mark => mark && mark.type && typeof mark.x === 'number' && typeof mark.y === 'number')
+              if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
+                return pageData.pageMarks
+                  .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
                   .map((mark, idx) => (
                   <div
                     key={idx}
@@ -319,15 +319,9 @@ export default function ExaminerQueryViewer() {
                       zIndex: 20
                     }}
                   >
-                    {mark.type === 'correct' ? (
-                      <div className="w-12 h-12 flex items-center justify-center bg-green-500 rounded-full text-white text-3xl font-bold shadow-lg">
-                        ✓
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 flex items-center justify-center bg-red-500 rounded-full text-white text-3xl font-bold shadow-lg">
-                        ✗
-                      </div>
-                    )}
+                    <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                      {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                    </div>
                   </div>
                 ));
               }
