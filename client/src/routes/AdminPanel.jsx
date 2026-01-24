@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal";
 import ScanCopyUploadModal from "../components/ScanCopyUploadModal";
+import ExamReportGenerator from "../components/ExamReportGenerator";
 import {
   UserGroupIcon,
   BookOpenIcon,
@@ -14,6 +15,7 @@ import {
   MagnifyingGlassIcon,
   TrashIcon,
   ArrowPathIcon,
+  DocumentArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { toastSuccess, toastError, toastInfo } from "../utils/hotToast";
 // AllExaminerDetailsModal moved to a full page: /admin/examiners
@@ -39,6 +41,8 @@ export default function AdminPanel() {
     setIsAssignExaminersToExamModalOpen,
   ] = useState(false);
   const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedExamForReport, setSelectedExamForReport] = useState(null);
 
   // Loading state for assigning examiners
   const [isAssigning, setIsAssigning] = useState(false);
@@ -327,6 +331,12 @@ export default function AdminPanel() {
     toastSuccess("Scanned copy uploaded and registered!");
     setIsScanUploadModalOpen(false);
     fetchInitialData();
+  };
+
+  // Open report generator modal
+  const handleOpenReportModal = (exam) => {
+    setSelectedExamForReport(exam);
+    setIsReportModalOpen(true);
   };
 
   // Calculate exam progress and status summary
@@ -984,6 +994,16 @@ export default function AdminPanel() {
                             <EyeIcon className="h-4 w-4 mr-1" /> View
                           </a>
 
+                          {totalCopiesForExam > 0 && (
+                            <button
+                              onClick={() => handleOpenReportModal(exam)}
+                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-white bg-gray-900 hover:bg-gray-800 transition duration-200"
+                              title="Download Report"
+                            >
+                              <DocumentArrowDownIcon className="h-4 w-4 mr-1" /> Report
+                            </button>
+                          )}
+
                           {exam.assignedExaminers && exam.assignedExaminers.length > 0 && totalCopiesForExam > 0 && (
                             <button
                               onClick={() => handleUndoExamAssignment(exam)}
@@ -1548,6 +1568,14 @@ export default function AdminPanel() {
         questionPapers={exams}
         students={users.filter((u) => u.role === "student")}
         copies={copies}
+      />
+
+      <ExamReportGenerator
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        exam={selectedExamForReport}
+        copies={copies}
+        users={users}
       />
 
       {/* Examiner details moved to /admin/examiners page */}
