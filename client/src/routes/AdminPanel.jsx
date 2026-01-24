@@ -606,14 +606,14 @@ export default function AdminPanel() {
 
   // Render users table with selection controls
   const renderUsersTable = (usersToDisplay) => (
-    <div className="overflow-x-auto no-scrollbar max-h-60 overflow-y-auto mt-4 rounded-lg border border-gray-200 shadow-sm">
+    <div className="overflow-x-auto no-scrollbar max-h-60 overflow-y-auto mt-4 rounded-xl border border-gray-200">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                 checked={
                   selectAllInTab &&
                   selectedUserIds.length === usersToDisplay.length &&
@@ -659,7 +659,7 @@ export default function AdminPanel() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                     checked={selectedUserIds.includes(user._id)}
                     onChange={() => handleUserCheckboxChange(user._id)}
                     disabled={
@@ -690,115 +690,131 @@ export default function AdminPanel() {
   );
 
   return (
-    <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
+    <div className="p-6 lg:p-10 space-y-10 bg-white min-h-screen" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Toasts are provided globally via react-hot-toast */}
 
-      <h1 className="text-5xl font-extrabold text-gray-900 text-center mb-12 tracking-tight">
-       Admin Dashboard
-      </h1>
+      <div className="w-full">
+        <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-2 tracking-tight" style={{fontFamily: 'Dosis, sans-serif'}}>
+          Admin Dashboard
+        </h1>
+        <p className="text-gray-600 text-sm lg:text-base">Manage exams, users, and system operations</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <UserGroupIcon className="h-16 w-16 text-indigo-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Manage Users
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Add new students or examiners to the system.
-          </p>
+      <div className="grid grid-cols-6 gap-4 w-full overflow-x-auto">
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <UserGroupIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Manage Users
+            </h2>
+          </div>
           <button
-            onClick={() => setIsUsersModalOpen(true)}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+            onClick={() => navigate('/admin/users')}
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
           >
-            Manage Users ({users.length})
+            Open ({users.length})
           </button>
         </div>
 
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <BookOpenIcon className="h-16 w-16 text-blue-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Manage Exams
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Create new exams and manage question papers.
-          </p>
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <BookOpenIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Manage Exams
+            </h2>
+          </div>
           <button
             onClick={() => setIsCreateExamModalOpen(true)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
           >
             Create Exam
           </button>
         </div>
 
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <UsersIcon className="h-16 w-16 text-purple-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Assign Examiners to Exams
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Assign examiners to an exam pool for copy distribution.
-          </p>
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <UsersIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Assign Examiners
+            </h2>
+          </div>
           <button
             onClick={() => openAssignExaminersModal(null)}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
           >
-            Assign Examiners
+            Assign
           </button>
         </div>
 
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <CloudArrowUpIcon className="h-16 w-16 text-orange-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Scan & Upload Copy
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Upload scanned answer copies (images or PDF).
-          </p>
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <CloudArrowUpIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Upload Copy
+            </h2>
+          </div>
           <button
             onClick={() => setIsScanUploadModalOpen(true)}
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
           >
-            Upload Scanned Copy
+            Upload
           </button>
         </div>
 
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <QuestionMarkCircleIcon className="h-16 w-16 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Manage Student Queries
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Review, approve, reject, or resolve student queries.
-          </p>
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <QuestionMarkCircleIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Student Queries
+            </h2>
+          </div>
           <button
             onClick={() => navigate('/admin/queries')}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm flex items-center justify-center gap-2 mt-auto"
           >
-            Manage Queries (
-            {queries.filter((q) => q.status === "pending").length} Pending)
+            <span>Manage</span>
+            {queries.filter((q) => q.status === "pending").length > 0 && (
+              <span className="px-2 py-0.5 bg-white text-gray-900 rounded-full text-xs font-semibold">
+                {queries.filter((q) => q.status === "pending").length}
+              </span>
+            )}
           </button>
         </div>
-        <div className="bg-white p-8 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col items-center justify-center text-center border border-gray-100">
-          <ClipboardDocumentListIcon className="h-16 w-16 text-teal-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">
-            Examiner Performance
-          </h2>
-          <p className="text-gray-600 mb-6">
-            View detailed statistics for each examiner's work.
-          </p>
+        
+        <div className="group bg-white p-5 rounded-xl border-2 border-gray-900 hover:border-[#1e3a8a] transition-all duration-300 flex flex-col min-w-[180px]">
+          <div className="flex flex-col items-center text-center mb-3">
+            <div className="p-3 bg-gray-900 rounded-xl mb-3">
+              <ClipboardDocumentListIcon className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-base font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+              Examiner Stats
+            </h2>
+          </div>
           <button
             onClick={() => navigate('/admin/examiners', { state: { examiners: availableExaminers, copies, exams } })}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-200 text-lg"
+            className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-medium py-2.5 px-4 rounded-xl transition duration-200 text-sm mt-auto"
           >
-            View Examiner Stats
+            View Stats
           </button>
         </div>
       </div>
 
-      <section className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-10">
-        <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
-          <span>Exam Overview & Progress</span>
-          <div className="relative w-1/3 min-w-[200px]">
+      <section className="bg-white p-6 lg:p-8 rounded-2xl border-2 border-gray-900 w-full">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 pb-6 border-b border-gray-300">
+          <h2 className="text-2xl font-bold text-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
+            Exam Overview & Progress
+          </h2>
+          <div className="relative w-full lg:w-80">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <MagnifyingGlassIcon
                 className="h-5 w-5 text-gray-400"
@@ -807,32 +823,29 @@ export default function AdminPanel() {
             </div>
             <input
               type="text"
-              placeholder="Search exams by title..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="Search exams..."
+              className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               value={examSearchTerm}
               onChange={(e) => setExamSearchTerm(e.target.value)}
             />
           </div>
-        </h2>
-        <div className="flex items-center justify-between mb-4">
-          <div />
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleDeleteSelectedExams}
-              disabled={selectedExamIds.length === 0 || isDeletingExams}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
-            >
-              {isDeletingExams ? (
-                <>
-                  <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" /> Deleting...
-                </>
-              ) : (
-                <>
-                  <TrashIcon className="h-4 w-4 mr-2" /> Delete Selected ({selectedExamIds.length})
-                </>
-              )}
-            </button>
-          </div>
+        </div>
+        <div className="flex items-center justify-end mb-4">
+          <button
+            onClick={handleDeleteSelectedExams}
+            disabled={selectedExamIds.length === 0 || isDeletingExams}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl text-white bg-gray-900 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition duration-200"
+          >
+            {isDeletingExams ? (
+              <>
+                <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" /> Deleting...
+              </>
+            ) : (
+              <>
+                <TrashIcon className="h-4 w-4 mr-2" /> Delete ({selectedExamIds.length})
+              </>
+            )}
+          </button>
         </div>
 
         {filteredExams.length === 0 && exams.length > 0 ? (
@@ -844,14 +857,14 @@ export default function AdminPanel() {
             No exams created yet. Create an exam to see its progress.
           </p>
         ) : (
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-lg border border-gray-200 shadow-sm">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-xl border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                       checked={selectAllExams}
                       onChange={handleSelectAllExams}
                     />
@@ -916,7 +929,7 @@ export default function AdminPanel() {
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                          className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                           checked={selectedExamIds.includes(exam._id)}
                           onChange={() => handleExamCheckboxChange(exam._id)}
                         />
@@ -937,13 +950,13 @@ export default function AdminPanel() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
                             overallStatus === "Completed"
-                              ? "bg-green-100 text-green-800"
+                              ? "bg-gray-900 text-white"
                               : overallStatus.includes("Progress") ||
                                 overallStatus.includes("Assigned")
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-800"
+                              ? "bg-gray-200 text-gray-700"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                         >
                           {overallStatus}
@@ -966,23 +979,23 @@ export default function AdminPanel() {
                         <div className="flex items-center justify-end space-x-2">
                           <a
                             href={`/admin/exams/${exam._id}`}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-white bg-gray-900 hover:bg-gray-800 transition duration-200"
                           >
-                            <EyeIcon className="h-4 w-4 mr-1" /> View Details
+                            <EyeIcon className="h-4 w-4 mr-1" /> View
                           </a>
 
                           {exam.assignedExaminers && exam.assignedExaminers.length > 0 && totalCopiesForExam > 0 && (
                             <button
                               onClick={() => handleUndoExamAssignment(exam)}
-                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
+                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200 transition duration-200"
                             >
-                              Undo Assignment
+                              Undo
                             </button>
                           )}
 
                           <button
                             onClick={() => handleDeleteExam(exam._id)}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150"
+                            className="inline-flex items-center p-1.5 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition duration-200"
                             title="Delete Exam"
                           >
                             <TrashIcon className="h-4 w-4" />
@@ -1003,14 +1016,14 @@ export default function AdminPanel() {
         onClose={() => setIsUsersModalOpen(false)}
         title="Manage Users"
       >
-        <h3 className="text-xl font-bold mb-4 text-gray-800">Add New User</h3>
-        <div className="space-y-4 mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900" style={{fontFamily: 'Montserrat, sans-serif'}}>Add New User</h3>
+        <div className="space-y-3 mb-6 p-5 border border-gray-200 rounded-xl bg-gray-50">
           <input
             type="text"
             placeholder="Name"
             value={newUserName}
             onChange={(e) => setNewUserName(e.target.value)}
-            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
             required
           />
           <input
@@ -1018,13 +1031,13 @@ export default function AdminPanel() {
             placeholder="Email"
             value={newUserEmail}
             onChange={(e) => setNewUserEmail(e.target.value)}
-            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
             required
           />
           <select
             value={newUserGender}
             onChange={(e) => setNewUserGender(e.target.value)}
-            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
             required
           >
             <option value="">Select Gender</option>
@@ -1039,7 +1052,7 @@ export default function AdminPanel() {
               setNewUserBatch("");
               setNewUserGender("");
             }}
-            className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
           >
             <option value="student">Student</option>
             <option value="examiner">Examiner</option>
@@ -1051,39 +1064,39 @@ export default function AdminPanel() {
               placeholder="Batch (e.g., 2023)"
               value={newUserBatch}
               onChange={(e) => setNewUserBatch(e.target.value)}
-              className="w-full p-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
             />
           )}
           <button
             onClick={handleAddUser}
-            className="bg-green-600 text-white p-2 rounded-md w-full hover:bg-green-700 transition duration-150"
+            className="bg-gray-900 text-white py-2.5 px-4 rounded-lg w-full hover:bg-gray-800 transition duration-200 font-medium text-sm"
           >
             Add User
           </button>
         </div>
 
-        <h3 className="text-xl font-bold mb-4 text-gray-800">Existing Users</h3>
+        <h3 className="text-lg font-semibold mb-4 text-gray-900" style={{fontFamily: 'Montserrat, sans-serif'}}>Existing Users</h3>
         <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
           <button
-            className={`py-2 px-4 text-sm font-medium ${
+            className={`py-2 px-4 text-sm font-medium transition duration-200 ${
               activeUserTab === "all"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
+                ? "border-b-2 border-gray-900 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
-            } transition duration-150`}
+            }`}
             onClick={() => {
               setActiveUserTab("all");
               setUserSearchTerm("");
               setActiveStudentBatchTab("all");
             }}
           >
-            All Users ({getFilteredUsers("all").length})
+            All ({getFilteredUsers("all").length})
           </button>
           <button
-            className={`py-2 px-4 text-sm font-medium ${
+            className={`py-2 px-4 text-sm font-medium transition duration-200 ${
               activeUserTab === "student"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
+                ? "border-b-2 border-gray-900 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
-            } transition duration-150`}
+            }`}
             onClick={() => {
               setActiveUserTab("student");
               setUserSearchTerm("");
@@ -1092,11 +1105,11 @@ export default function AdminPanel() {
             Students ({getFilteredUsers("student").length})
           </button>
           <button
-            className={`py-2 px-4 text-sm font-medium ${
+            className={`py-2 px-4 text-sm font-medium transition duration-200 ${
               activeUserTab === "examiner"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
+                ? "border-b-2 border-gray-900 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
-            } transition duration-150`}
+            }`}
             onClick={() => {
               setActiveUserTab("examiner");
               setUserSearchTerm("");
@@ -1106,11 +1119,11 @@ export default function AdminPanel() {
             Examiners ({getFilteredUsers("examiner").length})
           </button>
           <button
-            className={`py-2 px-4 text-sm font-medium ${
+            className={`py-2 px-4 text-sm font-medium transition duration-200 ${
               activeUserTab === "admin"
-                ? "border-b-2 border-indigo-500 text-indigo-600"
+                ? "border-b-2 border-gray-900 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
-            } transition duration-150`}
+            }`}
             onClick={() => {
               setActiveUserTab("admin");
               setUserSearchTerm("");
@@ -1126,11 +1139,11 @@ export default function AdminPanel() {
             {uniqueBatches.map((batch) => (
               <button
                 key={batch}
-                className={`py-2 px-4 text-xs font-medium ${
+                className={`py-2 px-4 text-xs font-medium transition duration-200 ${
                   activeStudentBatchTab === batch
-                    ? "border-b-2 border-purple-500 text-purple-600"
+                    ? "border-b-2 border-gray-900 text-gray-900"
                     : "text-gray-500 hover:text-gray-700"
-                } transition duration-150`}
+                }`}
                 onClick={() => {
                   setActiveStudentBatchTab(batch);
                   setUserSearchTerm("");
@@ -1159,17 +1172,17 @@ export default function AdminPanel() {
           </div>
           <input
             type="text"
-            placeholder={`Search by name or email in ${activeUserTab}s...`}
+            placeholder={`Search by name or email...`}
             value={userSearchTerm}
             onChange={(e) => setUserSearchTerm(e.target.value)}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
           />
         </div>
 
         {renderUsersTable(getFilteredUsers(activeUserTab))}
 
         <div className="mt-6 pt-4 border-t border-gray-200 space-y-3">
-          <h4 className="text-lg font-bold text-gray-800">
+          <h4 className="text-base font-semibold text-gray-900" style={{fontFamily: 'Montserrat, sans-serif'}}>
             Bulk Delete Options
           </h4>
           <div className="flex flex-col space-y-2">
@@ -1178,7 +1191,7 @@ export default function AdminPanel() {
                 <label className="inline-flex items-center">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                    className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                     checked={deleteAllBatches}
                     onChange={handleDeleteAllBatchesChange}
                     disabled={
@@ -1195,7 +1208,7 @@ export default function AdminPanel() {
                   <label className="inline-flex items-center">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                       checked={deleteCurrentBatch}
                       onChange={handleDeleteCurrentBatchChange}
                       disabled={
@@ -1233,7 +1246,7 @@ export default function AdminPanel() {
                   ).length === 0) ||
                 (selectAllInTab && getFilteredUsers(activeUserTab).length === 0)
               }
-              className="mt-4 bg-red-600 text-white p-2 rounded w-full hover:bg-red-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="mt-4 bg-gray-900 text-white py-2.5 px-4 rounded-xl w-full hover:bg-gray-800 transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-medium text-sm"
             >
               {isDeletingUsers ? (
                 <>
@@ -1242,7 +1255,7 @@ export default function AdminPanel() {
                 </>
               ) : (
                 <>
-                  <TrashIcon className="h-5 w-5 mr-2" /> Delete Selected / All
+                  <TrashIcon className="h-5 w-5 mr-2" /> Delete
                 </>
               )}
             </button>
@@ -1256,20 +1269,20 @@ export default function AdminPanel() {
         title="Confirm Deletion"
       >
         <div className="p-4 text-center">
-          <p className="text-lg text-gray-700 mb-6">
+          <p className="text-base text-gray-700 mb-6">
             Are you absolutely sure you want to delete the selected users? This
             action cannot be undone.
           </p>
-          <div className="flex justify-center space-x-4">
+          <div className="flex justify-center gap-3">
             <button
               onClick={() => setShowDeleteConfirmModal(false)}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
+              className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium transition text-sm"
             >
               Cancel
             </button>
             <button
               onClick={confirmDeleteUsers}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+              className="px-6 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-medium transition text-sm"
             >
               Delete
             </button>
@@ -1286,9 +1299,9 @@ export default function AdminPanel() {
           <div>
             <label
               htmlFor="examTitle"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Exam Subject:
+              Exam Subject
             </label>
             <input
               type="text"
@@ -1296,22 +1309,22 @@ export default function AdminPanel() {
               placeholder="e.g., Mid-Term Exam 2025"
               value={newExamTitle}
               onChange={(e) => setNewExamTitle(e.target.value)}
-              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               required
             />
           </div>
           <div>
             <label
               htmlFor="examCourse"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Batch:
+              Batch
             </label>
             <select
               id="examCourse"
               value={newExamCourse}
               onChange={(e) => setNewExamCourse(e.target.value)}
-              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               required
             >
               <option value="">-- Select Batch --</option>
@@ -1328,7 +1341,7 @@ export default function AdminPanel() {
               )}
             </select>
             {studentBatchesForExam.length === 0 && (
-              <p className="text-xs text-red-500 mt-1">
+              <p className="text-xs text-gray-600 mt-1">
                 Please add students with batch numbers first
               </p>
             )}
@@ -1336,9 +1349,9 @@ export default function AdminPanel() {
           <div>
             <label
               htmlFor="examType"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Exam Type:
+              Exam Type
             </label>
             <input
               type="text"
@@ -1346,32 +1359,32 @@ export default function AdminPanel() {
               placeholder="e.g., Mid-Term, Final, Quiz"
               value={newExamExamType}
               onChange={(e) => setNewExamExamType(e.target.value)}
-              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               required
             />
           </div>
           <div>
             <label
               htmlFor="examDate"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Date:
+              Date
             </label>
             <input
               type="date"
               id="examDate"
               value={newExamDate}
               onChange={(e) => setNewExamDate(e.target.value)}
-              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               required
             />
           </div>
           <div>
             <label
               htmlFor="totalMarks"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Total Marks:
+              Total Marks
             </label>
             <input
               type="number"
@@ -1379,16 +1392,16 @@ export default function AdminPanel() {
               placeholder="e.g., 100"
               value={newExamTotalMarks}
               onChange={(e) => setNewExamTotalMarks(e.target.value)}
-              className="w-full p-2 border rounded-md mt-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               required
             />
           </div>
           <div>
             <label
               htmlFor="examFile"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Question Paper (PDF or Images):
+              Question Paper (PDF or Images)
             </label>
             <input
               type="file"
@@ -1396,7 +1409,7 @@ export default function AdminPanel() {
               accept=".pdf, .jpg, .jpeg, .png, .gif"
               multiple={newExamFileType === "images"}
               onChange={handleExamFileChange}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mt-1"
+              className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-900 hover:file:bg-gray-200 mt-1 cursor-pointer"
               required
             />
             {newExamFiles.length > 0 && (
@@ -1408,12 +1421,12 @@ export default function AdminPanel() {
           <button
             type="submit"
             disabled={isCreatingExam || studentBatchesForExam.length === 0}
-            className="bg-blue-600 text-white p-2 rounded-md w-full hover:bg-blue-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="bg-gray-900 text-white py-2.5 px-4 rounded-xl w-full hover:bg-gray-800 transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-medium text-sm"
           >
             {isCreatingExam ? (
               <>
                 <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
-                Creating Exam...
+                Creating...
               </>
             ) : (
               "Create Exam"
@@ -1433,7 +1446,7 @@ export default function AdminPanel() {
               htmlFor="selectExam"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Select Exam (Only unassigned exams shown):
+              Select Exam (Only unassigned exams shown)
             </label>
             <select
               id="selectExam"
@@ -1447,7 +1460,7 @@ export default function AdminPanel() {
                   exams.find((exam) => exam._id === e.target.value)
                 )
               }
-              className="w-full p-2 border rounded-md mt-1 focus:ring-purple-500 focus:border-purple-500"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
               disabled={unassignedExamsForModal.length === 0}
             >
               <option value="">-- Choose an Exam --</option>
@@ -1469,9 +1482,9 @@ export default function AdminPanel() {
                 htmlFor="selectExaminers"
                 className="block text-sm font-medium text-gray-700 mb-2"
               >
-                Assign Examiners (Select multiple):
+                Assign Examiners (Select multiple)
               </label>
-              <div className="border rounded-md p-3 max-h-40 overflow-y-auto bg-gray-50 shadow-inner">
+              <div className="border border-gray-200 rounded-xl p-3 max-h-40 overflow-y-auto bg-gray-50">
                 {availableExaminers.length === 0 ? (
                   <p className="text-gray-500 text-sm text-center py-2">
                     No examiners available.
@@ -1490,7 +1503,7 @@ export default function AdminPanel() {
                         onChange={() =>
                           handleExaminerCheckboxChange(examiner._id)
                         }
-                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 cursor-pointer"
                       />
                       <label
                         htmlFor={`examiner-${examiner._id}`}
@@ -1514,7 +1527,7 @@ export default function AdminPanel() {
               selectedExaminerIds.length === 0 ||
               isAssigning
             }
-            className="bg-purple-600 text-white p-2 rounded-md w-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition duration-150 flex items-center justify-center"
+            className="bg-gray-900 text-white py-2.5 px-4 rounded-xl w-full disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-800 transition duration-200 flex items-center justify-center font-medium text-sm"
           >
             {isAssigning ? (
               <>

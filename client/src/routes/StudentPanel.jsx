@@ -43,33 +43,33 @@ export default function StudentPanel() {
   // Toasts handled via `react-hot-toast` helpers: `toastSuccess`, `toastError`, `toastInfo`.
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="w-full p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Toasts shown via global Toaster (react-hot-toast) */}
 
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Student Panel</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Student Panel</h1>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-          <BookOpenIcon className="h-10 w-10 text-indigo-500" />
+        <div className="bg-white p-6 rounded-lg border border-gray-200 flex items-center space-x-4">
+          <BookOpenIcon className="h-10 w-10 text-gray-900" />
           <div>
-            <p className="text-gray-500">Total Copies</p>
+            <p className="text-gray-600 font-bold">Total Copies</p>
             <p className="text-2xl font-bold text-gray-900">{copies.length}</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-          <CheckCircleIcon className="h-10 w-10 text-green-500" />
+        <div className="bg-white p-6 rounded-lg border border-gray-200 flex items-center space-x-4">
+          <CheckCircleIcon className="h-10 w-10 text-gray-900" />
           <div>
-            <p className="text-gray-500">Evaluated Copies</p>
+            <p className="text-gray-600 font-bold">Evaluated Copies</p>
             <p className="text-2xl font-bold text-gray-900">
               {copies.filter((c) => c.status === "evaluated").length}
             </p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-          <QuestionMarkCircleIcon className="h-10 w-10 text-yellow-500" />
+        <div className="bg-white p-6 rounded-lg border border-gray-200 flex items-center space-x-4">
+          <QuestionMarkCircleIcon className="h-10 w-10 text-gray-900" />
           <div>
-            <p className="text-gray-500">Pending Queries</p>
+            <p className="text-gray-600 font-bold">Pending Queries</p>
             <p className="text-2xl font-bold text-gray-900">
               {studentQueries.filter((q) => q.status === "pending").length}
             </p>
@@ -78,8 +78,8 @@ export default function StudentPanel() {
       </div>
 
       {/* Your Answer Copies Section */}
-      <section className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Your Answer Copies</h2>
+      <section className="bg-white p-6 rounded-lg border border-gray-200">
+        <h2 className="text-xl font-bold mb-4 text-gray-900">Your Answer Copies</h2>
         {copies.length === 0 ? (
           <p className="text-gray-600 text-center py-8">No answer copies uploaded for you yet.</p>
         ) : (
@@ -87,9 +87,9 @@ export default function StudentPanel() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Exam Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -113,11 +113,11 @@ export default function StudentPanel() {
                           : c.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold space-x-3">
                       {c.status === "evaluated" && c.isReleasedToStudent && (
                         <Link
                           to={`/student/copy/${c._id}`} // Link to the new viewer component
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-bold rounded-md text-white bg-gray-900 hover:bg-[#1e3a8a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition duration-150"
                         >
                           <DocumentTextIcon className="h-4 w-4 mr-1" /> View Copy
                         </Link>
@@ -133,8 +133,8 @@ export default function StudentPanel() {
       </section>
 
       {/* NEW: Your Queries Section for Students */}
-      <section className="bg-white p-6 rounded-lg shadow-md mt-8">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Your Raised Queries</h2>
+      <section className="bg-white p-6 rounded-lg border border-gray-200 mt-8">
+        <h2 className="text-xl font-bold mb-4 text-gray-900">Your Raised Queries</h2>
         {studentQueries.length === 0 ? (
           <p className="text-gray-600 text-center py-8">You haven't raised any queries yet.</p>
         ) : (
@@ -142,11 +142,11 @@ export default function StudentPanel() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Query Text</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Response</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Exam Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Page</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Query Text</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Admin Response</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">

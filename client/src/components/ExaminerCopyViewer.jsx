@@ -113,9 +113,9 @@ export default function ExaminerCopyViewer() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="flex flex-col items-center text-gray-600 text-lg">
-          <ArrowPathIcon className="animate-spin h-10 w-10 text-indigo-500" />
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center text-gray-600 text-lg font-bold">
+          <ArrowPathIcon className="animate-spin h-10 w-10 text-gray-900" />
           <p className="mt-4">Loading copy details...</p>
         </div>
       </div>
@@ -159,7 +159,7 @@ export default function ExaminerCopyViewer() {
   const totalPossibleMarks = copy.questionPaper?.totalMarks || "N/A";
 
   return (
-    <div className="bg-gray-100 min-h-screen font-sans relative">
+    <div className="bg-white min-h-screen font-sans relative" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Top Navigation Bar */}
       {/* <nav className="bg-white shadow-sm py-4 px-8 border-b border-gray-200 flex justify-between items-center w-full">
         <div className="flex items-center space-x-4">
@@ -199,23 +199,23 @@ export default function ExaminerCopyViewer() {
 
         {/* Total Marks Display */}
         <div className=" max-w-lg mx-auto mb-8 text-center">
-          <h3 className="text-2xl font-bold text-gray-800">
+          <h3 className="text-2xl font-bold text-gray-900">
             Total Marks:{" "}
-            <span className="text-green-700">{totalMarksAwarded}</span> /{" "}
+            <span className="text-gray-900">{totalMarksAwarded}</span> /{" "}
             {totalPossibleMarks}
           </h3>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
           {/* Main Answer Copy Viewer (center) */}
-          <div className="lg:col-span-10 bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center">
+          <div className="lg:col-span-10 bg-white p-6 rounded-xl border border-gray-200 flex flex-col items-center">
             {/* <h2 className="text-2xl font-semibold text-gray-800 mb-4 text-center">
               Answer Copy
             </h2> */}
             <div className="relative w-full h-[90vh] rounded-lg overflow-auto border border-gray-300 bg-gray-50 flex items-center justify-center">
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-                  <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
+                  <ArrowPathIcon className="animate-spin h-8 w-8 text-gray-900" />
                   <span className="ml-2 text-gray-700">Loading Answer Copy...</span>
                 </div>
               )}
@@ -232,7 +232,7 @@ export default function ExaminerCopyViewer() {
                     renderAnnotationLayer={true}
                     loading={
                       <div className="flex flex-col items-center">
-                        <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-500" />
+                        <ArrowPathIcon className="animate-spin h-8 w-8 text-gray-900" />
                         <span className="ml-2 text-gray-700">Loading page...</span>
                       </div>
                     }
@@ -248,24 +248,24 @@ export default function ExaminerCopyViewer() {
 
           {/* Right Sidebar: controls, question paper link, evaluation */}
           <aside className="lg:col-span-2 flex flex-col space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3>
+            <div className="bg-white p-6 rounded-xl border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Viewing Controls</h3>
               <div className="flex items-center justify-between mb-3 space-x-3">
                 <button
                   onClick={() => setAcCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={acCurrentPage === 1}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition font-bold"
                 >
                   Prev
                 </button>
                 <div className="text-center">
-                  <div className="text-sm text-gray-600">Page</div>
-                  <div className="text-lg font-bold text-gray-800">{acCurrentPage} / {numAcPages || "..."}</div>
+                  <div className="text-sm text-gray-600 font-bold">Page</div>
+                  <div className="text-lg font-bold text-gray-900">{acCurrentPage} / {numAcPages || "..."}</div>
                 </div>
                 <button
                   onClick={() => setAcCurrentPage((p) => Math.min(numAcPages, p + 1))}
                   disabled={acCurrentPage === numAcPages}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition font-bold"
                 >
                   Next
                 </button>
@@ -276,7 +276,7 @@ export default function ExaminerCopyViewer() {
                   <button
                     onClick={() => handleZoom("ac", "out")}
                     disabled={acZoomLevel === MIN_ZOOM}
-                    className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     title="Zoom Out"
                   >
                     <MagnifyingGlassMinusIcon className="h-5 w-5" />
@@ -284,7 +284,7 @@ export default function ExaminerCopyViewer() {
                   <button
                     onClick={() => handleZoom("ac", "in")}
                     disabled={acZoomLevel === MAX_ZOOM}
-                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="p-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition"
                     title="Zoom In"
                   >
                     <MagnifyingGlassPlusIcon className="h-5 w-5" />
@@ -292,19 +292,19 @@ export default function ExaminerCopyViewer() {
                   <button
                     onClick={() => handleZoom("ac", "reset")}
                     disabled={acZoomLevel === 1}
-                    className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     title="Reset Zoom"
                   >
                     <ArrowsPointingInIcon className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
+                <div className="text-sm text-gray-600 font-bold">{acZoomLevel.toFixed(2)}x</div>
               </div>
 
               <div className="mt-2">
-                <h4 className="text-sm font-medium text-gray-700 mb-1">Question Paper</h4>
+                <h4 className="text-sm font-bold text-gray-900 mb-1">Question Paper</h4>
                 {qpPdfUrl ? (
-                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="text-gray-900 hover:text-[#1e3a8a] hover:underline font-bold">
                     Open Question Paper in Drive
                   </a>
                 ) : (
@@ -313,15 +313,15 @@ export default function ExaminerCopyViewer() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Evaluation for Page {acCurrentPage}</h3>
+            <div className="bg-white p-6 rounded-xl border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Evaluation for Page {acCurrentPage}</h3>
               <div className="mb-4">
-                <label className="block text-base font-medium text-gray-700 mb-1">Marks Awarded:</label>
-                <p className="w-full md:w-32 px-3 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-base">{marksAwarded}</p>
+                <label className="block text-base font-bold text-gray-900 mb-1">Marks Awarded:</label>
+                <p className="w-full md:w-32 px-3 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-base font-bold">{marksAwarded}</p>
               </div>
               <div className="mb-2">
-                <label className="block text-base font-medium text-gray-700 mb-1">Comments:</label>
-                <p className="w-full px-3 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-base whitespace-pre-wrap">{comments}</p>
+                <label className="block text-base font-bold text-gray-900 mb-1">Comments:</label>
+                <p className="w-full px-3 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-base whitespace-pre-wrap font-bold">{comments}</p>
               </div>
             </div>
           </aside>

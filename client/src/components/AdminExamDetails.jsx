@@ -189,10 +189,10 @@ export default function AdminExamDetails() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
+      <div className="flex justify-center items-center h-screen bg-white" style={{fontFamily: 'Dosis, sans-serif'}}>
         <div className="flex flex-col items-center text-gray-600 text-lg">
-          <ArrowPathIcon className="animate-spin h-10 w-10 text-indigo-500" />
-          <p className="mt-4">Loading exam details...</p>
+          <ArrowPathIcon className="animate-spin h-10 w-10 text-gray-900" />
+          <p className="mt-4 font-bold">Loading exam details...</p>
         </div>
       </div>
     );
@@ -200,7 +200,7 @@ export default function AdminExamDetails() {
 
   if (error) {
     return (
-      <div className="text-red-500 text-center py-10 text-xl font-semibold bg-red-50 rounded-lg p-4 border border-red-200">
+      <div className="text-gray-900 text-center py-10 text-xl font-bold bg-white rounded-lg p-4 border-2 border-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
         <p className="font-bold text-lg mb-2">Error Loading Exam Details:</p>
         <p>{error}</p>
         <p className="text-sm mt-2">Please try refreshing the page.</p>
@@ -210,7 +210,7 @@ export default function AdminExamDetails() {
 
   if (!exam) {
     return (
-      <div className="text-gray-600 text-center py-10 text-xl font-semibold bg-white rounded-lg p-4 shadow-md">
+      <div className="text-gray-600 text-center py-10 text-xl font-bold bg-white rounded-lg p-4 border-2 border-gray-900" style={{fontFamily: 'Dosis, sans-serif'}}>
         Exam not found.
       </div>
     );
@@ -222,66 +222,62 @@ export default function AdminExamDetails() {
   }) : 'N/A';
 
   return (
-    <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
+    <div className="p-8 space-y-8 bg-white min-h-screen" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Back Button and Exam Question Paper Link */}
       <div className="flex justify-between items-center mb-6">
         <Link
           to="/admin"
-          className="text-indigo-600 hover:underline flex items-center font-medium transition duration-200"
+          className="text-gray-900 hover:text-[#1e3a8a] flex items-center font-bold transition duration-200"
         >
           <ArrowLeftIcon className="w-5 h-5 mr-2" /> Back to Admin Dashboard
         </Link>
         <button
           onClick={() => window.open(exam.driveFile?.id ? `/api/drive/pdf/${exam.driveFile.id}` : '#', "_blank")}
-          className="inline-flex items-center justify-center px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 transform hover:scale-105"
+          className="inline-flex items-center justify-center px-5 py-2 bg-gray-900 text-white font-bold rounded-lg hover:bg-[#1e3a8a] focus:outline-none transition duration-150"
         >
           <DocumentTextIcon className="h-5 w-5 mr-2" /> View Exam Question Paper
         </button>
       </div>
 
-      <h1 className="text-4xl font-extrabold text-gray-900 text-center mb-8 tracking-tight">
-        Copies for Exam: <span className="text-blue-700">{exam.title}</span>
+      <h1 className="text-4xl font-bold text-gray-900 text-center mb-8">
+        Copies for Exam: <span className="text-[#1e3a8a]">{exam.title}</span>
       </h1>
 
       {/* NEW: Exam Details Card */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="bg-white p-6 rounded-xl border-2 border-gray-900 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="flex items-center space-x-3">
-          <CalendarDaysIcon className="h-6 w-6 text-purple-500" />
-          <p className="text-gray-700"><strong className="font-semibold">Date:</strong> {examDate}</p>
+          <CalendarDaysIcon className="h-6 w-6 text-gray-900" />
+          <p className="text-gray-700"><strong className="font-bold">Date:</strong> {examDate}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <AcademicCapIcon className="h-6 w-6 text-green-500" />
-          <p className="text-gray-700"><strong className="font-semibold">Course/Batch:</strong> {exam.course || 'N/A'}</p>
+          <AcademicCapIcon className="h-6 w-6 text-gray-900" />
+          <p className="text-gray-700"><strong className="font-bold">Course/Batch:</strong> {exam.course || 'N/A'}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <TagIcon className="h-6 w-6 text-orange-500" />
-          <p className="text-gray-700"><strong className="font-semibold">Exam Type:</strong> {exam.examType || 'N/A'}</p>
+          <TagIcon className="h-6 w-6 text-gray-900" />
+          <p className="text-gray-700"><strong className="font-bold">Exam Type:</strong> {exam.examType || 'N/A'}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <ClipboardDocumentCheckIcon className="h-6 w-6 text-red-500" />
-          <p className="text-gray-700"><strong className="font-semibold">Total Marks:</strong> {exam.totalMarks || 'N/A'}</p>
+          <ClipboardDocumentCheckIcon className="h-6 w-6 text-gray-900" />
+          <p className="text-gray-700"><strong className="font-bold">Total Marks:</strong> {exam.totalMarks || 'N/A'}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <BookOpenIcon className="h-6 w-6 text-teal-500" />
-          <p className="text-gray-700"><strong className="font-semibold">Total Pages (QP):</strong> {exam.totalPages || 'N/A'}</p>
+          <BookOpenIcon className="h-6 w-6 text-gray-900" />
+          <p className="text-gray-700"><strong className="font-bold">Total Pages (QP):</strong> {exam.totalPages || 'N/A'}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <ClipboardDocumentListIcon className="h-6 w-6 text-blue-500" />
-          <p className="text-gray-700"><strong className="font-semibold">Total Copies Uploaded:</strong> {copies.length}</p>
+          <ClipboardDocumentListIcon className="h-6 w-6 text-gray-900" />
+          <p className="text-gray-700"><strong className="font-bold">Total Copies Uploaded:</strong> {copies.length}</p>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
+      <div className="bg-white p-6 rounded-xl border-2 border-gray-900">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4  border-gray-900 pb-2 flex justify-between items-center">
           <span>All Answer Copies</span>
           {anyEvaluatedCopies && ( // Only show bulk button if there are evaluated copies
             <button
               onClick={handleToggleReleaseAllCopies}
-              className={`px-4 py-2 rounded-md text-white font-medium transition duration-150 flex items-center shadow-md hover:shadow-lg ${
-                allEvaluatedCopiesReleased
-                  ? "bg-red-500 hover:bg-red-600"
-                  : "bg-green-500 hover:bg-green-600"
-              }`}
+              className="px-4 py-2 rounded-md text-white font-bold transition duration-150 flex items-center bg-gray-900 hover:bg-[#1e3a8a]"
             >
               <ArrowPathIcon className="h-5 w-5 inline-block mr-2" />
               {allEvaluatedCopiesReleased ? "Unrelease All" : "Release All"}
@@ -305,6 +301,8 @@ export default function AdminExamDetails() {
             />
           </div>
           {/* Examiner Search Bar */}
+         
+          {/* Examiner Search Bar */}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <UsersIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
@@ -314,7 +312,7 @@ export default function AdminExamDetails() {
               placeholder="Search by examiner name or email..."
               value={examinerSearchTerm}
               onChange={(e) => setExaminerSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+              className="block w-full pl-10 pr-3 py-2 border-2 border-gray-900 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:border-[#1e3a8a] sm:text-sm font-bold"
             />
           </div>
         </div>
@@ -325,7 +323,7 @@ export default function AdminExamDetails() {
             <button
               onClick={promptDeleteSelectedCopies}
               disabled={selectedCopyIds.length === 0 || isDeletingCopies}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
+              className="inline-flex items-center px-3 py-2 border-2 border-gray-900 text-sm font-bold rounded-md text-white bg-gray-900 hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
             >
               {isDeletingCopies ? (
                 <>
@@ -345,57 +343,57 @@ export default function AdminExamDetails() {
             {studentSearchTerm || examinerSearchTerm ? "No matching copies found." : "No answer copies uploaded for this exam yet."}
           </p>
         ) : (
-          <div className="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-gray-200 shadow-sm">
+          <div className="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border-2 border-gray-900">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0 z-10">
+              <thead className="bg-white border-b-2 border-gray-900 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                       checked={selectAllCopies}
                       onChange={handleSelectAllCopies}
                     />
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Student Name (Email)
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Batch
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Status
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Assigned Examiner(s)
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Released to Student
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Answer Copy PDF
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider"
                   >
                     Actions
                   </th>
@@ -410,32 +408,26 @@ export default function AdminExamDetails() {
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                        className="h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
                         checked={selectedCopyIds.includes(copy._id)}
                         onChange={() => handleCopyCheckboxChange(copy._id)}
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
                       {copy.student?.name || "N/A"} (
                       {copy.student?.email || "N/A"})
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
                       {copy.student?.batch || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          copy.status === "evaluated"
-                            ? "bg-green-100 text-green-800"
-                            : copy.status === "pending"
-                            ? "bg-gray-100 text-gray-800"
-                            : "bg-yellow-100 text-yellow-800" // For 'examining' status
-                        }`}
+                        className="px-2 inline-flex text-xs leading-5 font-bold rounded-full border-2 border-gray-900 bg-white text-gray-900"
                       >
                         {copy.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-gray-900 font-bold">
                       {copy.examiners && copy.examiners.length > 0
                         ? copy.examiners
                             .map((e) => e.name || e.email)
@@ -444,11 +436,7 @@ export default function AdminExamDetails() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          copy.isReleasedToStudent
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
+                        className="px-2 inline-flex text-xs leading-5 font-bold rounded-full border-2 border-gray-900 bg-white text-gray-900"
                       >
                         {copy.isReleasedToStudent ? "Yes" : "No"}
                       </span>
@@ -460,16 +448,16 @@ export default function AdminExamDetails() {
                           href={`/api/drive/pdf/${copy.driveFile.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className="inline-flex items-center px-3 py-1 border-2 border-gray-900 text-sm font-bold rounded-md text-gray-900 bg-white hover:bg-gray-900 hover:text-white focus:outline-none transition duration-150"
                           title="View Answer Copy PDF"
                         >
                           <DocumentTextIcon className="h-4 w-4 mr-1" /> View PDF
                         </a>
                       ) : (
-                        <span className="text-gray-500">N/A</span>
+                        <span className="text-gray-500 font-bold">N/A</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold flex items-center justify-end space-x-2">
                       {copy.status === "evaluated" && ( // Only show if copy is evaluated
                         <button
                           onClick={() =>
@@ -478,11 +466,7 @@ export default function AdminExamDetails() {
                               copy.isReleasedToStudent
                             )
                           }
-                          className={`px-3 py-1.5 rounded-md text-white font-medium transition duration-150 flex items-center shadow-sm hover:shadow-md ${
-                            copy.isReleasedToStudent
-                              ? "bg-red-500 hover:bg-red-600"
-                              : "bg-green-500 hover:bg-green-600"
-                          }`}
+                          className="px-3 py-1.5 rounded-md text-white font-bold transition duration-150 flex items-center bg-gray-900 hover:bg-[#1e3a8a]"
                           title={
                             copy.isReleasedToStudent
                               ? "Unrelease this copy"
@@ -495,7 +479,7 @@ export default function AdminExamDetails() {
                       )}
                       <Link
                         to={`/admin/copies/view/${copy._id}`}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150"
+                        className="inline-flex items-center px-3 py-1.5 border-2 border-gray-900 text-sm font-bold rounded-md text-white bg-gray-900 hover:bg-[#1e3a8a] focus:outline-none transition duration-150"
                         title="View Copy Details"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" /> View Details
@@ -503,7 +487,7 @@ export default function AdminExamDetails() {
 
                       <button
                         onClick={() => promptDeleteSingle(copy._id)}
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150"
+                        className="inline-flex items-center px-3 py-1.5 border-2 border-gray-900 text-sm font-bold rounded-md text-white bg-gray-900 hover:bg-[#1e3a8a] focus:outline-none transition duration-150"
                         title="Delete Copy"
                       >
                         <TrashIcon className="h-4 w-4" />
@@ -524,18 +508,18 @@ export default function AdminExamDetails() {
         onClose={() => setShowDeleteModal(false)}
         title={deleteMode === "single" ? "Delete Copy" : "Delete Copies"}
       >
-        <div className="p-4 text-center">
-          <p className="text-lg text-gray-700 mb-6">{deleteMessage}</p>
+        <div className="p-4 text-center" style={{fontFamily: 'Dosis, sans-serif'}}>
+          <p className="text-lg text-gray-700 mb-6 font-bold">{deleteMessage}</p>
           <div className="flex justify-center space-x-4">
             <button
               onClick={() => setShowDeleteModal(false)}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
+              className="px-6 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-100 font-bold transition"
             >
               Cancel
             </button>
             <button
               onClick={performPendingDelete}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
+              className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition"
             >
               {isDeletingCopies ? "Deleting..." : "Delete"}
             </button>

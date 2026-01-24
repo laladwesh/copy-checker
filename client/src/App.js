@@ -19,6 +19,7 @@ import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
 import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 import AdminManageQueries from './routes/AdminManageQueries';
+import ManageUsers from './routes/ManageUsers';
 // Terms and Privacy pages
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
@@ -107,6 +108,14 @@ export default function App() {
             element={
               <ProtectedRoute user={user} role="admin">
                 <AdminManageQueries />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute user={user} role="admin">
+                <ManageUsers />
               </ProtectedRoute>
             }
           />

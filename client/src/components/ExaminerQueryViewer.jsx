@@ -180,10 +180,10 @@ export default function ExaminerQueryViewer() {
     );
   if (!query || !copy)
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="flex flex-col items-center text-gray-600 text-lg">
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center text-gray-600 text-lg font-bold">
           <svg
-            className="animate-spin h-10 w-10 text-indigo-500"
+            className="animate-spin h-10 w-10 text-gray-900"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -217,50 +217,25 @@ export default function ExaminerQueryViewer() {
       : null;
 
   return (
-    <div className="bg-gray-100 min-h-screen font-sans relative p-2">
+    <div className="bg-white min-h-screen font-sans relative p-2" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Toasts are provided globally via react-hot-toast */}
 
       {/* Back to Queries Button */}
       <Link
         to="/examiner/queries"
-        className="text-indigo-600 hover:underline flex items-center mb-6 font-medium"
+        className="text-gray-900 hover:text-[#1e3a8a] hover:underline flex items-center mb-6 font-bold"
       >
         <ArrowLeftIcon className="w-5 h-5 mr-2" /> Back to All Queries
       </Link>
 
       <h1 className="text-4xl font-extrabold text-gray-900 mb-8 text-center tracking-tight">
         Review Query for{" "}
-        <span className="text-purple-700">{copy.questionPaper?.title || 'N/A'}</span>
+        <span className="text-gray-900">{copy.questionPaper?.title || 'N/A'}</span>
       </h1>
-
-      {/* Question Paper Link Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-100 p-2 rounded-md shadow-sm border border-indigo-200 mb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BookOpenIcon className="h-4 w-4 text-indigo-600" />
-            <h3 className="text-sm font-semibold text-gray-800">
-              Question Paper
-            </h3>
-          </div>
-          {qpPdfUrl ? (
-            <a
-              href={qpPdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-3 py-1.5 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors text-xs"
-            >
-              <BookOpenIcon className="h-4 w-4 mr-1.5" />
-              Open Question Paper
-            </a>
-          ) : (
-            <div className="text-gray-600 text-xs">Not available</div>
-          )}
-        </div>
-      </div>
 
       <div className="flex flex-col lg:flex-row gap-3 h-[calc(100vh-120px)]">
         {/* Left Column: Answer Copy Viewer - Takes more width */}
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-300 flex flex-col lg:w-[72%]">
+        <div className="bg-white p-3 rounded-lg border border-gray-300 flex flex-col lg:w-[75%]">
           {/* <h3 className="text-lg font-semibold text-gray-800 mb-2 text-center">
             Answer Copy (Page {currentPage} of {acNumPages || 'N/A'})
           </h3> */}
@@ -271,11 +246,11 @@ export default function ExaminerQueryViewer() {
                 setIsAcLoading(true);
               }}
               disabled={currentPage === 1}
-              className=" px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
+              className=" px-3 py-1.5 bg-gray-900 text-white rounded-md hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition font-bold text-sm"
             >
               Prev
             </button>
-            <span className="text-base font-bold text-gray-800">
+            <span className="text-base font-bold text-gray-900">
               Page {currentPage} / {acNumPages || 'N/A'}
             </span>
             <button
@@ -284,7 +259,7 @@ export default function ExaminerQueryViewer() {
                 setIsAcLoading(true);
               }}
               disabled={currentPage === (acNumPages || 1)}
-              className=" px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
+              className=" px-3 py-1.5 bg-gray-900 text-white rounded-md hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition font-bold text-sm"
             >
               Next
             </button>
@@ -293,7 +268,7 @@ export default function ExaminerQueryViewer() {
             {isAcLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
                 <svg
-                  className="animate-spin h-10 w-10 text-indigo-500"
+                  className="animate-spin h-10 w-10 text-gray-900"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -331,7 +306,7 @@ export default function ExaminerQueryViewer() {
             <button
               onClick={() => handleZoom("out")}
               disabled={acZoomLevel === MIN_ZOOM}
-              className="p-2.5 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+              className="p-2.5 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
               title="Zoom Out"
             >
               <MagnifyingGlassMinusIcon className="h-5 w-5" />
@@ -339,7 +314,7 @@ export default function ExaminerQueryViewer() {
             <button
               onClick={() => handleZoom("in")}
               disabled={acZoomLevel === MAX_ZOOM}
-              className="p-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+              className="p-2.5 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition"
               title="Zoom In"
             >
               <MagnifyingGlassPlusIcon className="h-5 w-5" />
@@ -347,28 +322,36 @@ export default function ExaminerQueryViewer() {
             <button
               onClick={() => handleZoom("reset")}
               disabled={acZoomLevel === MIN_ZOOM}
-              className="p-2.5 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm"
+              className="p-2.5 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
               title="Reset Zoom"
             >
               <ArrowsPointingInIcon className="h-5 w-5" />
             </button>
-            <span className="text-sm text-gray-600 font-medium">
+            <span className="text-sm text-gray-600 font-bold">
               {acZoomLevel.toFixed(2)}x
             </span>
           </div>
         </div>
 
         {/* Right Column: Query Details and Reply - Takes less width */}
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-300 flex flex-col overflow-y-auto lg:w-[28%]">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2 text-center">Query Details & Reply</h3>
+        <div className="bg-white p-3 rounded-lg border border-gray-300 flex flex-col overflow-y-auto lg:w-[25%]">
+          <h3 className="text-lg font-bold text-gray-900 mb-2 text-center">Query Details & Reply</h3>
           <div className="mb-2 p-2 border rounded-md bg-gray-50">
             <p className="text-sm text-gray-600 mb-2">
               {/* <UserCircleIcon className="inline-block h-5 w-5 mr-1 text-gray-500" /> */}
               {/* <strong>Student:</strong> {query.raisedBy?.name || 'N/A'} ({query.raisedBy?.email || 'N/A'}) */}
             </p>
-            <p className="text-sm text-gray-600 mb-1"><strong>Exam:</strong> {copy.questionPaper?.title || 'N/A'}</p>
-            <p className="text-sm text-gray-600 mb-1"><strong>Page Number:</strong> {query.pageNumber}</p>
-            <p className="text-sm text-gray-600 mb-1"><strong>Status:</strong>{" "}
+            <p className="text-sm text-gray-600 mb-1"><strong className="font-bold">Exam:</strong> {copy.questionPaper?.title || 'N/A'}</p>
+            {qpPdfUrl && (
+              <p className="text-sm text-gray-600 mb-1">
+                <strong className="font-bold">Question Paper:</strong>{" "}
+                <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="text-gray-900 hover:text-[#1e3a8a] underline font-bold">
+                  Open PDF
+                </a>
+              </p>
+            )}
+            <p className="text-sm text-gray-600 mb-1"><strong className="font-bold">Page Number:</strong> {query.pageNumber}</p>
+            <p className="text-sm text-gray-600 mb-1"><strong className="font-bold">Status:</strong>{" "}
               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                 query.status === 'approved_by_admin' ? 'bg-yellow-100 text-yellow-800' :
                 query.status === 'resolved_by_examiner' ? 'bg-green-100 text-green-800' :
@@ -391,9 +374,9 @@ export default function ExaminerQueryViewer() {
 
           {/* Marks, Comments, Annotations Input Fields */}
           <div className="mt-2 p-2 border rounded-md bg-white">
-            <h4 className="text-base font-semibold text-gray-800 mb-2">Update Page Details (Page {currentPage})</h4>
+            <h4 className="text-base font-bold text-gray-900 mb-2">Update Page Details (Page {currentPage})</h4>
             <div className="mb-2">
-              <label htmlFor="marks" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="marks" className="block text-sm font-bold text-gray-900">
                 Marks Awarded:
               </label>
               <input
@@ -406,7 +389,7 @@ export default function ExaminerQueryViewer() {
               />
             </div>
             <div className="mb-2">
-              <label htmlFor="comments" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="comments" className="block text-sm font-bold text-gray-900">
                 Comments:
               </label>
               <textarea
@@ -421,7 +404,7 @@ export default function ExaminerQueryViewer() {
             <button
               onClick={handleUpdatePageDetails}
               disabled={isUpdatingPage || query.status === 'resolved_by_examiner'}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-1.5 px-3 rounded-md focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-bold py-1.5 px-3 rounded-md focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               {isUpdatingPage ? (
                 <>
@@ -440,7 +423,7 @@ export default function ExaminerQueryViewer() {
           ) : (
             <form onSubmit={handleReplySubmit} className="mt-2 pt-2 border-t">
               <div className="mb-2">
-                <label htmlFor="replyText" className="block text-gray-700 text-sm font-medium mb-1">
+                <label htmlFor="replyText" className="block text-gray-900 text-sm font-bold mb-1">
                   Your Reply:
                 </label>
                 <textarea
@@ -456,7 +439,7 @@ export default function ExaminerQueryViewer() {
               <button
                 type="submit"
                 disabled={isSubmittingReply || query.status !== 'approved_by_admin'} // Only enable if approved by admin
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-3 rounded focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="w-full bg-gray-900 hover:bg-[#1e3a8a] text-white font-bold py-1.5 px-3 rounded focus:outline-none focus:shadow-outline transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 {isSubmittingReply ? (
                   <>

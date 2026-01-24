@@ -55,13 +55,13 @@ export default function LoginSuccess() {
   // Render loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center  sm:p-6">
-        <div className="flex flex-col items-center justify-center p-8 sm:p-10 rounded-3xl shadow-2xl transform transition-all duration-500 ease-out-back scale-95 opacity-0 animate-fade-in-up">
-          <ArrowPathIcon className="animate-spin h-16 w-16 text-indigo-600 mb-6 drop-shadow-md" />
-          <p className="text-2xl text-gray-800 font-bold mb-3">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6" style={{fontFamily: 'Dosis, sans-serif'}}>
+        <div className="flex flex-col items-center justify-center p-8 sm:p-10 rounded-xl border-2 border-gray-900 bg-white transform transition-all duration-500 ease-out-back scale-95 opacity-0 animate-fade-in-up">
+          <ArrowPathIcon className="animate-spin h-16 w-16 text-gray-900 mb-6" />
+          <p className="text-2xl text-gray-900 font-bold mb-3">
             Signing you in securely...
           </p>
-          <p className="text-gray-600 text-md text-center max-w-sm">
+          <p className="text-gray-600 text-md text-center max-w-sm font-bold">
             Please wait a moment while we set up your session and redirect you
             to your dashboard.
           </p>
@@ -72,19 +72,19 @@ export default function LoginSuccess() {
 
   // Render sign-in prompt if no token is found
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center p-4 sm:p-6">
-      <div className="flex flex-col items-center justify-center bg-white p-10 sm:p-12 rounded-3xl shadow-2xl transform transition-all duration-500 ease-out-back scale-95 opacity-0 animate-fade-in-up max-w-md w-full text-center">
-        <ExclamationCircleIcon className="h-16 w-16 text-red-500 mb-6 drop-shadow-md" />
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6" style={{fontFamily: 'Dosis, sans-serif'}}>
+      <div className="flex flex-col items-center justify-center bg-white p-10 sm:p-12 rounded-xl border-2 border-gray-900 transform transition-all duration-500 ease-out-back scale-95 opacity-0 animate-fade-in-up max-w-md w-full text-center">
+        <ExclamationCircleIcon className="h-16 w-16 text-gray-900 mb-6" />
+        <h2 className="text-4xl font-bold text-gray-900 mb-4 tracking-tight">
           Access Denied!
         </h2>
-        <p className="text-xl text-gray-700 mb-8 leading-relaxed">
+        <p className="text-xl text-gray-700 mb-8 leading-relaxed font-bold">
           It looks like you're not signed in or your session has expired. Please
           sign in to continue using our services.
         </p>
         <a
           href={googleAuthUrl}
-          className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:-translate-y-0.5 hover:scale-105 group"
+          className="inline-flex items-center px-6 py-2 border-2 border-gray-900 text-base font-bold rounded-lg text-white bg-gray-900 hover:bg-[#1e3a8a] focus:outline-none transition-all duration-300 transform hover:-translate-y-0.5 hover:scale-105 group"
         >
           {/* Updated Google G icon SVG with the new path */}
           <svg
@@ -96,18 +96,18 @@ export default function LoginSuccess() {
           </svg>
           Sign in with Google
         </a>
-        <p className="text-sm text-gray-500 mt-8 leading-relaxed">
+        <p className="text-sm text-gray-600 mt-8 leading-relaxed font-bold">
           By signing in, you agree to our{" "}
           <Link
             to="/terms"
-            className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+            className="text-gray-900 hover:text-[#1e3a8a] underline font-bold"
           >
             Terms of Service
           </Link>{" "}
           and{" "}
           <Link
             to="/privacy"
-            className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+            className="text-gray-900 hover:text-[#1e3a8a] underline font-bold"
           >
             Privacy Policy
           </Link>

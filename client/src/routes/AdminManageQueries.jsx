@@ -38,7 +38,7 @@ export default function AdminManageQueries() {
 
   // PDF viewer states - Answer Copy
   const [queryViewerCurrentPage, setQueryViewerCurrentPage] = useState(1);
-  const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1.25);
+  const [queryViewerZoomLevel, setQueryViewerZoomLevel] = useState(1.0);
   const [isQueryViewerAcLoading, setIsQueryViewerAcLoading] = useState(true);
   const [numAcPages, setNumAcPages] = useState(null);
 
@@ -120,7 +120,7 @@ export default function AdminManageQueries() {
     setReplyText(query.response || "");
     setIsViewingQuery(true);
     setQueryViewerCurrentPage(query.pageNumber || 1);
-    setQueryViewerZoomLevel(1.25);
+    setQueryViewerZoomLevel(1.0);
     setIsQueryViewerAcLoading(true);
     setNumAcPages(null);
 
@@ -141,7 +141,7 @@ export default function AdminManageQueries() {
     setReplyText("");
     setSelectedCopyForQueryView(null);
     setQueryViewerCurrentPage(1);
-    setQueryViewerZoomLevel(1.25);
+    setQueryViewerZoomLevel(1.0);
     fetchData();
   };
 
@@ -226,16 +226,16 @@ export default function AdminManageQueries() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-white p-6" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Toasts are provided globally via react-hot-toast */}
 
       {!isViewingQuery ? (
         // Query List View
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto">
           <div className="mb-8">
             <button
               onClick={() => navigate("/admin")}
-              className="flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4 font-medium transition"
+              className="flex items-center gap-2 text-gray-900 hover:text-[#1e3a8a] mb-4 font-bold transition"
             >
               <ArrowLeftIcon className="h-5 w-5" />
               Back to Admin Panel
@@ -243,16 +243,16 @@ export default function AdminManageQueries() {
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Manage Student Queries
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 font-bold">
               Review, approve, reject, or resolve student queries for all exams
             </p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div className="bg-white rounded-xl border-2 border-gray-900 p-6 mb-6">
             <div className="mb-6">
               <label
                 htmlFor="selectExamForQueries"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-bold text-gray-700 mb-2"
               >
                 Filter by Exam:
               </label>
@@ -260,7 +260,7 @@ export default function AdminManageQueries() {
                 id="selectExamForQueries"
                 value={selectedExamForQueryView}
                 onChange={(e) => setSelectedExamForQueryView(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
+                className="w-full p-3 border-2 border-gray-900 rounded-lg focus:outline-none focus:border-[#1e3a8a] bg-white font-bold"
               >
                 <option value="">All Exams</option>
                 {uniqueExamTitlesWithIds.map((exam) => (
@@ -271,11 +271,11 @@ export default function AdminManageQueries() {
               </select>
             </div>
 
-            <div className="flex border-b border-gray-200 mb-6 overflow-x-auto no-scrollbar">
+            <div className="flex border-b-2 border-gray-900 mb-6 overflow-x-auto no-scrollbar">
               <button
-                className={`py-3 px-6 text-sm font-semibold whitespace-nowrap ${
+                className={`py-3 px-6 text-sm font-bold whitespace-nowrap ${
                   activeQueryTab === "pending"
-                    ? "border-b-2 border-indigo-600 text-indigo-600"
+                    ? "border-b-2 border-gray-900 text-gray-900"
                     : "text-gray-500 hover:text-gray-700"
                 } transition duration-150`}
                 onClick={() => setActiveQueryTab("pending")}
@@ -292,9 +292,9 @@ export default function AdminManageQueries() {
                 )
               </button>
               <button
-                className={`py-3 px-6 text-sm font-semibold whitespace-nowrap ${
+                className={`py-3 px-6 text-sm font-bold whitespace-nowrap ${
                   activeQueryTab === "approved_by_admin"
-                    ? "border-b-2 border-indigo-600 text-indigo-600"
+                    ? "border-b-2 border-gray-900 text-gray-900"
                     : "text-gray-500 hover:text-gray-700"
                 } transition duration-150`}
                 onClick={() => setActiveQueryTab("approved_by_admin")}
@@ -311,9 +311,9 @@ export default function AdminManageQueries() {
                 )
               </button>
               <button
-                className={`py-3 px-6 text-sm font-semibold whitespace-nowrap ${
+                className={`py-3 px-6 text-sm font-bold whitespace-nowrap ${
                   activeQueryTab === "rejected_by_admin"
-                    ? "border-b-2 border-indigo-600 text-indigo-600"
+                    ? "border-b-2 border-gray-900 text-gray-900"
                     : "text-gray-500 hover:text-gray-700"
                 } transition duration-150`}
                 onClick={() => setActiveQueryTab("rejected_by_admin")}
@@ -330,9 +330,9 @@ export default function AdminManageQueries() {
                 )
               </button>
               <button
-                className={`py-3 px-6 text-sm font-semibold whitespace-nowrap ${
+                className={`py-3 px-6 text-sm font-bold whitespace-nowrap ${
                   activeQueryTab === "resolved_by_admin"
-                    ? "border-b-2 border-indigo-600 text-indigo-600"
+                    ? "border-b-2 border-gray-900 text-gray-900"
                     : "text-gray-500 hover:text-gray-700"
                 } transition duration-150`}
                 onClick={() => setActiveQueryTab("resolved_by_admin")}
@@ -349,9 +349,9 @@ export default function AdminManageQueries() {
                 )
               </button>
               <button
-                className={`py-3 px-6 text-sm font-semibold whitespace-nowrap ${
+                className={`py-3 px-6 text-sm font-bold whitespace-nowrap ${
                   activeQueryTab === "resolved_by_examiner"
-                    ? "border-b-2 border-indigo-600 text-indigo-600"
+                    ? "border-b-2 border-gray-900 text-gray-900"
                     : "text-gray-500 hover:text-gray-700"
                 } transition duration-150`}
                 onClick={() => setActiveQueryTab("resolved_by_examiner")}
@@ -376,39 +376,39 @@ export default function AdminManageQueries() {
               <input
                 type="text"
                 placeholder="Search queries by student, exam, or query text..."
-                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                className="block w-full pl-10 pr-3 py-3 border-2 border-gray-900 rounded-lg bg-white placeholder-gray-500 focus:outline-none focus:border-[#1e3a8a] font-bold"
                 value={querySearchTerm}
                 onChange={(e) => setQuerySearchTerm(e.target.value)}
               />
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+            <div className="overflow-x-auto rounded-lg border-2 border-gray-900">
               {getFilteredQueries().length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">
+                  <p className="text-gray-500 text-lg font-bold">
                     No queries found in this category
                   </p>
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gradient-to-r from-indigo-50 to-blue-50 sticky top-0">
+                  <thead className="bg-white border-b-2 border-gray-900 sticky top-0">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                         Student Name
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                         Exam Title
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                         Page
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                         Query Text
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -416,41 +416,27 @@ export default function AdminManageQueries() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {getFilteredQueries().map((query) => (
                       <tr key={query._id} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                           {query.raisedBy?.name || "N/A"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700">
                           {query.copy?.questionPaper?.title || "N/A"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700">
                           {query.pageNumber}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700 truncate max-w-xs">
+                        <td className="px-6 py-4 text-sm font-bold text-gray-700 truncate max-w-xs">
                           {query.text}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span
-                            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              query.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : query.status === "approved_by_admin"
-                                ? "bg-blue-100 text-blue-800"
-                                : query.status === "rejected_by_admin"
-                                ? "bg-red-100 text-red-800"
-                                : query.status === "resolved_by_admin"
-                                ? "bg-green-100 text-green-800"
-                                : query.status === "resolved_by_examiner"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-white text-gray-900 border-2 border-gray-900">
                             {query.status.replace(/_/g, " ")}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold">
                           <button
                             onClick={() => handleOpenQueryModal(query)}
-                            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-900 font-semibold transition"
+                            className="flex items-center gap-2 text-gray-900 hover:text-[#1e3a8a] font-bold transition"
                           >
                             <EyeIcon className="h-5 w-5" />
                             View Details
@@ -466,11 +452,11 @@ export default function AdminManageQueries() {
         </div>
       ) : (
         // Query Viewer with PDFs
-        <div className="max-w-[98%] mx-auto">
+        <div className="mx-auto">
           <div className="mb-6">
             <button
               onClick={handleCloseQueryViewer}
-              className="flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4 font-medium transition"
+              className="flex items-center gap-2 text-gray-900 hover:text-[#1e3a8a] mb-4 font-bold transition"
             >
               <ArrowLeftIcon className="h-5 w-5" />
               Back to Query List
@@ -481,9 +467,9 @@ export default function AdminManageQueries() {
           </div>
 
           {/* Question Paper Link */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-100 p-6 rounded-xl shadow-md border border-blue-200 mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="bg-white p-6 rounded-xl border-2 border-gray-900 mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <svg className="h-6 w-6 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               Question Paper
@@ -493,7 +479,7 @@ export default function AdminManageQueries() {
                 href={`/api/drive/pdf/${selectedCopyForQueryView.questionPaper.driveFile.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition shadow-md hover:shadow-lg"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -505,10 +491,10 @@ export default function AdminManageQueries() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-            {/* Left Column: Answer Copy Viewer - Now Larger */}
-            <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200 flex flex-col">
-              <h3 className="text-xl font-bold text-gray-800 mb-4 text-center border-b pb-3">
+          <div className="flex flex-col lg:flex-row gap-6 pb-8">
+            {/* Left Column: Answer Copy Viewer - 80% width */}
+            <div className="bg-white p-6 rounded-xl border-2 border-gray-900 flex flex-col lg:w-[80%]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 text-center border-b-2 border-gray-900 pb-3">
                 Answer Copy
               </h3>
               <div className="flex justify-between items-center w-full mb-4 space-x-2">
@@ -536,11 +522,11 @@ export default function AdminManageQueries() {
                   Next
                 </button>
               </div>
-              <div className="relative w-full flex-grow min-h-[500px] rounded-lg overflow-auto border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
+              <div className="relative w-full flex-grow min-h-[500px] rounded-lg overflow-auto border-2 border-gray-900 bg-gray-50 flex items-center justify-center">
                 {isQueryViewerAcLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
                     <svg
-                      className="animate-spin h-10 w-10 text-indigo-600"
+                      className="animate-spin h-10 w-10 text-gray-900"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -559,7 +545,7 @@ export default function AdminManageQueries() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    <span className="ml-3 text-gray-700 font-medium">Loading...</span>
+                    <span className="ml-3 text-gray-700 font-bold">Loading...</span>
                   </div>
                 )}
                 {selectedCopyForQueryView?.driveFile?.directDownloadLink ? (
@@ -586,7 +572,7 @@ export default function AdminManageQueries() {
                 <button
                   onClick={() => handleQueryViewerZoom("ac", "out")}
                   disabled={queryViewerZoomLevel <= MIN_ZOOM}
-                  className="p-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-900 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
                   title="Zoom Out"
                 >
                   <MagnifyingGlassMinusIcon className="h-6 w-6" />
@@ -594,7 +580,7 @@ export default function AdminManageQueries() {
                 <button
                   onClick={() => handleQueryViewerZoom("ac", "in")}
                   disabled={queryViewerZoomLevel >= MAX_ZOOM}
-                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition"
                   title="Zoom In"
                 >
                   <MagnifyingGlassPlusIcon className="h-6 w-6" />
@@ -602,76 +588,64 @@ export default function AdminManageQueries() {
                 <button
                   onClick={() => handleQueryViewerZoom("ac", "reset")}
                   disabled={queryViewerZoomLevel === MIN_ZOOM}
-                  className="p-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-900 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
                   title="Reset Zoom"
                 >
                   <ArrowsPointingInIcon className="h-6 w-6" />
                 </button>
-                <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-md">
+                <span className="text-sm font-bold text-gray-700 bg-white border-2 border-gray-900 px-3 py-1 rounded-md">
                   {queryViewerZoomLevel.toFixed(2)}x
                 </span>
               </div>
             </div>
 
-            {/* Right Column: Query Details and Actions */}
-            <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200 flex flex-col">
-              <h3 className="text-xl font-bold text-gray-800 mb-4 text-center border-b pb-3">
+            {/* Right Column: Query Details and Actions - 20% width */}
+            <div className="bg-white p-6 rounded-xl border-2 border-gray-900 flex flex-col lg:w-[20%]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 text-center border-b-2 border-gray-900 pb-3">
                 Query Information
               </h3>
               <div className="flex-grow space-y-4">
-                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-gray-700 mb-2">
+                <div className="p-4 bg-white rounded-lg border-2 border-gray-900">
+                  <p className="text-sm text-gray-700 mb-2 font-bold">
                     <strong className="text-gray-900">Student:</strong>{" "}
                     {selectedQuery?.raisedBy?.name} ({selectedQuery?.raisedBy?.email})
                   </p>
-                  <p className="text-sm text-gray-700 mb-2">
+                  <p className="text-sm text-gray-700 mb-2 font-bold">
                     <strong className="text-gray-900">Exam:</strong>{" "}
                     {selectedQuery?.copy?.questionPaper?.title}
                   </p>
-                  <p className="text-sm text-gray-700 mb-2">
+                  <p className="text-sm text-gray-700 mb-2 font-bold">
                     <strong className="text-gray-900">Page Number:</strong>{" "}
                     {selectedQuery?.pageNumber}
                   </p>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-gray-700 font-bold">
                     <strong className="text-gray-900">Status:</strong>{" "}
-                    <span
-                      className={`ml-2 px-3 py-1 inline-flex text-xs font-semibold rounded-full ${
-                        selectedQuery?.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : selectedQuery?.status === "approved_by_admin"
-                          ? "bg-blue-100 text-blue-800"
-                          : selectedQuery?.status === "rejected_by_admin"
-                          ? "bg-red-100 text-red-800"
-                          : selectedQuery?.status === "resolved_by_admin"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
+                    <span className="ml-2 px-3 py-1 inline-flex text-xs font-bold rounded-full bg-white text-gray-900 border-2 border-gray-900">
                       {selectedQuery?.status?.replace(/_/g, " ")}
                     </span>
                   </p>
                 </div>
 
-                <div className="p-4 border border-gray-200 bg-white rounded-lg">
+                <div className="p-4 border-2 border-gray-900 bg-white rounded-lg">
                   <p className="text-gray-900 font-bold mb-2 text-sm">Student's Query:</p>
-                  <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                  <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed font-bold">
                     {selectedQuery?.text}
                   </p>
                 </div>
 
                 {selectedQuery?.response && (
-                  <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
+                  <div className="p-4 border-2 border-gray-900 bg-white rounded-lg">
                     <p className="text-gray-900 font-bold mb-2 text-sm">Admin's Response:</p>
-                    <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                    <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed font-bold">
                       {selectedQuery?.response}
                     </p>
                   </div>
                 )}
 
                 {selectedQuery?.action && (
-                  <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                  <div className="p-4 border-2 border-gray-900 bg-white rounded-lg">
                     <p className="text-gray-900 font-bold mb-2 text-sm">Action Taken:</p>
-                    <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">
+                    <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed font-bold">
                       {selectedQuery?.action}
                     </p>
                   </div>
@@ -680,15 +654,15 @@ export default function AdminManageQueries() {
 
               {selectedQuery?.status === "resolved_by_admin" ||
               selectedQuery?.status === "rejected_by_admin" ? (
-                <div className="mt-6 p-4 bg-gray-100 rounded-lg text-center">
-                  <p className="text-sm text-gray-600 font-medium">
+                <div className="mt-6 p-4 bg-white border-2 border-gray-900 rounded-lg text-center">
+                  <p className="text-sm text-gray-600 font-bold">
                     This query has been {selectedQuery?.status?.replace(/_/g, " ")}.
                     <br />
                     No further actions available.
                   </p>
                 </div>
               ) : (
-                <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="mt-6 pt-6 border-t-2 border-gray-900">
                   <h4 className="text-lg font-bold mb-4 text-gray-900">Admin Actions</h4>
 
                   {selectedQuery?.status === "pending" && (
@@ -704,13 +678,13 @@ export default function AdminManageQueries() {
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         rows="4"
-                        className="shadow-sm border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y"
+                        className="border-2 border-gray-900 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:border-[#1e3a8a] resize-y font-bold"
                         placeholder="Type your response here to resolve this query..."
                       ></textarea>
                       <button
                         onClick={handleResolveQuery}
                         disabled={isSubmittingQueryAction || !replyText.trim()}
-                        className="mt-3 bg-green-600 text-white py-3 px-6 rounded-lg w-full hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition shadow-md hover:shadow-lg"
+                        className="mt-3 bg-gray-900 text-white py-3 px-6 rounded-lg w-full hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed font-bold transition"
                       >
                         {isSubmittingQueryAction ? "Resolving..." : "Reply & Resolve"}
                       </button>
@@ -723,7 +697,7 @@ export default function AdminManageQueries() {
                         <button
                           onClick={handleApproveQuery}
                           disabled={isSubmittingQueryAction}
-                          className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md hover:shadow-lg"
+                          className="w-full py-3 px-6 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                           {isSubmittingQueryAction
                             ? "Approving..."
@@ -732,7 +706,7 @@ export default function AdminManageQueries() {
                         <button
                           onClick={handleRejectQuery}
                           disabled={isSubmittingQueryAction}
-                          className="w-full py-3 px-6 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md hover:shadow-lg"
+                          className="w-full py-3 px-6 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                           {isSubmittingQueryAction ? "Rejecting..." : "Reject Query"}
                         </button>
@@ -740,7 +714,7 @@ export default function AdminManageQueries() {
                     )}
                     <button
                       onClick={handleCloseQueryViewer}
-                      className="w-full py-3 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition shadow-md hover:shadow-lg"
+                      className="w-full py-3 px-6 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-100 font-bold transition"
                     >
                       Close & Go Back
                     </button>

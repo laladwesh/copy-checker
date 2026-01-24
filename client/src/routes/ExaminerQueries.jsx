@@ -91,8 +91,8 @@ export default function ExaminerQueries() {
 
 
   return (
-    <div className="p-8 space-y-8 bg-gray-50 min-h-screen font-sans">
-      <Link to="/examiner" className="text-indigo-600 hover:underline flex items-center mb-6">
+    <div className="p-8 space-y-8 bg-white min-h-screen font-sans" style={{fontFamily: 'Dosis, sans-serif'}}>
+      <Link to="/examiner" className="text-gray-900 hover:text-[#1e3a8a] hover:underline flex items-center mb-6 font-bold">
         <ArrowLeftIcon className="w-4 h-4 mr-1" />
         Back to Dashboard
       </Link>
@@ -112,12 +112,12 @@ export default function ExaminerQueries() {
         </div>
       )}
 
-      <section className="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Queries Assigned to You</h2>
+      <section className="bg-white p-6 rounded-lg border border-gray-200">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4 border-b pb-2">Queries Assigned to You</h2>
 
         {/* Exam Selection for Queries */}
         <div className="mb-4">
-          <label htmlFor="selectExamForQueries" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="selectExamForQueries" className="block text-sm font-bold text-gray-900 mb-2">
             Filter by Exam:
           </label>
           <select
@@ -136,20 +136,20 @@ export default function ExaminerQueries() {
         {/* Query Status Tabs */}
         <div className="flex border-b border-gray-200 mb-4 overflow-x-auto no-scrollbar">
           <button
-            className={`py-2 px-4 text-sm font-medium ${
+            className={`py-2 px-4 text-sm font-bold ${
               activeQueryTab === 'approved_by_admin'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'border-b-2 border-gray-900 text-gray-900'
+                : 'text-gray-500 hover:text-gray-900'
             }`}
             onClick={() => setActiveQueryTab('approved_by_admin')}
           >
             Pending (Approved by Admin) ({getFilteredQueries().filter(q => q.status === 'approved_by_admin').length})
           </button>
           <button
-            className={`py-2 px-4 text-sm font-medium ${
+            className={`py-2 px-4 text-sm font-bold ${
               activeQueryTab === 'resolved_by_examiner'
-                ? 'border-b-2 border-indigo-500 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'border-b-2 border-gray-900 text-gray-900'
+                : 'text-gray-500 hover:text-gray-900'
             }`}
             onClick={() => setActiveQueryTab('resolved_by_examiner')}
           >
@@ -170,7 +170,7 @@ export default function ExaminerQueries() {
 
         {isLoading ? (
           <div className="text-center py-8">
-            <ArrowPathIcon className="mx-auto h-10 w-10 text-indigo-500 animate-spin" />
+            <ArrowPathIcon className="mx-auto h-10 w-10 text-gray-900 animate-spin" />
             <p className="text-gray-600 mt-2">Loading queries...</p>
           </div>
         ) : getFilteredQueries().length === 0 ? (
@@ -180,12 +180,12 @@ export default function ExaminerQueries() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate (Anonymous)</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paper</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Query Text</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Candidate (Anonymous)</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Paper</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Page</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Query Text</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -204,10 +204,10 @@ export default function ExaminerQueries() {
                         {q.status.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold">
                       <Link
                         to={`/examiner/queries/view/${q._id}`} // Link to the new viewer component
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-bold rounded-md text-white bg-gray-900 hover:bg-[#1e3a8a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" /> View & Reply
                       </Link>

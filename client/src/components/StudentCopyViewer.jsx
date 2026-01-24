@@ -195,10 +195,10 @@ export default function StudentCopyViewer() {
   if (isLoadingComponent || !copy)
     // Use isLoadingComponent for initial data fetch
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="flex flex-col items-center text-gray-600 text-lg">
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center text-gray-600 text-lg font-bold">
           <svg
-            className="animate-spin h-10 w-10 text-indigo-500"
+            className="animate-spin h-10 w-10 text-gray-900"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -245,7 +245,7 @@ export default function StudentCopyViewer() {
     : "";
 
   return (
-    <div className="bg-gray-100 min-h-screen font-sans relative">
+    <div className="bg-white min-h-screen font-sans relative" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Toasts shown via global Toaster (react-hot-toast) */}
 
       {/* Top Navigation Bar */}
@@ -255,10 +255,10 @@ export default function StudentCopyViewer() {
 
         {/* Total Marks Display */}
         <div className="mx-auto mb-8 text-center">
-          <span className="text-purple-700">{copy.questionPaper.title}</span>
-          <h3 className="text-2xl font-bold text-gray-800">
+          <span className="text-gray-900 font-bold">{copy.questionPaper.title}</span>
+          <h3 className="text-2xl font-bold text-gray-900">
             Your Total Marks:{" "}
-            <span className="text-green-700">{totalMarks}</span> /{" "}
+            <span className="text-gray-900">{totalMarks}</span> /{" "}
             {copy.questionPaper.totalMarks}
           </h3>
         </div>
@@ -270,7 +270,7 @@ export default function StudentCopyViewer() {
               href={`/api/drive/pdf/${copy.questionPaper.driveFile.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2   text-indigo-500 rounded-lg "
+              className="inline-flex items-center gap-2 text-gray-900 hover:text-[#1e3a8a] rounded-lg font-bold"
             >
               <svg
                 className="h-5 w-5"
@@ -297,7 +297,7 @@ export default function StudentCopyViewer() {
         {/* Answer Copy and Evaluation Section - Side by Side */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
           {/* Left: Answer Copy Section */}
-          <div className="bg-white p-4 rounded-xl shadow-xl border border-gray-200 flex flex-col lg:w-[70%]">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-col lg:w-[80%]">
             <div className="relative w-full flex-grow h-[calc(100vh-250px)] rounded-lg overflow-auto border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
               {/* React-PDF Document and Page for Answer Copy */}
               {acPdfUrl ? (
@@ -311,7 +311,7 @@ export default function StudentCopyViewer() {
                   loading={
                     <div className="flex flex-col items-center justify-center">
                       <svg
-                        className="animate-spin h-10 w-10 text-indigo-500"
+                        className="animate-spin h-10 w-10 text-gray-900"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -343,7 +343,7 @@ export default function StudentCopyViewer() {
                     loading={
                       <div className="flex items-center justify-center">
                         <svg
-                          className="animate-spin h-8 w-8 text-indigo-500"
+                          className="animate-spin h-8 w-8 text-gray-900"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -376,7 +376,7 @@ export default function StudentCopyViewer() {
               <button
                 onClick={() => handleZoom("ac", "out")}
                 disabled={acZoomLevel === MIN_ZOOM}
-                className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 title="Zoom Out"
               >
                 <MagnifyingGlassMinusIcon className="h-5 w-5" />
@@ -384,7 +384,7 @@ export default function StudentCopyViewer() {
               <button
                 onClick={() => handleZoom("ac", "in")}
                 disabled={acZoomLevel === MAX_ZOOM}
-                className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="p-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition"
                 title="Zoom In"
               >
                 <MagnifyingGlassPlusIcon className="h-5 w-5" />
@@ -392,19 +392,19 @@ export default function StudentCopyViewer() {
               <button
                 onClick={() => handleZoom("ac", "reset")}
                 disabled={acZoomLevel === MIN_ZOOM}
-                className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 title="Reset Zoom"
               >
                 <ArrowsPointingInIcon className="h-5 w-5" />
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 font-bold">
                 {acZoomLevel.toFixed(2)}x
               </span>
             </div>
           </div>
 
           {/* Right: Evaluation Section with Page Navigation */}
-          <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-200 lg:w-[30%] flex flex-col">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 lg:w-[20%] flex flex-col">
             {/* Page Navigation */}
             {numAcPages > 1 && (
               <div className="flex flex-col gap-2 mb-4 pb-4 border-b">
@@ -414,11 +414,11 @@ export default function StudentCopyViewer() {
                       setCurrentPage((p) => Math.max(1, p - 1));
                     }}
                     disabled={currentPage === 1}
-                    className="flex px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
+                    className="flex px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition font-bold text-sm"
                   >
                     Prev
                   </button>
-                  <span className="text-center text-base font-bold text-gray-800">
+                  <span className="text-center text-base font-bold text-gray-900">
                     Page {currentPage} / {numAcPages || "..."}
                   </span>
                   <button
@@ -426,18 +426,18 @@ export default function StudentCopyViewer() {
                       setCurrentPage((p) => Math.min(numAcPages, p + 1));
                     }}
                     disabled={currentPage === numAcPages}
-                    className="flex px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
+                    className="flex px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition font-bold text-sm"
                   >
                     Next
                   </button>
                 </div>
               </div>
             )}
-            <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">
+            <h3 className="text-xl font-bold text-gray-900 mb-3 border-b pb-2">
               Evaluation for Page {currentPage}
             </h3>
             <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-900 mb-1">
                 Marks Awarded:
               </label>
               <p className="w-full px-2 py-1 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm">
@@ -445,7 +445,7 @@ export default function StudentCopyViewer() {
               </p>
             </div>
             <div className="mb-4 flex-grow">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-900 mb-1">
                 Comments:
               </label>
               <p className="w-full px-2 py-1 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm whitespace-pre-wrap">
@@ -454,7 +454,7 @@ export default function StudentCopyViewer() {
             </div>
             <button
               onClick={openQueryForm}
-              className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-200 ease-in-out text-base font-semibold shadow-md flex items-center justify-center mt-auto"
+              className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-[#1e3a8a] focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-all duration-200 ease-in-out text-base font-bold flex items-center justify-center mt-auto"
             >
               <QuestionMarkCircleIcon className="h-5 w-5 mr-2" /> Raise Query
             </button>
@@ -462,8 +462,8 @@ export default function StudentCopyViewer() {
         </div>
 
         {/* NEW: Display Raised Queries Section */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 w-full max-w-full mx-auto mb-8">
-          <h3 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+        <div className="bg-white p-6 rounded-xl border border-gray-200 w-full max-w-full mx-auto mb-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4 border-b pb-2 flex items-center">
             <ChatBubbleLeftRightIcon className="h-6 w-6 mr-2 text-gray-600" />{" "}
             Your Raised Queries for this Copy
           </h3>
@@ -476,19 +476,19 @@ export default function StudentCopyViewer() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                       Page
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                       Your Query
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                       Response
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
                       Action Taken
                     </th>{" "}
                     {/* NEW HEADER */}
@@ -555,7 +555,7 @@ export default function StudentCopyViewer() {
           <div>
             <label
               htmlFor="queryPage"
-              className="block text-gray-700 text-base font-medium mb-2"
+              className="block text-gray-900 text-base font-bold mb-2"
             >
               Page Number (1 - {copy.totalPages}):
             </label>
@@ -579,7 +579,7 @@ export default function StudentCopyViewer() {
           <div>
             <label
               htmlFor="queryText"
-              className="block text-gray-700 text-base font-medium mb-2"
+              className="block text-gray-900 text-base font-bold mb-2"
             >
               Your Query:
             </label>
@@ -597,14 +597,14 @@ export default function StudentCopyViewer() {
             <button
               type="button"
               onClick={closeQueryModal}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition duration-150"
+              className="px-6 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 font-bold transition duration-150"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmittingQuery}
-              className="inline-flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 font-semibold transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 font-bold transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmittingQuery ? (
                 <svg

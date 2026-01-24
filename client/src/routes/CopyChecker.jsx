@@ -34,6 +34,9 @@ export default function CopyChecker() {
   const [comments, setComments] = useState("");
   // Track pages saved in current session only (for temporary UI feedback)
   const [justSavedPages, setJustSavedPages] = useState(new Set());
+  // Track multiple marks entries for breakdown
+  const [marksBreakdown, setMarksBreakdown] = useState([]);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   // UI States
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -99,11 +102,41 @@ export default function CopyChecker() {
     if (!copy) return;
     const foundPageData = copy.pages.find((p) => p.pageNumber === currentPage);
     if (foundPageData) {
-      setMarks(foundPageData.marksAwarded ?? "");
-      setComments(foundPageData.comments ?? "");
+      setMarks(""); // Always keep marks input empty when loading
+      // Parse breakdown from comments if it exists
+      const commentsText = String(foundPageData.comments || "");
+      const breakdownMatch = commentsText.match(/Marks Breakdown: ([\d.+\s]+)/);
+      
+      if (breakdownMatch) {
+        const breakdownStr = breakdownMatch[1].trim();
+        const marksArray = breakdownStr.split('+').map(m => parseFloat(m.trim())).filter(m => !isNaN(m));
+        
+        // Parse individual comments for each mark
+        const afterBreakdown = commentsText.substring(commentsText.indexOf('\n', commentsText.indexOf('Marks Breakdown:')) + 1);
+        const lines = afterBreakdown.split('\n');
+        const breakdown = marksArray.map((m, idx) => {
+          // Look for comment in format "1. comment text"
+          const commentLine = lines.find(line => line.trim().startsWith(`${idx + 1}.`));
+          const comment = commentLine ? commentLine.substring(commentLine.indexOf('.') + 1).trim() : '';
+          return { marks: m, comment };
+        });
+        
+        setMarksBreakdown(breakdown);
+        setShowBreakdown(true);
+        
+        // Extract examiner's comment after "Examiner's comment:"
+        const examinerCommentMatch = commentsText.match(/Examiner's comment:\s*([\s\S]*)/i);
+        setComments(examinerCommentMatch ? examinerCommentMatch[1].trim() : "");
+      } else {
+        setComments(foundPageData.comments ?? "");
+        setMarksBreakdown([]);
+        setShowBreakdown(false);
+      }
     } else {
       setMarks("");
       setComments("");
+      setMarksBreakdown([]);
+      setShowBreakdown(false);
     }
 
     // Reset zoom when AC page changes, and set loading to true
@@ -118,6 +151,36 @@ export default function CopyChecker() {
   // Combine server-checked pages with blank-identified pages (transient) so blanks count as checked for the session
   const combinedCheckedSet = new Set([...checkedPages, ...blankPagesArr]);
   const totalChecked = combinedCheckedSet.size;
+
+  // Functions to manage marks breakdown
+  const addMarkToBreakdown = () => {
+    if (marks === "" || isNaN(parseFloat(marks)) || parseFloat(marks) < 0) {
+      toastError("Please enter valid marks before adding to breakdown");
+      return;
+    }
+    setMarksBreakdown([...marksBreakdown, { marks: parseFloat(marks), comment: '' }]);
+    setMarks("");
+    setShowBreakdown(true);
+    toastSuccess("Marks added to breakdown");
+  };
+
+  const removeMarkFromBreakdown = (index) => {
+    const newBreakdown = marksBreakdown.filter((_, i) => i !== index);
+    setMarksBreakdown(newBreakdown);
+    if (newBreakdown.length === 0) {
+      setShowBreakdown(false);
+    }
+  };
+
+  const updateBreakdownComment = (index, comment) => {
+    const newBreakdown = [...marksBreakdown];
+    newBreakdown[index].comment = comment;
+    setMarksBreakdown(newBreakdown);
+  };
+
+  const getTotalFromBreakdown = () => {
+    return marksBreakdown.reduce((sum, item) => sum + item.marks, 0);
+  };
 
   // (Question Paper is provided as an external link in the sidebar)
 
@@ -153,10 +216,10 @@ export default function CopyChecker() {
     );
   if (!copy)
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="flex flex-col items-center text-gray-600 text-lg">
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center text-gray-600 text-lg font-bold">
           <svg
-            className="animate-spin h-10 w-10 text-indigo-500"
+            className="animate-spin h-10 w-10 text-gray-900"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -227,20 +290,33 @@ export default function CopyChecker() {
     if (isSaving) return; // Prevent multiple submissions while saving
     setIsSaving(true);
     try {
-      if (marks === "" || isNaN(parseFloat(marks))) {
-        toastError("Please enter a valid number for marks.");
-        setIsSaving(false);
-        return;
+      // Determine the final marks to save
+      let finalMarks;
+      
+      if (marksBreakdown.length > 0) {
+        // Using breakdown mode - calculate total
+        finalMarks = getTotalFromBreakdown();
+      } else {
+        // Single marks mode - allow empty marks (defaults to 0)
+        if (marks === "" || marks === null || marks === undefined) {
+          finalMarks = 0; // Default to 0 if no marks entered
+        } else if (isNaN(parseFloat(marks))) {
+          toastError("Please enter a valid number for marks.");
+          setIsSaving(false);
+          return;
+        } else if (parseFloat(marks) < 0) {
+          toastError("Marks cannot be negative.");
+          setIsSaving(false);
+          return;
+        } else {
+          finalMarks = parseFloat(marks);
+        }
       }
-      if (parseFloat(marks) < 0) {
-        toastError("Marks cannot be negative.");
-        setIsSaving(false);
-        return;
-      }
+      
       // Check if total marks would exceed the maximum allowed
       const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
       const currentPageMarks = currentPageData?.marksAwarded || 0;
-      const newTotalMarks = totalMarks - currentPageMarks + parseFloat(marks);
+      const newTotalMarks = totalMarks - currentPageMarks + finalMarks;
       const maxMarks = copy.questionPaper?.totalMarks || 0;
       
       if (newTotalMarks > maxMarks) {
@@ -250,10 +326,30 @@ export default function CopyChecker() {
         setIsSaving(false);
         return;
       }
+      
+      // Format comments with breakdown if exists
+      let finalComments = '';
+      
+      if (marksBreakdown.length > 0) {
+        const breakdownStr = marksBreakdown.map(item => item.marks).join(' + ');
+        const breakdownComments = marksBreakdown
+          .map((item, idx) => item.comment ? `${idx + 1}. ${item.comment}` : '')
+          .filter(c => c)
+          .join('\n');
+        
+        finalComments = `Marks Breakdown: ${breakdownStr}\n${breakdownComments}${breakdownComments ? '\n' : ''}`;
+        const commentsStr = String(comments || '');
+        if (commentsStr.trim()) {
+          finalComments += `Examiner's comment: ${commentsStr}`;
+        }
+      } else {
+        finalComments = String(comments || '');
+      }
+      
       const payload = {
         pageNumber: currentPage,
-        marks: parseFloat(marks), // Use parseFloat to support decimal marks
-        comments,
+        marks: finalMarks,
+        comments: finalComments.trim(),
       };
       const res = await api.patch(`/examiner/copies/${copyId}/mark-page`, payload);
       setCopy(res.data); // Update local copy state with new data from server
@@ -339,32 +435,12 @@ export default function CopyChecker() {
   
 
   return (
-    <div className="bg-gray-100 min-h-screen font-sans relative">
+    <div className="bg-white min-h-screen font-sans relative" style={{fontFamily: 'Dosis, sans-serif'}}>
       {" "}
       {/* Added relative for toast positioning */}
       {/* Toasts are provided globally via react-hot-toast */}
       {/* Top Navigation Bar */}
-      <nav className="bg-white shadow-sm py-4 px-8 border-b border-gray-200 flex justify-between items-center w-full">
-        <div className="flex items-center space-x-4">
-          <Link
-            to="/examiner"
-            className="text-gray-700 hover:text-indigo-600 flex items-center font-medium transition duration-200"
-          >
-            <ArrowLeftIcon className="w-5 h-5 mr-2" /> Back to Dashboard
-          </Link>
-          <span className="text-gray-500">|</span>
-          <span className="text-xl font-bold text-gray-800">Copy-Check</span>
-        </div>
-        <div>
-          {/* Add other navigation options here if needed, e.g., Profile, Logout */}
-          <Link
-            to="/logout"
-            className="text-gray-700 hover:text-red-600 font-medium transition duration-200"
-          >
-            Logout
-          </Link>
-        </div>
-      </nav>
+     
       <div className="p-4">
         {" "}
         {/* Main content padding */}
@@ -378,24 +454,36 @@ export default function CopyChecker() {
         </div> */}
         {/* Completion Timeline */}
         <div className="bg-white p-3 rounded-md border border-gray-200 max-w-6xl mx-auto mb-6">
-          <h3 className="text-xl font-semibold text-gray-800 mb-3">
+          <h3 className="text-xl font-bold text-gray-900 mb-3">
             Marking Progress: {totalChecked} of {copy.totalPages} pages
             checked ({completionPercentage.toFixed(1)}%)
           </h3>
           <div className="w-full bg-gray-200 rounded-full h-4">
             <div
-              className="bg-indigo-600 h-4 rounded-full transition-all duration-500 ease-out"
+              className="bg-gray-900 h-4 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${completionPercentage}%` }}
             ></div>
           </div>
         </div>
         {/* Main layout: Answer Copy center-expanded, controls + marking on right sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-          <div className="lg:col-span-10 bg-white flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-2">
-              <h2 className="text-2xl p-4 font-semibold text-gray-800 text-center">Answer Copy</h2>
+          <div className="lg:col-span-9 bg-white flex flex-col items-center">
+            <div className="w-full flex items-center justify-between mb-2 px-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-2xl font-bold text-gray-900">Answer Copy</h2>
+                <div className="text-xs text-gray-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                  <strong>Max:</strong> {copy.questionPaper?.totalMarks || 'N/A'} <span className={(function(){
+                    const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                    const currentPageMarks = currentPageData?.marksAwarded || 0;
+                    const pageMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
+                    const newTotalMarks = totalMarks - currentPageMarks + pageMarks;
+                    const maxMarks = copy.questionPaper?.totalMarks || 0;
+                    return newTotalMarks > maxMarks ? 'text-red-600 font-bold' : 'text-green-600 font-semibold';
+                  })()}></span>
+                </div>
+              </div>
               {/* Page check indicator */}
-              <div className="flex items-center space-x-2 mr-2">
+              <div className="flex items-center space-x-2">
                 {(function(){
                   const isChecked = combinedCheckedSet.has(currentPage);
                   return (
@@ -407,10 +495,10 @@ export default function CopyChecker() {
                 })()}
               </div>
             </div>
-            <div className="relative w-full overflow-auto flex items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
+            <div className="relative w-full overflow-hidden flex items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-                  <svg className="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-8 w-8 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -439,11 +527,11 @@ export default function CopyChecker() {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`w-10 h-10 rounded-full text-sm font-semibold transition relative flex items-center justify-center ${
+                      className={`w-10 h-10 rounded-full text-sm font-bold transition relative flex items-center justify-center ${
                         isCurrentPage
-                          ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
+                          ? 'bg-gray-900 text-white shadow-md ring-2 ring-gray-700'
                           : isBlank
-                          ? 'bg-yellow-300 text-yellow-900 hover:bg-yellow-400'
+                          ? 'bg-red-200 text-red-900 hover:bg-red-300'
                           : isChecked
                           ? 'bg-green-500 text-white hover:bg-green-600'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -459,56 +547,106 @@ export default function CopyChecker() {
           </div>
 
           {/* Right Sidebar - Marking and Controls */}
-          <aside className="lg:col-span-2 flex flex-col space-y-4">
+          <aside className="lg:col-span-3 flex flex-col space-y-4">
             <div className="bg-white p-3 rounded-md border border-gray-200">
               {/* <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3> */}
               <div className="text-center mb-3">
-                <div className="text-sm text-gray-600">Page</div>
-                <div className="text-lg font-bold text-gray-800">{currentPage} / {acNumPages || "..."}</div>
+                {/* <div className="text-sm text-gray-600">Page</div> */}
+                <div className="text-lg font-bold text-gray-800">
+                  Page Number : {currentPage} / {acNumPages || "..."}
+                  {(function(){
+                    const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                    const savedMarks = currentPageData?.marksAwarded || 0;
+                    const currentMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
+                    const hasUnsavedChanges = currentMarks !== savedMarks && currentMarks > 0;
+                    
+                    if (savedMarks > 0) {
+                      return <span className="text-base text-green-600 mx-4">Page Total : {savedMarks}</span>;
+                    } else if (hasUnsavedChanges) {
+                      return (
+                        <>
+                          <span className="text-sm text-orange-600 ml-2">({currentMarks})</span>
+                          <div className="text-xs text-orange-600 mt-1">Please save</div>
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
               </div>
 
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
-                  <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
-                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
                 </div>
                 <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
               </div>
 
-              <div className="mt-2">
-                <h4 className="text-sm font-medium text-gray-700 mb-1">Question Paper</h4>
+              <div className="mt-2 flex gap-2">
                 {qpPdfUrl ? (
-                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Open Question Paper (new tab)</a>
+                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] text-sm font-bold flex items-center justify-center" title="Open Question Paper">
+                     Question Paper
+                  </a>
                 ) : (
-                  <div className="text-gray-500">Question paper link not available.</div>
-                )}
-                <div className="mt-3">
-                  <button onClick={() => setIsBlankModalOpen(true)} className="w-full bg-yellow-400 text-yellow-900 px-3 py-1 rounded-md hover:bg-yellow-500 text-sm flex items-center justify-center" title="Identify blank pages">
-                    Identify Blank Pages
+                  <button disabled className="flex-1 bg-gray-300 text-gray-500 px-3 py-1 rounded-md text-sm font-bold flex items-center justify-center cursor-not-allowed" title="Question paper not available">
+                     Question Paper
                   </button>
-                </div>
+                )}
+                <button onClick={() => setIsBlankModalOpen(true)} className="flex-1 bg-red-100 text-red-900 px-3 py-1 rounded-md hover:bg-red-200 text-sm font-bold flex items-center justify-center" title="Identify blank pages">
+                  Identify Blank Pages
+                </button>
               </div>
             </div>
 
             <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-400px)] overflow-y-auto">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2 sticky top-0 bg-white pb-2">Marking for Page {currentPage}</h3>
-              <div className="mb-2 text-xs text-gray-600 bg-blue-50 p-2 rounded border border-blue-200">
-                <strong>Max Total Marks:</strong> {copy.questionPaper?.totalMarks || 'N/A'} | <strong>Current Total:</strong> <span className={(function(){
-                  const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
-                  const currentPageMarks = currentPageData?.marksAwarded || 0;
-                  const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
-                  const maxMarks = copy.questionPaper?.totalMarks || 0;
-                  return newTotalMarks > maxMarks ? 'text-red-600 font-bold' : 'text-green-600 font-semibold';
-                })()}>{(function(){
-                  const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
-                  const currentPageMarks = currentPageData?.marksAwarded || 0;
-                  const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
-                  return newTotalMarks.toFixed(2);
-                })()}</span>
-              </div>
+              {/* Show breakdown as read-only display if exists */}
+              {showBreakdown && marksBreakdown.length > 0 && (
+                <div className="mb-3 p-2 bg-blue-50 border border-blue-300 rounded">
+                  <div className="text-xs font-bold text-blue-900 mb-1">Breakdown:</div>
+                  <div className="text-sm text-blue-900">
+                    {marksBreakdown.map(item => item.marks).join(' + ')} = <strong>{getTotalFromBreakdown()}</strong>
+                  </div>
+                  {marksBreakdown.some(item => item.comment) && (
+                    <div className="mt-2 space-y-1 text-xs text-gray-700">
+                      {marksBreakdown.map((item, idx) => item.comment ? (
+                        <div key={idx}>• {item.comment}</div>
+                      ) : null)}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="mb-3">
-                <label htmlFor="marks" className="block text-sm font-medium text-gray-700 mb-2">Marks Awarded:</label>
+                {/* Show breakdown editor if in breakdown mode */}
+                {showBreakdown && marksBreakdown.length > 0 && (
+                  <div className="mb-3 p-2 bg-green-50 border border-green-300 rounded">
+                    <div className="text-xs font-bold text-green-900 mb-2">Edit Breakdown:</div>
+                    <div className="space-y-2">
+                      {marksBreakdown.map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 bg-white p-2 rounded border border-green-200">
+                          <span className="font-bold text-sm text-gray-900 min-w-[40px]">{item.marks}</span>
+                          <input
+                            type="text"
+                            value={item.comment}
+                            onChange={(e) => updateBreakdownComment(index, e.target.value)}
+                            placeholder="Optional note"
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
+                          />
+                          <button
+                            onClick={() => removeMarkFromBreakdown(index)}
+                            className="text-red-600 hover:text-red-800 text-xs font-bold"
+                            title="Remove"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   {Array.from({ length: 21 }, (_, i) => i * 0.5).map((markValue) => {
                     const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
@@ -521,11 +659,11 @@ export default function CopyChecker() {
                         key={markValue}
                         onClick={() => setMarks(markValue.toString())}
                         disabled={wouldExceed}
-                        className={`px-2 py-1 rounded text-xs font-medium transition ${
+                        className={`px-2 py-1 rounded text-xs font-bold transition ${
                           parseFloat(marks) === markValue
-                            ? 'bg-blue-600 text-white shadow-md'
+                            ? 'bg-gray-900 text-white shadow-md'
                             : wouldExceed
-                            ? 'bg-red-100 text-red-400 cursor-not-allowed'
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         title={wouldExceed ? `Would exceed max marks (${maxMarks})` : ''}
@@ -535,21 +673,41 @@ export default function CopyChecker() {
                     );
                   })}
                 </div>
-                <input id="marks" type="number" min="0" step="0.5" value={marks} onChange={(e) => setMarks(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm" placeholder="Or type custom marks" />
+                <div className="flex gap-2">
+                  <input 
+                    id="marks" 
+                    type="number" 
+                    min="0" 
+                    step="0.5" 
+                    value={marks} 
+                    onChange={(e) => setMarks(e.target.value)} 
+                    className="flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm" 
+                    placeholder="Enter marks" 
+                  />
+                  <button
+                    onClick={addMarkToBreakdown}
+                    className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-bold whitespace-nowrap"
+                    title="Add marks to breakdown"
+                  >
+                    + Give Multiple Marks
+                  </button>
+                </div>
               </div>
               <div className="mb-3">
-                <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-1">Comments:</label>
+                <label htmlFor="comments" className="block text-sm font-bold text-gray-900 mb-1">Comments:</label>
                 <textarea id="comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm resize-y" placeholder="Add comments..."></textarea>
               </div>
               {(function(){
                 const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
                 const currentPageMarks = currentPageData?.marksAwarded || 0;
-                const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
+                const pageMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
+                const newTotalMarks = totalMarks - currentPageMarks + pageMarks;
                 const maxMarks = copy.questionPaper?.totalMarks || 0;
                 const wouldExceed = newTotalMarks > maxMarks;
-                return wouldExceed && marks !== '' && !isNaN(parseFloat(marks)) ? (
+                const hasMarks = showBreakdown && marksBreakdown.length > 0 || (marks !== '' && !isNaN(parseFloat(marks)));
+                return wouldExceed && hasMarks ? (
                   <div className="mb-2 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-700">
-                    <strong>⚠️ Warning:</strong> These marks would exceed the maximum total marks allowed ({maxMarks}). Please reduce the marks.
+                    <strong> Warning:</strong> These marks would exceed the maximum total marks allowed ({maxMarks}). Please reduce the marks.
                   </div>
                 ) : null;
               })()}
@@ -557,10 +715,12 @@ export default function CopyChecker() {
                 <button onClick={handleSavePage} disabled={isSaving || (function(){
                   const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
                   const currentPageMarks = currentPageData?.marksAwarded || 0;
-                  const newTotalMarks = totalMarks - currentPageMarks + (parseFloat(marks) || 0);
+                  const pageMarks = showBreakdown && marksBreakdown.length > 0 ? getTotalFromBreakdown() : (parseFloat(marks) || 0);
+                  const newTotalMarks = totalMarks - currentPageMarks + pageMarks;
                   const maxMarks = copy.questionPaper?.totalMarks || 0;
-                  return marks !== '' && !isNaN(parseFloat(marks)) && newTotalMarks > maxMarks;
-                })()} className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm flex items-center">
+                  const hasMarks = showBreakdown && marksBreakdown.length > 0 || (marks !== '' && !isNaN(parseFloat(marks)));
+                  return hasMarks && newTotalMarks > maxMarks;
+                })()} className="bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-bold flex items-center">
                   {isSaving ? (
                     <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   ) : (
@@ -572,9 +732,9 @@ export default function CopyChecker() {
             </div>
 
             <div className="bg-white p-3 rounded-md border border-gray-200">
-              <div className="text-sm font-semibold text-gray-800">Total: <span className="text-green-700">{totalMarks}</span></div>
+              <div className="text-sm font-bold text-gray-900">Total: <span className="text-gray-900">{totalMarks}</span></div>
               <div className="mt-3">
-                <button onClick={() => setShowReviewModal(true)} className="w-full bg-purple-600 text-white px-3 py-1 rounded-md hover:bg-purple-700 text-sm">Review & Submit</button>
+                <button onClick={() => setShowReviewModal(true)} className="w-full bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] text-sm font-bold">Review & Submit</button>
               </div>
             </div>
           </aside>
@@ -620,20 +780,20 @@ export default function CopyChecker() {
                     return (
                       <div
                         key={page.pageNumber}
-                        className={`bg-gray-50 p-4 rounded-lg border ${isChecked ? 'border-green-200' : 'border-gray-200'} shadow-sm`}
+                        className={`bg-gray-50 p-4 rounded-lg border ${isChecked ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <h4 className="text-lg font-bold text-gray-800">Page {page.pageNumber}</h4>
+                          <h4 className="text-lg font-bold text-gray-900">Page {page.pageNumber}</h4>
                           <div className="flex items-center space-x-2">
                             <span className={`h-3 w-3 rounded-full ${isChecked ? 'bg-green-500' : 'bg-gray-300'}`} />
                             <span className="text-sm text-gray-700">{isChecked ? 'Checked' : 'Not checked'}</span>
                           </div>
                         </div>
-                        <p className="text-gray-700">
+                        <p className="text-gray-700 font-bold">
                           <strong>Marks:</strong>{" "}
-                          <span className="font-semibold text-green-700">{page.marksAwarded ?? "N/A"}</span>
+                          <span className="font-bold text-gray-900">{page.marksAwarded ?? "N/A"}</span>
                         </p>
-                        <p className="text-gray-700">
+                        <p className="text-gray-700 font-bold">
                           <strong>Comments:</strong>{" "}
                           {page.comments || "No comments."}
                         </p>
@@ -645,20 +805,20 @@ export default function CopyChecker() {
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
             {/* Total marks showing*/}
-            <div className="text-lg font-semibold text-gray-800 pt-2">
+            <div className="text-lg font-bold text-gray-900 pt-2">
               Total Marks:{" "}
-              <span className="text-green-700">{totalMarks}</span>
+              <span className="text-gray-900">{totalMarks}</span>
             </div>
             <button
               onClick={() => setShowReviewModal(false)}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-bold transition"
             >
               Keep Checking
             </button>
             <button
               onClick={handleFinalSubmit}
               disabled={totalChecked !== copy.totalPages} // Only enable if all pages are checked/saved
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm & Finish
             </button>
@@ -683,11 +843,19 @@ export default function CopyChecker() {
                   const pageNum = i + 1;
                   const isMarkedBlank = blankPagesArr.includes(pageNum);
                   return (
-                    <div key={pageNum} className={`p-1 border rounded cursor-pointer flex flex-col items-center ${isMarkedBlank ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`} onClick={() => toggleBlankPage(pageNum)}>
-                      <div className="w-full flex items-center justify-center overflow-hidden" style={{ height: 140 }}>
+                    <div key={pageNum} className={`p-1 border rounded cursor-pointer flex flex-col items-center ${isMarkedBlank ? 'ring-2 ring-red-500 bg-red-50' : ''}`} onClick={() => toggleBlankPage(pageNum)}>
+                      <div className="w-full flex items-center justify-center overflow-hidden relative" style={{ height: 140 }}>
                         <Document file={acPdfUrl}>
                           <Page pageNumber={pageNum} scale={0.45} renderTextLayer={false} renderAnnotationLayer={false} />
                         </Document>
+                        {isMarkedBlank && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <line x1="0" y1="0" x2="100" y2="100" stroke="red" strokeWidth="3" />
+                              <line x1="100" y1="0" x2="0" y2="100" stroke="red" strokeWidth="3" />
+                            </svg>
+                          </div>
+                        )}
                       </div>
                       <div className="text-xs text-gray-700 mt-1">Page {pageNum}</div>
                     </div>

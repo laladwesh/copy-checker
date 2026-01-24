@@ -68,11 +68,11 @@ export default function Navbar({ user, onLogout }) {
   };
 
   return (
-    <nav className="bg-white shadow-lg p-4 md:px-8 flex flex-col md:flex-row justify-between items-center rounded-b-xl">
+    <nav className="bg-white border-b border-gray-200 p-4 md:px-8 flex flex-col md:flex-row justify-between items-center" style={{fontFamily: 'Dosis, sans-serif'}}>
       {/* Brand Logo/Link */}
       <Link
         to="/"
-        className="text-3xl font-extrabold text-indigo-700 hover:text-indigo-900 transition-colors duration-300 mb-3 md:mb-0"
+        className="text-3xl font-bold text-gray-900 hover:text-[#1e3a8a] transition-colors duration-300 mb-3 md:mb-0"
       >
         PIMS Copy-Check
       </Link>
@@ -84,15 +84,15 @@ export default function Navbar({ user, onLogout }) {
             {/* User Role Display - Now a button to open modal */}
             <button
               onClick={handleOpenModal} // Add onClick handler
-              className="flex items-center text-lg font-semibold text-gray-700 bg-indigo-100 px-4 py-2 rounded-full shadow-inner cursor-pointer hover:bg-indigo-200 transition-colors duration-200"
+              className="flex items-center text-base font-medium text-gray-900 bg-gray-100 px-4 py-2 rounded-xl border border-gray-300 cursor-pointer hover:bg-gray-200 transition-colors duration-200"
             >
-              <UserCircleIcon className="h-5 w-5 mr-2 text-indigo-600" />
+              <UserCircleIcon className="h-5 w-5 mr-2 text-gray-900" />
               {user.role?.toUpperCase()}
             </button>
             {/* Logout Button */}
             <button
               onClick={onLogout}
-              className="inline-flex items-center px-5 py-2 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-300 transform hover:-translate-y-0.5 hover:scale-105"
+              className="inline-flex items-center px-5 py-2 border border-gray-900 text-base font-medium rounded-xl text-white bg-gray-900 hover:bg-gray-800 focus:outline-none transition-colors duration-200"
             >
               <ArrowRightOnRectangleIcon className="h-5 w-5 mr-2" />
               Logout
@@ -102,7 +102,7 @@ export default function Navbar({ user, onLogout }) {
           /* Sign In Button */
           <a
             href={googleAuthUrl}
-            className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:-translate-y-0.5 hover:scale-105 group"
+            className="inline-flex items-center px-6 py-2 border border-transparent text-base font-medium rounded-full shadow-md text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:-translate-y-0.5 hover:scale-105 group"
           >
             {/* Updated Google G icon SVG with the new path */}
             <svg
