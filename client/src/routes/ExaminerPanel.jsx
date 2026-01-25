@@ -7,7 +7,8 @@ import {
   ClockIcon,
   QuestionMarkCircleIcon,
   EyeIcon, // For view PDF
-  PencilSquareIcon // For Check/Mark
+  PencilSquareIcon, // For Check/Mark
+  AcademicCapIcon // For instructions
 } from '@heroicons/react/24/outline';
 
 export default function ExaminerPanel() {
@@ -48,9 +49,18 @@ export default function ExaminerPanel() {
 
   return (
     <div className="p-8 space-y-8 bg-white min-h-screen font-sans" style={{fontFamily: 'Dosis, sans-serif'}}>
-      <h1 className="text-5xl font-bold text-gray-900 text-center mb-12 tracking-tight">
-        Examiner Dashboard
-      </h1>
+      <div className="flex items-center justify-between mb-12">
+        <h1 className="text-5xl font-bold text-gray-900 tracking-tight">
+          Examiner Dashboard
+        </h1>
+        <Link
+          to="/examiner/instructions"
+          className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+        >
+          <AcademicCapIcon className="h-5 w-5" />
+          <span>Instructions & Help</span>
+        </Link>
+      </div>
 
       {/* Global Message/Toast */}
       {message && (
@@ -60,6 +70,39 @@ export default function ExaminerPanel() {
           {message}
         </div>
       )}
+
+      {/* Help Banner for New Examiners */}
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-800 rounded-lg p-6 mb-8 shadow-md">
+        <div className="flex items-start space-x-4">
+          <AcademicCapIcon className="h-8 w-8 text-black flex-shrink-0 mt-1" />
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              Welcome! New to the system?
+            </h3>
+            <p className="text-gray-700 mb-3">
+              Learn about your rights, features, and the performance-based allocation system that rewards fast and reliable examiners.
+            </p>
+            <Link
+              to="/examiner/instructions"
+              className="inline-flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+            >
+              <span>View Complete Instructions</span>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+          <button
+            onClick={(e) => e.currentTarget.parentElement.parentElement.style.display = 'none'}
+            className="text-gray-400 hover:text-gray-600"
+            title="Dismiss"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* Feature Cards Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
