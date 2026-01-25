@@ -27,9 +27,20 @@ app.use(passport.initialize());
 // HTTP request logger
 app.use(morgan("dev"));
 
+
+app.use((req, res, next) => {
+  // Block access to .env, .git, or any other dotfiles
+  if (req.path.includes('/.env') || req.path.includes('/.git')) {
+    console.log(`Blocked attempt to access system file: ${req.path}`);
+    return res.status(403).send('Forbidden');
+  }
+  next();
+});
+
+
 // Base route
 app.get("/api", (req, res) => {
-  res.send("🚀 Welcome to the Copy-Check API");
+  res.send("Welcome to the Copy-Check API");
 });
 
 // Mount feature routers
