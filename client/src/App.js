@@ -20,6 +20,7 @@ import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 import AdminManageQueries from './routes/AdminManageQueries';
 import ManageUsers from './routes/ManageUsers';
 import ExaminerInstructions from './routes/ExaminerInstructions';
+import ExaminerHowTo from './routes/ExaminerHowTo';
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
 import { Toaster } from 'react-hot-toast';
@@ -144,6 +145,10 @@ export default function App() {
               // </ProtectedRoute>
               <ExaminerInstructions />
             }
+          />
+          <Route
+            path="/how-to-examiner"
+            element={<ExaminerHowTo />}
           />
           <Route
             path="/examiner/check/:copyId"
