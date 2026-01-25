@@ -14,13 +14,12 @@ import ExaminerQueries from './routes/ExaminerQueries';
 import StudentCopyViewer from './components/StudentCopyViewer';
 import ExaminerQueryViewer from './components/ExaminerQueryViewer';
 import { setToken }      from './utils/auth';
-// NEW IMPORTS for Admin's detailed views
 import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
 import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 import AdminManageQueries from './routes/AdminManageQueries';
 import ManageUsers from './routes/ManageUsers';
-// Terms and Privacy pages
+import ExaminerInstructions from './routes/ExaminerInstructions';
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
 import { Toaster } from 'react-hot-toast';
@@ -137,6 +136,15 @@ export default function App() {
           />
 
           {/* Examiner Routes - More specific routes first */}
+          <Route
+            path="/examiner/instructions"
+            element={
+              // <ProtectedRoute user={user} role="examiner">
+              //   <ExaminerInstructions />
+              // </ProtectedRoute>
+              <ExaminerInstructions />
+            }
+          />
           <Route
             path="/examiner/check/:copyId"
             element={
