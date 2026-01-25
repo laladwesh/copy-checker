@@ -141,7 +141,7 @@ async function extractPageAsImage(pdfBuffer, pageNumber, uniqueId) {
     const imageBuffer = await fs.readFile(actualImgPath);
     return imageBuffer;
   } catch (err) {
-    console.error("Error in extractPageAsImage:", err);
+    console.error("[ERROR] Error in extractPageAsImage:", err);
     throw err; // Re-throw to be caught by the route handler
   } finally {
     // Clean up temporary files
@@ -186,7 +186,7 @@ router.get("/file/:id", async (req, res, next) => {
     res.setHeader("Content-Type", "application/pdf");
     driveRes.data.pipe(res);
   } catch (err) {
-    console.error("Error serving full PDF file:", err);
+    console.error("[ERROR] Error serving full PDF file:", err);
     next(err); // Pass error to Express error handling middleware
   }
 });
@@ -229,7 +229,7 @@ router.get(
       res.setHeader("Content-Type", "image/png"); // pdftoppm with -png outputs PNG
       res.send(imageBuffer);
     } catch (err) {
-      console.error("Error serving page image:", err);
+      console.error("[ERROR] Error serving page image:", err);
       // Include more specific error if available, otherwise generic
       res
         .status(500)
