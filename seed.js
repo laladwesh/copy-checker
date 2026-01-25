@@ -28,11 +28,11 @@ async function seed() {
   // 4) insert new ones
   await User.insertMany(users);
 
-  console.log('✅ Seeded users:', users.map(u => `${u.email} (${u.role})`).join(', '));
+  console.log('[SUCCESS] Seeded users:', users.map(u => `${u.email} (${u.role})`).join(', '));
   process.exit(0);
 }
 
 seed().catch(err => {
-  console.error('❌ Seed error:', err);
+  console.error('[ERROR] Seed error:', err);
   process.exit(1);
 });

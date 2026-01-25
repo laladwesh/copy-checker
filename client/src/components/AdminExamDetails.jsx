@@ -1002,7 +1002,7 @@ export default function AdminExamDetails() {
         <div className="p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
           <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
             <p className="font-bold text-gray-900">
-              📋 Selected: {(selectedExaminerCopies[sourceExaminerId] || []).length} copy(ies)
+              Selected: {(selectedExaminerCopies[sourceExaminerId] || []).length} copy(ies)
             </p>
             {sourceExaminerId && examinerStats[sourceExaminerId] && (
               <p className="text-sm text-gray-600 mt-1">

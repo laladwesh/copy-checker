@@ -25,7 +25,7 @@ async function generatePdfFromImages(imageBuffers) {
         imgType = "png";
       }
     } catch (error) {
-      console.error("Error processing image buffer for PDF:", error);
+      console.error("[ERROR] Error processing image buffer for PDF:", error);
       throw new Error("Failed to process image for PDF generation.");
     }
 
