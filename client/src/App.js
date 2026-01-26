@@ -21,6 +21,7 @@ import AdminManageQueries from './routes/AdminManageQueries';
 import ManageUsers from './routes/ManageUsers';
 import ExaminerInstructions from './routes/ExaminerInstructions';
 import ExaminerHowTo from './routes/ExaminerHowTo';
+import AdminAllocationGuide from './routes/AdminAllocationGuide';
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
 import { Toaster } from 'react-hot-toast';
@@ -69,6 +70,7 @@ export default function App() {
           {/* Public Routes - Terms and Privacy */}
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/allocation-guide" element={<AdminAllocationGuide />} />
 
           {/* Admin Routes - More specific routes first */}
           <Route
