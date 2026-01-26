@@ -1,5 +1,7 @@
 const Copy = require("../models/Copy");
 const Query = require("../models/Query"); // Assuming you have a Query model
+const User = require("../models/User");
+const { updateExaminerStats } = require("../utils/smartAllocation");
 
 exports.listPending = async (req, res, next) => {
   try {
@@ -216,7 +218,7 @@ exports.markPage = async (req, res, next) => {
             query.action = (query.action ? query.action + " | " : "") + queryActionMessages.join(" | ");
             await query.save();
         } else {
-            console.warn(`Query with ID ${queryId} not found for action update.`);
+            console.warn(`[WARNING] Query with ID ${queryId} not found for action update.`);
         }
     }
     // --- End Query.action update ---
@@ -228,7 +230,16 @@ exports.markPage = async (req, res, next) => {
     // Just update status to "examining" if currently pending/assigned
     if (copy.status === "pending" || copy.status === "assigned") {
         copy.status = "examining";
+        copy.evaluationStartedAt = new Date();
     }
+    
+    // Track last update by examiner
+    copy.lastUpdatedByExaminer = new Date();
+    
+    // Update examiner's lastActiveAt
+    await User.findByIdAndUpdate(req.user._id, {
+      'examinerStats.lastActiveAt': new Date()
+    });
     // --- End Status Update Logic ---
 
     await copy.save();
@@ -349,7 +360,17 @@ exports.markCompleteCopy = async (req, res, next) => {
     }
 
     copy.status = "evaluated"; // Set status to 'evaluated' when marking complete
+    copy.evaluationCompletedAt = new Date();
+    copy.lastUpdatedByExaminer = new Date();
     await copy.save();
+
+    // Update examiner statistics after completing a copy
+    try {
+      await updateExaminerStats(req.user._id);
+    } catch (statErr) {
+      console.error('[ERROR] Error updating examiner stats:', statErr);
+      // Don't fail the request if stats update fails
+    }
 
     const updatedCopy = await Copy.findById(req.params.id)
       .populate("questionPaper")

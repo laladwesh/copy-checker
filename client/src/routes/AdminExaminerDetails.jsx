@@ -86,54 +86,54 @@ export default function AdminExaminerDetails() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow-sm text-center max-w-md w-full border border-gray-200">
-          <div className="text-red-500 mb-4 mx-auto w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">!</div>
-          <h3 className="text-lg font-medium text-gray-900">Error Loading Profile</h3>
-          <p className="text-gray-500 mt-2 mb-6">{error}</p>
-          <button onClick={() => navigate(-1)} className="text-indigo-600 font-medium hover:underline">Go Back</button>
+      <div className="min-h-screen bg-white flex items-center justify-center p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
+        <div className="bg-white p-8 rounded-lg text-center max-w-md w-full border-2 border-gray-900">
+          <div className="text-red-600 mb-4 mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center font-bold text-2xl border-2 border-red-600">!</div>
+          <h3 className="text-lg font-bold text-gray-900">Error Loading Profile</h3>
+          <p className="text-gray-700 font-semibold mt-2 mb-6">{error}</p>
+          <button onClick={() => navigate(-1)} className="text-gray-900 font-bold hover:underline">Go Back</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 font-sans">
+    <div className="min-h-screen bg-white p-8" style={{fontFamily: 'Dosis, sans-serif'}}>
       <div className="max-w-full mx-auto space-y-6">
         
         {/* Navigation & Header */}
         <div>
           <button 
             onClick={() => navigate(-1)} 
-            className="group flex items-center text-sm text-gray-500 hover:text-indigo-600 transition-colors mb-4"
+            className="group flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors mb-4 font-bold"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-1 group-hover:-translate-x-1 transition-transform" />
             Back to Examiners
           </button>
           
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="bg-white rounded-lg p-6 border-2 border-gray-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="h-16 w-16 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl shadow-inner">
+              <div className="h-16 w-16 rounded-full bg-gray-900 border-2 border-gray-900 flex items-center justify-center text-white font-bold text-2xl">
                 {String(examiner?.name || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{examiner?.name}</h1>
-                <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                <div className="flex items-center gap-4 mt-1 text-sm text-gray-700 font-semibold">
                   <span className="flex items-center gap-1.5">
                     <EnvelopeIcon className="w-4 h-4" />
                     {examiner?.email}
                   </span>
-                  <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                  <span className="text-gray-400">ID: {examinerId.slice(-6).toUpperCase()}</span>
+                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                  <span className="text-gray-600">ID: {examinerId.slice(-6).toUpperCase()}</span>
                 </div>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              <span className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
+              <span className={`px-4 py-1.5 rounded-lg text-sm font-bold border-2 ${
                 stats.completionRate === 100 
-                  ? 'bg-green-50 text-green-700 border-green-200' 
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                  ? 'bg-green-100 text-green-900 border-green-900' 
+                  : 'bg-gray-100 text-gray-900 border-gray-900'
               }`}>
                 {stats.completionRate === 100 ? 'Completed' : 'Active'}
               </span>
@@ -146,77 +146,73 @@ export default function AdminExaminerDetails() {
            <StatCard 
              label="Assigned" 
              value={stats.assigned} 
-             icon={InboxStackIcon} 
-             color="blue" 
+             icon={InboxStackIcon}
            />
            <StatCard 
              label="Evaluated" 
              value={stats.evaluated} 
-             icon={CheckCircleIcon} 
-             color="green" 
+             icon={CheckCircleIcon}
            />
            <StatCard 
              label="Pending" 
              value={stats.pending} 
-             icon={ClockIcon} 
-             color="orange" 
+             icon={ClockIcon}
            />
            <StatCard 
              label="Completion" 
              value={`${stats.completionRate}%`} 
-             icon={ChartPieIcon} 
-             color="indigo" 
+             icon={ChartPieIcon}
            />
         </div>
 
         {/* Exam Breakdown List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 bg-white flex justify-between items-center">
+        <div className="bg-white rounded-lg border-2 border-gray-900 overflow-hidden">
+          <div className="p-6 border-b-2 border-gray-900 bg-white flex justify-between items-center">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <BookOpenIcon className="h-5 w-5 text-gray-400"/>
+              <BookOpenIcon className="h-5 w-5 text-gray-900"/>
               Evaluation Breakdown
             </h2>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-700 font-semibold">
               Involved in {Object.keys(stats.exams).length} Exams
             </span>
           </div>
           
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y-2 divide-gray-900">
             {Object.keys(stats.exams).length === 0 ? (
                <div className="p-12 text-center">
-                 <div className="mx-auto h-12 w-12 text-gray-300 mb-3">
+                 <div className="mx-auto h-12 w-12 text-gray-400 mb-3">
                    <InboxStackIcon />
                  </div>
-                 <h3 className="text-sm font-medium text-gray-900">No exams assigned</h3>
-                 <p className="text-sm text-gray-500 mt-1">This examiner has not been assigned any copies yet.</p>
+                 <h3 className="text-sm font-bold text-gray-900">No exams assigned</h3>
+                 <p className="text-sm text-gray-700 font-semibold mt-1">This examiner has not been assigned any copies yet.</p>
                </div>
             ) : (
               Object.entries(stats.exams).map(([id, e]) => {
                 const progress = e.assigned > 0 ? Math.round((e.evaluated / e.assigned) * 100) : 0;
                 
                 return (
-                  <div key={id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div key={id} className="p-6 hover:bg-gray-100 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                       <div>
-                        <h3 className="text-base font-semibold text-gray-900">{e.title}</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Exam ID: {id.slice(-6)}</p>
+                        <h3 className="text-base font-bold text-gray-900">{e.title}</h3>
+                        <p className="text-xs text-gray-700 font-semibold mt-0.5">Exam ID: {id.slice(-6)}</p>
                       </div>
                       <div className="text-right">
                         <span className="text-2xl font-bold text-gray-900">{e.evaluated}</span>
-                        <span className="text-gray-400 text-sm font-medium"> / {e.assigned}</span>
+                        <span className="text-gray-600 text-sm font-bold"> / {e.assigned}</span>
                       </div>
                     </div>
                     
                     {/* Progress Bar */}
                     <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-medium text-gray-500">
+                      <div className="flex justify-between text-xs font-bold text-gray-700">
                         <span>Progress</span>
                         <span>{progress}%</span>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden border-2 border-gray-900">
                         <div 
-                          className={`h-2.5 rounded-full transition-all duration-500 ${
-                            progress === 100 ? 'bg-green-500' : 'bg-indigo-600'
+                          className={`h-full transition-all duration-500 ${
+                            progress === 100 ? 'bg-green-500' : 'bg-gray-900'
                           }`}
                           style={{ width: `${progress}%` }}
                         ></div>
@@ -235,21 +231,14 @@ export default function AdminExaminerDetails() {
 
 // --- Reusable Components ---
 
-function StatCard({ label, value, icon: Icon, color }) {
-  const colors = {
-    blue: 'text-blue-600 bg-blue-50',
-    green: 'text-green-600 bg-green-50',
-    orange: 'text-orange-600 bg-orange-50',
-    indigo: 'text-indigo-600 bg-indigo-50',
-  };
-
+function StatCard({ label, value, icon: Icon }) {
   return (
-    <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+    <div className="bg-white p-5 rounded-lg border-2 border-gray-900 flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-gray-500">{label}</p>
+        <p className="text-sm font-bold text-gray-700">{label}</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
       </div>
-      <div className={`p-3 rounded-lg ${colors[color]}`}>
+      <div className="p-3 rounded-lg bg-gray-900 text-white">
         <Icon className="w-6 h-6" />
       </div>
     </div>
@@ -258,14 +247,14 @@ function StatCard({ label, value, icon: Icon, color }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 p-8 animate-pulse">
+    <div className="min-h-screen bg-white p-8 animate-pulse" style={{fontFamily: 'Dosis, sans-serif'}}>
       <div className="max-w-full mx-auto space-y-6">
-        <div className="h-6 w-32 bg-gray-200 rounded"></div>
-        <div className="h-32 bg-gray-200 rounded-2xl"></div>
+        <div className="h-6 w-32 bg-gray-300 rounded"></div>
+        <div className="h-32 bg-gray-300 rounded-lg border-2 border-gray-900"></div>
         <div className="grid grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-xl"></div>)}
+          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-300 rounded-lg border-2 border-gray-900"></div>)}
         </div>
-        <div className="h-64 bg-gray-200 rounded-xl"></div>
+        <div className="h-64 bg-gray-300 rounded-lg border-2 border-gray-900"></div>
       </div>
     </div>
   );

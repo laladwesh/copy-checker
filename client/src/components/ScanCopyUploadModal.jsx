@@ -394,8 +394,8 @@ export default function ScanCopyUploadModal({
                 <span className="font-bold text-green-800">Remember this setup for bulk uploads</span>
                 <br />
                 <span className="text-xs text-gray-700 font-semibold">
-                  ✓ Batch & Question paper will auto-select when modal reopens<br/>
-                  ✓ You only need to select the student - super fast!<br/>
+                  • Batch & Question paper will auto-select when modal reopens<br/>
+                  • You only need to select the student - super fast!<br/>
                 </span>
               </label>
             </div>
@@ -412,7 +412,7 @@ export default function ScanCopyUploadModal({
           {showQpChangeWarning && (
             <div className="mt-3 bg-yellow-50 border border-yellow-300 rounded-lg p-3">
               <p className="text-sm text-yellow-800 font-semibold mb-2">
-                ⚠️ Change Question Paper?
+                [WARNING] Change Question Paper?
               </p>
               <p className="text-xs text-yellow-700 mb-3">
                 You have "Remember question paper" enabled. Changing the question paper will update it for all subsequent uploads.

@@ -29,6 +29,15 @@ const {
   addExaminerToExam,
   moveCopyToExaminer,
   bulkMoveCopies,
+  // Smart allocation and performance tracking
+  smartDistribute,
+  triggerAutoReallocation,
+  getExaminerPerformance,
+  updateExaminerStatsManual,
+  manualReallocateCopy,
+  getIdleCopies,
+  getPerformanceDashboard,
+  toggleExaminerActive,
 } = require("../controllers/admin.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -86,5 +95,30 @@ router.post(
   ]),
   uploadScannedCopy,
 );
+
+// ==================== SMART ALLOCATION & PERFORMANCE ROUTES ====================
+// Smart distribute copies for an exam
+router.post("/exams/:examId/smart-distribute", smartDistribute);
+
+// Trigger auto-reallocation of idle copies
+router.post("/auto-reallocate", triggerAutoReallocation);
+
+// Get examiner performance statistics
+router.get("/examiner-performance", getExaminerPerformance);
+
+// Update examiner stats manually
+router.post("/examiners/:examinerId/update-stats", updateExaminerStatsManual);
+
+// Manual reallocate a copy
+router.post("/copies/:copyId/reallocate", manualReallocateCopy);
+
+// Get idle copies report
+router.get("/idle-copies", getIdleCopies);
+
+// Get performance dashboard
+router.get("/performance-dashboard", getPerformanceDashboard);
+
+// Toggle examiner active status
+router.post("/examiners/:examinerId/toggle-active", toggleExaminerActive);
 
 module.exports = router;

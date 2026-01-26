@@ -70,6 +70,11 @@ const CopySchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  assignedAt: { type: Date }, // When the copy was assigned to current examiner
+  lastUpdatedByExaminer: { type: Date }, // Last time examiner made any change
+  reassignmentCount: { type: Number, default: 0 }, // How many times this copy was reassigned
+  evaluationStartedAt: { type: Date }, // When examiner started checking (status changed to examining)
+  evaluationCompletedAt: { type: Date }, // When evaluation was completed
   isReleasedToStudent: { type: Boolean, default: false }, // NEW: Track if copy is released to student
   createdAt: { type: Date, default: Date.now },
 });

@@ -16,6 +16,12 @@ const { assignedCopiesHtml } = require("../utils/emailTemplates");
 const fsSync = require('fs');
 const path = require('path');
 const os = require('os');
+const {
+  smartDistributeCopies,
+  autoReallocateIdleCopies,
+  updateExaminerStats,
+  manualReallocate
+} = require("../utils/smartAllocation");
 const getDirectDriveDownloadLink = (fileId) => {
     if (!fileId) return null;
     return `https://drive.google.com/uc?export=download&id=${fileId}`;
@@ -44,7 +50,7 @@ exports.deleteCopy = async (req, res, next) => {
         await drive.files.delete({ fileId: copy.driveFile.id });
       }
     } catch (driveErr) {
-      console.error("Warning: failed to delete copy drive file:", driveErr.message);
+      console.error("[WARNING] Warning: failed to delete copy drive file:", driveErr.message);
       // Do not fail the whole operation on drive errors
     }
 
@@ -81,7 +87,7 @@ exports.deleteExam = async (req, res, next) => {
           await drive.files.delete({ fileId: cp.driveFile.id });
         }
       } catch (innerErr) {
-        console.error("Warning: error while cleaning a copy during exam delete:", innerErr.message);
+        console.error("[WARNING] Warning: error while cleaning a copy during exam delete:", innerErr.message);
       }
     }
 
@@ -94,7 +100,7 @@ exports.deleteExam = async (req, res, next) => {
         await drive.files.delete({ fileId: paper.driveFile.id });
       }
     } catch (driveErr) {
-      console.error("Warning: failed to delete paper drive file:", driveErr.message);
+      console.error("[WARNING] Warning: failed to delete paper drive file:", driveErr.message);
     }
 
     // Finally delete Paper document
@@ -133,7 +139,7 @@ exports.deleteExamsBulk = async (req, res, next) => {
             await drive.files.delete({ fileId: cp.driveFile.id });
           }
         } catch (e) {
-          console.error("Warning: cleaning copy during bulk exam delete:", e.message);
+          console.error("[WARNING] Warning: cleaning copy during bulk exam delete:", e.message);
         }
       }
       await Copy.deleteMany({ questionPaper: id });
@@ -141,7 +147,7 @@ exports.deleteExamsBulk = async (req, res, next) => {
         try {
           await drive.files.delete({ fileId: paper.driveFile.id });
         } catch (e) {
-          console.error("Warning: deleting paper drive file during bulk delete:", e.message);
+          console.error("[WARNING] Warning: deleting paper drive file during bulk delete:", e.message);
         }
       }
       await Paper.deleteOne({ _id: id });
@@ -173,7 +179,7 @@ exports.deleteCopiesBulk = async (req, res, next) => {
         try {
           await drive.files.delete({ fileId: cp.driveFile.id });
         } catch (e) {
-          console.error("Warning: deleting copy drive file during bulk delete:", e.message);
+          console.error("[WARNING] Warning: deleting copy drive file during bulk delete:", e.message);
         }
       }
       await Copy.deleteOne({ _id: id });
@@ -502,7 +508,7 @@ exports.createExam = async (req, res, next) => {
       exam: paper,
     });
   } catch (err) {
-    console.error("Error creating exam:", err);
+    console.error("[ERROR] Error creating exam:", err);
     res.status(500).json({
       message: "Failed to create exam due to an internal server error.",
       error: err.message,
@@ -624,12 +630,12 @@ exports.assignExaminersToExam = async (req, res, next) => {
           try {
             await sendEmail({ to: examiner.email, subject, html });
           } catch (emailErr) {
-            console.error(`Failed to send assignment email to ${examiner.email}:`, emailErr);
+            console.error(`[ERROR] Failed to send assignment email to ${examiner.email}:`, emailErr);
           }
         }
       }
     } catch (notifyErr) {
-      console.error("Error sending assignment emails:", notifyErr);
+      console.error("[ERROR] Error sending assignment emails:", notifyErr);
     }
 
     res.status(200).json({
@@ -637,7 +643,7 @@ exports.assignExaminersToExam = async (req, res, next) => {
       paper: paper,
     });
   } catch (err) {
-    console.error("Error assigning examiners to exam:", err);
+    console.error("[ERROR] Error assigning examiners to exam:", err);
     next(err);
   }
 };
@@ -678,7 +684,7 @@ exports.unassignExaminersFromExam = async (req, res, next) => {
       modifiedCopies: modified,
     });
   } catch (err) {
-    console.error("Error unassigning examiners from exam:", err);
+    console.error("[ERROR] Error unassigning examiners from exam:", err);
     next(err);
   }
 };
@@ -753,7 +759,7 @@ exports.redistributeCopies = async (req, res, next) => {
     });
 
   } catch (err) {
-    console.error("Error redistributing copies:", err);
+    console.error("[ERROR] Error redistributing copies:", err);
     next(err);
   }
 };
@@ -889,7 +895,7 @@ exports.uploadCopy = async (req, res, next) => {
 
     res.status(201).json(copy);
   } catch (err) {
-    console.error("Error uploading copy:", err);
+    console.error("[ERROR] Error uploading copy:", err);
     next(err);
   }
 };
@@ -1244,7 +1250,7 @@ exports.uploadScannedCopy = async (req, res, next) => {
       copy: newCopy,
     });
   } catch (err) {
-    console.error("Error uploading scanned copy:", err);
+    console.error("[ERROR] Error uploading scanned copy:", err);
     next(err);
   }
 };
@@ -1565,3 +1571,357 @@ exports.deleteUserBulk = async (req, res, next) => {
     next(err);
   }
 };
+
+// ==================== SMART ALLOCATION & PERFORMANCE TRACKING ====================
+
+/**
+ * Smart distribute copies for an exam based on examiner performance
+ * POST /api/admin/exams/:examId/smart-distribute
+ */
+exports.smartDistribute = async (req, res, next) => {
+  try {
+    const { examId } = req.params;
+    const result = await smartDistributeCopies(examId);
+    res.json(result);
+  } catch (err) {
+    console.error("[ERROR] Error in smart distribution:", err);
+    next(err);
+  }
+};
+
+/**
+ * Trigger auto-reallocation of idle copies
+ * POST /api/admin/auto-reallocate
+ * Body: { idleThresholdHours: 24, warningThresholdHours: 12 }
+ */
+exports.triggerAutoReallocation = async (req, res, next) => {
+  try {
+    const { idleThresholdHours = 24, warningThresholdHours = 12 } = req.body;
+    const result = await autoReallocateIdleCopies(idleThresholdHours, warningThresholdHours);
+    res.json({
+      message: 'Auto-reallocation completed',
+      ...result
+    });
+  } catch (err) {
+    console.error("[ERROR] Error in auto-reallocation:", err);
+    next(err);
+  }
+};
+
+/**
+ * Get examiner performance statistics
+ * GET /api/admin/examiner-performance?examId=xxx
+ */
+exports.getExaminerPerformance = async (req, res, next) => {
+  try {
+    const { examId } = req.query;
+    
+    let query = { role: 'examiner' };
+    
+    const examiners = await User.find(query)
+      .select('name email examinerStats')
+      .sort({ 'examinerStats.performanceScore': -1 });
+
+    // If examId provided, get exam-specific stats
+    if (examId) {
+      const examStats = await Promise.all(examiners.map(async (examiner) => {
+        const totalAssigned = await Copy.countDocuments({
+          questionPaper: examId,
+          examiners: examiner._id
+        });
+
+        const totalEvaluated = await Copy.countDocuments({
+          questionPaper: examId,
+          examiners: examiner._id,
+          status: 'evaluated'
+        });
+
+        const currentPending = await Copy.countDocuments({
+          questionPaper: examId,
+          examiners: examiner._id,
+          status: { $in: ['pending', 'examining'] }
+        });
+
+        const avgTime = await Copy.aggregate([
+          {
+            $match: {
+              questionPaper: new mongoose.Types.ObjectId(examId),
+              examiners: examiner._id,
+              status: 'evaluated',
+              assignedAt: { $exists: true },
+              evaluationCompletedAt: { $exists: true }
+            }
+          },
+          {
+            $project: {
+              checkingTime: {
+                $divide: [
+                  { $subtract: ['$evaluationCompletedAt', '$assignedAt'] },
+                  1000 * 60 * 60 // Convert to hours
+                ]
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              avgCheckingTime: { $avg: '$checkingTime' }
+            }
+          }
+        ]);
+
+        return {
+          examinerId: examiner._id,
+          name: examiner.name,
+          email: examiner.email,
+          examSpecific: {
+            totalAssigned,
+            totalEvaluated,
+            currentPending,
+            completionRate: totalAssigned > 0 ? ((totalEvaluated / totalAssigned) * 100).toFixed(1) : 0,
+            avgCheckingTimeHours: avgTime.length > 0 ? avgTime[0].avgCheckingTime.toFixed(1) : 0
+          },
+          overall: examiner.examinerStats || {}
+        };
+      }));
+
+      return res.json(examStats);
+    }
+
+    // Return overall stats
+    const stats = examiners.map(examiner => ({
+      examinerId: examiner._id,
+      name: examiner.name,
+      email: examiner.email,
+      stats: examiner.examinerStats || {}
+    }));
+
+    res.json(stats);
+  } catch (err) {
+    console.error("[ERROR] Error getting examiner performance:", err);
+    next(err);
+  }
+};
+
+/**
+ * Update examiner stats manually
+ * POST /api/admin/examiners/:examinerId/update-stats
+ */
+exports.updateExaminerStatsManual = async (req, res, next) => {
+  try {
+    const { examinerId } = req.params;
+    const updatedExaminer = await updateExaminerStats(examinerId);
+    res.json({
+      message: 'Examiner stats updated successfully',
+      examiner: {
+        id: updatedExaminer._id,
+        name: updatedExaminer.name,
+        stats: updatedExaminer.examinerStats
+      }
+    });
+  } catch (err) {
+    console.error("[ERROR] Error updating examiner stats:", err);
+    next(err);
+  }
+};
+
+/**
+ * Manual reallocate a copy to a different examiner
+ * POST /api/admin/copies/:copyId/reallocate
+ * Body: { newExaminerId: "xxx" }
+ */
+exports.manualReallocateCopy = async (req, res, next) => {
+  try {
+    const { copyId } = req.params;
+    const { newExaminerId } = req.body;
+
+    if (!newExaminerId) {
+      return res.status(400).json({ message: 'New examiner ID is required' });
+    }
+
+    const result = await manualReallocate(copyId, newExaminerId);
+    res.json(result);
+  } catch (err) {
+    console.error("[ERROR] Error in manual reallocation:", err);
+    next(err);
+  }
+};
+
+/**
+ * Get idle copies report
+ * GET /api/admin/idle-copies?thresholdHours=24
+ */
+exports.getIdleCopies = async (req, res, next) => {
+  try {
+    const { thresholdHours = 24, examId } = req.query;
+    const idleDate = new Date(Date.now() - thresholdHours * 60 * 60 * 1000);
+
+    let query = {
+      status: { $in: ['pending', 'examining'] },
+      assignedAt: { $lt: idleDate },
+      examiners: { $exists: true, $not: { $size: 0 } }
+    };
+
+    if (examId) {
+      query.questionPaper = examId;
+    }
+
+    const idleCopies = await Copy.find(query)
+      .populate('examiners', 'name email')
+      .populate('questionPaper', 'title course')
+      .populate('student', 'name email')
+      .sort({ assignedAt: 1 });
+
+    const report = idleCopies.map(copy => ({
+      copyId: copy._id,
+      student: copy.student ? { name: copy.student.name, email: copy.student.email } : null,
+      exam: copy.questionPaper ? { title: copy.questionPaper.title, course: copy.questionPaper.course } : null,
+      examiner: copy.examiners[0] ? { name: copy.examiners[0].name, email: copy.examiners[0].email } : null,
+      assignedAt: copy.assignedAt,
+      hoursIdle: Math.floor((Date.now() - new Date(copy.assignedAt)) / (1000 * 60 * 60)),
+      status: copy.status,
+      reassignmentCount: copy.reassignmentCount || 0
+    }));
+
+    res.json({
+      totalIdleCopies: report.length,
+      thresholdHours,
+      copies: report
+    });
+  } catch (err) {
+    console.error("[ERROR] Error getting idle copies:", err);
+    next(err);
+  }
+};
+
+/**
+ * Get performance dashboard summary
+ * GET /api/admin/performance-dashboard?examId=xxx
+ */
+exports.getPerformanceDashboard = async (req, res, next) => {
+  try {
+    const { examId } = req.query;
+
+    let examQuery = {};
+    if (examId) {
+      examQuery.questionPaper = examId;
+    }
+
+    // Overall stats
+    const totalCopies = await Copy.countDocuments(examQuery);
+    const pendingCopies = await Copy.countDocuments({ ...examQuery, status: 'pending' });
+    const examiningCopies = await Copy.countDocuments({ ...examQuery, status: 'examining' });
+    const evaluatedCopies = await Copy.countDocuments({ ...examQuery, status: 'evaluated' });
+    
+    // Idle copies (>24 hours)
+    const idleDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const idleCopies = await Copy.countDocuments({
+      ...examQuery,
+      status: { $in: ['pending', 'examining'] },
+      assignedAt: { $lt: idleDate }
+    });
+
+    // Top performers
+    const topPerformers = await User.find({ role: 'examiner' })
+      .select('name examinerStats')
+      .sort({ 'examinerStats.performanceScore': -1 })
+      .limit(5);
+
+    // Bottom performers (need attention)
+    const bottomPerformers = await User.find({ 
+      role: 'examiner',
+      'examinerStats.currentWorkload': { $gt: 0 }
+    })
+      .select('name examinerStats')
+      .sort({ 'examinerStats.performanceScore': 1 })
+      .limit(5);
+
+    // Average checking time
+    const avgCheckingTime = await Copy.aggregate([
+      {
+        $match: {
+          ...examQuery,
+          status: 'evaluated',
+          assignedAt: { $exists: true },
+          evaluationCompletedAt: { $exists: true }
+        }
+      },
+      {
+        $project: {
+          checkingTime: {
+            $divide: [
+              { $subtract: ['$evaluationCompletedAt', '$assignedAt'] },
+              1000 * 60 * 60
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          avgTime: { $avg: '$checkingTime' }
+        }
+      }
+    ]);
+
+    res.json({
+      overview: {
+        totalCopies,
+        pendingCopies,
+        examiningCopies,
+        evaluatedCopies,
+        idleCopies,
+        completionRate: totalCopies > 0 ? ((evaluatedCopies / totalCopies) * 100).toFixed(1) : 0,
+        averageCheckingTimeHours: avgCheckingTime.length > 0 ? avgCheckingTime[0].avgTime.toFixed(1) : 0
+      },
+      topPerformers: topPerformers.map(e => ({
+        name: e.name,
+        performanceScore: e.examinerStats?.performanceScore || 0,
+        copiesEvaluated: e.examinerStats?.totalCopiesEvaluated || 0,
+        avgTimeHours: e.examinerStats?.averageCheckingTimeHours || 0
+      })),
+      needsAttention: bottomPerformers.map(e => ({
+        name: e.name,
+        performanceScore: e.examinerStats?.performanceScore || 0,
+        currentWorkload: e.examinerStats?.currentWorkload || 0,
+        reassignedCopies: e.examinerStats?.totalCopiesReassigned || 0
+      }))
+    });
+  } catch (err) {
+    console.error("[ERROR] Error getting performance dashboard:", err);
+    next(err);
+  }
+};
+
+/**
+ * Toggle examiner active status
+ * POST /api/admin/examiners/:examinerId/toggle-active
+ * Body: { isActive: true/false }
+ */
+exports.toggleExaminerActive = async (req, res, next) => {
+  try {
+    const { examinerId } = req.params;
+    const { isActive } = req.body;
+
+    const examiner = await User.findById(examinerId);
+    if (!examiner || examiner.role !== 'examiner') {
+      return res.status(404).json({ message: 'Examiner not found' });
+    }
+
+    examiner.examinerStats.isActive = isActive;
+    await examiner.save();
+
+    res.json({
+      message: `Examiner ${isActive ? 'activated' : 'deactivated'} successfully`,
+      examiner: {
+        id: examiner._id,
+        name: examiner.name,
+        isActive: examiner.examinerStats.isActive
+      }
+    });
+  } catch (err) {
+    console.error("[ERROR] Error toggling examiner active status:", err);
+    next(err);
+  }
+};
+
