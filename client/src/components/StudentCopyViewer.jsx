@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+  import { useParams } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
 import {
-  ArrowLeftIcon,
+  // ArrowLeftIcon,
   PaperAirplaneIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
@@ -12,7 +12,8 @@ import {
   ChatBubbleLeftRightIcon, // For displaying queries
   
 } from "@heroicons/react/24/outline";
-import { toastError, toastSuccess, toastInfo } from "../utils/hotToast";
+import { toastError, toastSuccess } from "../utils/hotToast";
+// toastInfo available but not currently used
 
 // Import react-pdf components
 import { Document, Page, pdfjs } from "react-pdf"; //
@@ -36,6 +37,7 @@ export default function StudentCopyViewer() {
 
   // Zoom States
   const [qpZoomLevel, setQpZoomLevel] = useState(1.25);
+  console.log("QP Zoom Level:", qpZoomLevel);
   const [acZoomLevel, setAcZoomLevel] = useState(1.25);
 
   const ZOOM_STEP = 0.25;
@@ -49,15 +51,93 @@ export default function StudentCopyViewer() {
   const [isSubmittingQuery, setIsSubmittingQuery] = useState(false);
 
   // New states for react-pdf to track total pages
+  // eslint-disable-next-line no-unused-vars
   const [numQpPages, setNumQpPages] = useState(null);
+  console.log("Number of QP Pages:", numQpPages);
   const [numAcPages, setNumAcPages] = useState(null);
 
   // Initial loading state for the entire component's data
   const [isLoadingComponent, setIsLoadingComponent] = useState(true);
 
   // Callback for successful PDF document load (not per page load)
-  const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
-    setNumQpPages(numPages);
+  // const onQpDocumentLoadSuccess = useCallback(({ numPages }) => {
+  //   setNumQpPages(numPages);
+  // }, []);
+
+  // Screenshot and Print Protection
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Block Print Screen
+      if (e.key === "PrintScreen") {
+        e.preventDefault();
+        toastError("Screenshots are not allowed for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+P (Print)
+      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+        e.preventDefault();
+        toastError("Printing is disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+S (Save)
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        toastError("Saving is not allowed for security reasons.");
+        return false;
+      }
+
+      // Block F12 (Developer Tools)
+      if (e.key === "F12") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+Shift+I (Developer Tools)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "i") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+Shift+C (Element Inspector)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "c") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+Shift+J (Console)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "j") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+    };
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      toastError("Right-click is disabled for security reasons.");
+      return false;
+    };
+
+    const handleCopy = (e) => {
+      e.preventDefault();
+      toastError("Copying content is not allowed for security reasons.");
+      return false;
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("copy", handleCopy);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("copy", handleCopy);
+    };
   }, []);
 
   const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
@@ -236,6 +316,7 @@ export default function StudentCopyViewer() {
   );
 
   // Get the PDF URLs instead of image URLs
+  // eslint-disable-next-line no-unused-vars
   const qpPdfUrl = copy.questionPaper?.driveFile?.id
     ? `/api/drive/pdf/${copy.questionPaper.driveFile.id}`
     : "";
@@ -245,12 +326,26 @@ export default function StudentCopyViewer() {
     : "";
 
   return (
-    <div className="bg-white min-h-screen font-sans relative" style={{fontFamily: 'Dosis, sans-serif'}}>
+    <div 
+      className="bg-white min-h-screen font-sans relative" 
+      style={{
+        fontFamily: 'Dosis, sans-serif',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+      onDragStart={(e) => e.preventDefault()}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+    >
       {/* Toasts shown via global Toaster (react-hot-toast) */}
 
       {/* Top Navigation Bar */}
 
       <div className="p-4">
+        {/* eslint-disable-next-line jsx-a11y/heading-has-content */}
         <h1 className="text-4xl font-extrabold text-gray-900 mb-6 text-center tracking-tight"></h1>
 
         {/* Total Marks Display */}
