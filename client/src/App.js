@@ -10,17 +10,17 @@ import AdminExaminerDetails from './routes/AdminExaminerDetails';
 import ExaminerPanel from './routes/ExaminerPanel';
 import StudentPanel from './routes/StudentPanel';
 import CopyChecker from './routes/CopyChecker';
-import ExaminerQueries from './routes/ExaminerQueries';
+// import ExaminerQueries from './routes/ExaminerQueries';
 import StudentCopyViewer from './components/StudentCopyViewer';
-import ExaminerQueryViewer from './components/ExaminerQueryViewer';
+// import ExaminerQueryViewer from './components/ExaminerQueryViewer';
 import { setToken }      from './utils/auth';
 import AdminExamDetails from './components/AdminExamDetails';
 import AdminCopyViewer from './components/AdminCopyViewer';
 import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 import AdminManageQueries from './routes/AdminManageQueries';
 import ManageUsers from './routes/ManageUsers';
-import ExaminerInstructions from './routes/ExaminerInstructions';
-import ExaminerHowTo from './routes/ExaminerHowTo';
+// import ExaminerInstructions from './routes/ExaminerInstructions';
+// import ExaminerHowTo from './routes/ExaminerHowTo';
 import AdminAllocationGuide from './routes/AdminAllocationGuide';
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
@@ -139,19 +139,19 @@ export default function App() {
           />
 
           {/* Examiner Routes - More specific routes first */}
-          <Route
+          {/* <Route
             path="/examiner/instructions"
             element={
-              // <ProtectedRoute user={user} role="examiner">
-              //   <ExaminerInstructions />
-              // </ProtectedRoute>
-              <ExaminerInstructions />
+              <ProtectedRoute user={user} role="examiner">
+                <ExaminerInstructions />
+              </ProtectedRoute>
+              // <ExaminerInstructions />
             }
-          />
-          <Route
+          /> */}
+          {/* <Route
             path="/how-to-examiner"
             element={<ExaminerHowTo />}
-          />
+          /> */}
           <Route
             path="/examiner/check/:copyId"
             element={
@@ -160,7 +160,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+          {/* <Route
             path="/examiner/queries/view/:queryId"
             element={
               <ProtectedRoute user={user} role="examiner">
@@ -175,7 +175,7 @@ export default function App() {
                 <ExaminerQueries />
               </ProtectedRoute>
             }
-          />
+          /> */}
           <Route
             path="/examiner/*" // General examiner dashboard route (catch-all for examiner)
             element={
