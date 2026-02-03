@@ -14,6 +14,82 @@ export default function StudentPanel() {
   const [studentQueries, setStudentQueries] = useState([]); // NEW: State for student queries
   // Using global react-hot-toast via helpers
 
+  // Screenshot and Print Protection
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Block Print Screen
+      if (e.key === "PrintScreen") {
+        e.preventDefault();
+        toastError("Screenshots are not allowed for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+P (Print)
+      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+        e.preventDefault();
+        toastError("Printing is disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+S (Save)
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        toastError("Saving is not allowed for security reasons.");
+        return false;
+      }
+
+      // Block F12 (Developer Tools)
+      if (e.key === "F12") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+Shift+I (Developer Tools)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "i") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+Shift+C (Element Inspector)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "c") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+
+      // Block Ctrl+Shift+J (Console)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "j") {
+        e.preventDefault();
+        toastError("Developer tools are disabled for security reasons.");
+        return false;
+      }
+    };
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      toastError("Right-click is disabled for security reasons.");
+      return false;
+    };
+
+    const handleCopy = (e) => {
+      e.preventDefault();
+      toastError("Copying content is not allowed for security reasons.");
+      return false;
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("copy", handleCopy);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("copy", handleCopy);
+    };
+  }, []);
+
   useEffect(() => {
     fetchCopies();
     fetchStudentQueries(); // NEW: Fetch all queries for the student
@@ -43,7 +119,20 @@ export default function StudentPanel() {
   // Toasts handled via `react-hot-toast` helpers: `toastSuccess`, `toastError`, `toastInfo`.
 
   return (
-    <div className="w-full p-4" style={{fontFamily: 'Dosis, sans-serif'}}>
+    <div 
+      className="w-full p-4" 
+      style={{
+        fontFamily: 'Dosis, sans-serif',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+      onDragStart={(e) => e.preventDefault()}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+    >
       {/* Toasts shown via global Toaster (react-hot-toast) */}
 
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Student Panel</h1>
