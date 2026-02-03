@@ -5,10 +5,10 @@ import Modal from '../components/Modal'; // Assuming Modal.jsx is in src/compone
 import {
   ClipboardDocumentListIcon,
   ClockIcon,
-  QuestionMarkCircleIcon,
+  // QuestionMarkCircleIcon, // Available but not currently used
   EyeIcon, // For view PDF
   PencilSquareIcon, // For Check/Mark
-  AcademicCapIcon // For instructions
+  // AcademicCapIcon // Available but not currently used
 } from '@heroicons/react/24/outline';
 
 export default function ExaminerPanel() {
@@ -40,6 +40,7 @@ export default function ExaminerPanel() {
   }, []);
 
   // --- Message/Toast Handler ---
+  // eslint-disable-next-line no-unused-vars
   const showMessage = (msg, type = 'success') => {
       setMessage(msg);
       // Optionally clear message after some time
@@ -53,13 +54,13 @@ export default function ExaminerPanel() {
         <h1 className="text-5xl font-bold text-gray-900 tracking-tight">
           Examiner Dashboard
         </h1>
-        <Link
+        {/* <Link
           to="/examiner/instructions"
           className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
         >
           <AcademicCapIcon className="h-5 w-5" />
           <span>Instructions & Help</span>
-        </Link>
+        </Link> */}
       </div>
 
       {/* Global Message/Toast */}
@@ -72,7 +73,7 @@ export default function ExaminerPanel() {
       )}
 
       {/* Help Banner for New Examiners */}
-      <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-800 rounded-lg p-6 mb-8 shadow-md">
+      {/* <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-800 rounded-lg p-6 mb-8 shadow-md">
         <div className="flex items-start space-x-4">
           <AcademicCapIcon className="h-8 w-8 text-black flex-shrink-0 mt-1" />
           <div className="flex-1">
@@ -102,10 +103,10 @@ export default function ExaminerPanel() {
             </svg>
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* Feature Cards Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
         {/* Pending Copies Card */}
         <div className="bg-white p-8 rounded-xl border-2 border-gray-900 hover:bg-gray-50 transition-all duration-300  flex flex-col items-center justify-center text-center">
           <ClipboardDocumentListIcon className="h-16 w-16 text-gray-900 mb-4" />
@@ -133,7 +134,7 @@ export default function ExaminerPanel() {
         </div>
 
         {/* Manage Queries Card (New Page) */}
-        <div className="bg-white p-8 rounded-xl border-2 border-gray-900 hover:bg-gray-50 transition-all duration-300 flex flex-col items-center justify-center text-center">
+        {/* <div className="bg-white p-8 rounded-xl border-2 border-gray-900 hover:bg-gray-50 transition-all duration-300 flex flex-col items-center justify-center text-center">
           <QuestionMarkCircleIcon className="h-16 w-16 text-gray-900 mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Manage Queries</h2>
           <p className="text-gray-600 mb-6 font-bold">Respond to student queries about their marked copies.</p>
@@ -143,7 +144,7 @@ export default function ExaminerPanel() {
           >
             <QuestionMarkCircleIcon className="h-5 w-5 mr-2" /> View Queries
           </Link>
-        </div>
+        </div> */}
       </div>
 
       {/* --- Modals --- */}
