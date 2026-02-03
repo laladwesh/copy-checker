@@ -9,7 +9,9 @@ exports.listCopies = async (req, res, next) => {
       student: req.user._id,
       status: "evaluated",
       isReleasedToStudent: true, // NEW: Filter by release status
-    }).populate("questionPaper"); // Do NOT populate examiners here for student anonymity
+    })
+    .select("-examiners -assignedAt -lastUpdatedByExaminer -reassignmentCount -evaluationStartedAt -evaluationCompletedAt") // Exclude examiner-related fields
+    .populate("questionPaper"); // Do NOT populate examiners here for student anonymity
     res.json(copies);
   } catch (err) {
     next(err);
@@ -18,7 +20,9 @@ exports.listCopies = async (req, res, next) => {
 
 exports.getCopy = async (req, res, next) => {
   try {
-    const copy = await Copy.findById(req.params.id).populate("questionPaper"); // Do NOT populate examiners here for student anonymity
+    const copy = await Copy.findById(req.params.id)
+      .select("-examiners -assignedAt -lastUpdatedByExaminer -reassignmentCount -evaluationStartedAt -evaluationCompletedAt") // Exclude examiner-related fields
+      .populate("questionPaper"); // Do NOT populate examiners here for student anonymity
     // Ensure the copy belongs to the student requesting it
     if (!copy || copy.student.toString() !== req.user._id.toString()) {
       return res
@@ -87,7 +91,7 @@ exports.raiseQuery = async (req, res, next) => {
       .populate("raisedBy", "email name")
       .populate({
         path: "copy",
-        select: "questionPaper", // Only need QP title for context
+        select: "-examiners -assignedAt -lastUpdatedByExaminer -reassignmentCount -evaluationStartedAt -evaluationCompletedAt", // Exclude examiner info
         populate: {
           path: "questionPaper",
           select: "title",
@@ -114,6 +118,7 @@ exports.listQueries = async (req, res, next) => {
       .populate("raisedBy", "name email")
       .populate({
         path: "copy",
+        select: "-examiners -assignedAt -lastUpdatedByExaminer -reassignmentCount -evaluationStartedAt -evaluationCompletedAt", // Exclude examiner info
         populate: {
           path: "questionPaper",
           select: "title", // Only need title for display
