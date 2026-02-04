@@ -50,7 +50,7 @@ router.post("/users", createUser);
 router.get("/users", listUsers);
 router.get("/students", getStudentsByBatch);
 router.get("/examiners", getExaminers);
-router.delete("/users", deleteUserBulk);
+router.delete("/users/bulk", deleteUserBulk);
 router.post(
   "/exams",
   upload.fields([
