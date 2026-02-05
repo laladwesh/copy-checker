@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({
     required: true,
   },
   batch: { type: String }, // only for students
+  department: { type: String }, // only for examiners
   gender: { type: String },
   createdAt: { type: Date, default: Date.now },
   
