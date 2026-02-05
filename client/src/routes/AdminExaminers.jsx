@@ -36,7 +36,7 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
           name: examiner.name,
           email: examiner.email,
           avatar: examiner.avatar, // Assuming avatar might exist, else fallback
-          department: examiner.department || 'General', // Placeholder for extra data
+          department: examiner.department || 'N/A',
           totalCopiesAssigned: 0,
           totalCopiesEvaluated: 0,
           examDetails: {},
@@ -166,6 +166,7 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
               <thead className="bg-white border-b-2 border-gray-900">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Examiner</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Department</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Workload</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider w-1/3">Progress</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">Status</th>
@@ -175,11 +176,11 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
               <tbody className="bg-white divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-10 text-center text-gray-500 font-bold">Loading data...</td>
+                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500 font-bold">Loading data...</td>
                   </tr>
                 ) : filteredExaminerStats.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-10 text-center text-gray-500 font-bold">
+                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500 font-bold">
                       {examinerSearchTerm ? 'No matching examiners found.' : 'No examiner data available.'}
                     </td>
                   </tr>
@@ -208,6 +209,11 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
                               <div className="text-sm text-gray-500 font-bold">{examiner.email}</div>
                             </div>
                           </div>
+                        </td>
+
+                        {/* Department Column */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-bold">{examiner.department}</div>
                         </td>
 
                         {/* Workload Column */}
