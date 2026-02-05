@@ -5,6 +5,7 @@ const {
   listUsers,
   getStudentsByBatch,
   getExaminers,
+  bulkCreateStudents,
   createExam,
   listPapers,
   assignExaminersToExam,
@@ -47,6 +48,7 @@ const router = express.Router();
 
 router.use(verifyToken, ensureRole("admin"));
 router.post("/users", createUser);
+router.post("/users/bulk", bulkCreateStudents);
 router.get("/users", listUsers);
 router.get("/students", getStudentsByBatch);
 router.get("/examiners", getExaminers);
