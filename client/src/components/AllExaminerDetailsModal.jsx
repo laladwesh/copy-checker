@@ -40,6 +40,7 @@ export default function AllExaminerDetailsModal({ isOpen, onClose, examiners, co
           _id: examiner._id,
           name: examiner.name,
           email: examiner.email,
+          department: examiner.department || 'N/A',
           totalCopiesAssigned: 0,
           totalCopiesEvaluated: 0,
           examDetails: {}, // { examId: { title: "Exam Name", assigned: N, evaluated: M } }
@@ -149,6 +150,9 @@ export default function AllExaminerDetailsModal({ isOpen, onClose, examiners, co
                   <div>
                     <h3 className="text-2xl font-extrabold text-gray-900">{examiner.name}</h3>
                     <p className="text-gray-600 text-sm mt-1">{examiner.email}</p>
+                    {examiner.department && (
+                      <p className="text-gray-500 text-sm font-semibold mt-0.5">Department: {examiner.department}</p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
