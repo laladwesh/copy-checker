@@ -2,11 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal";
+import * as XLSX from "xlsx";
 import {
   MagnifyingGlassIcon,
   TrashIcon,
   ArrowPathIcon,
   ArrowLeftIcon,
+  ArrowUpTrayIcon,
+  DocumentArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { toastSuccess, toastError } from "../utils/hotToast";
 
@@ -34,6 +37,12 @@ export default function ManageUsers() {
   const [deleteCurrentBatch, setDeleteCurrentBatch] = useState(false);
   const [isDeletingUsers, setIsDeletingUsers] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+
+  // Bulk upload states
+  const [bulkUploadFile, setBulkUploadFile] = useState(null);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [bulkUploadResults, setBulkUploadResults] = useState(null);
+  const [showBulkResultsModal, setShowBulkResultsModal] = useState(false);
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
@@ -109,7 +118,7 @@ export default function ManageUsers() {
 
       if (role === "student" && activeStudentBatchTab !== "all") {
         filtered = filtered.filter(
-          (user) => user.batch === activeStudentBatchTab
+          (user) => user.batch === activeStudentBatchTab,
         );
       }
 
@@ -117,19 +126,21 @@ export default function ManageUsers() {
         filtered = filtered.filter(
           (user) =>
             user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-            user.email.toLowerCase().includes(userSearchTerm.toLowerCase())
+            user.email.toLowerCase().includes(userSearchTerm.toLowerCase()),
         );
       }
 
       return filtered;
     },
-    [users, activeStudentBatchTab, userSearchTerm]
+    [users, activeStudentBatchTab, userSearchTerm],
   );
 
   // Toggle individual user selection
   const handleUserCheckboxChange = (userId) => {
     setSelectedUserIds((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
     );
   };
 
@@ -181,10 +192,14 @@ export default function ManageUsers() {
       let idsToDelete = [];
 
       if (deleteAllBatches) {
-        idsToDelete = users.filter((u) => u.role === "student").map((u) => u._id);
+        idsToDelete = users
+          .filter((u) => u.role === "student")
+          .map((u) => u._id);
       } else if (deleteCurrentBatch) {
         idsToDelete = users
-          .filter((u) => u.role === "student" && u.batch === activeStudentBatchTab)
+          .filter(
+            (u) => u.role === "student" && u.batch === activeStudentBatchTab,
+          )
           .map((u) => u._id);
       } else if (selectAllInTab) {
         idsToDelete = getFilteredUsers(activeUserTab).map((u) => u._id);
@@ -212,6 +227,118 @@ export default function ManageUsers() {
     } finally {
       setIsDeletingUsers(false);
       setShowDeleteConfirmModal(false);
+    }
+  };
+
+  // Handle bulk upload file selection
+  const handleBulkFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const validTypes = [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "text/csv",
+      ];
+      if (
+        !validTypes.includes(file.type) &&
+        !file.name.match(/\.(xlsx|xls|csv)$/i)
+      ) {
+        toastError("Please upload a valid Excel file (.xlsx, .xls, or .csv)");
+        e.target.value = null;
+        return;
+      }
+      setBulkUploadFile(file);
+    }
+  };
+
+  // Download sample Excel template
+  const downloadSampleTemplate = () => {
+    const sampleData = [
+      {
+        Name: "John Doe",
+        Email: "john.doe@example.com",
+        Gender: "Male",
+        Batch: "2023",
+      },
+      {
+        Name: "Jane Smith",
+        Email: "jane.smith@example.com",
+        Gender: "Female",
+        Batch: "2023",
+      },
+      {
+        Name: "Bob Johnson",
+        Email: "bob.johnson@example.com",
+        Gender: "Male",
+        Batch: "2024",
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Students");
+    XLSX.writeFile(wb, "student_upload_template.xlsx");
+    toastSuccess("Sample template downloaded");
+  };
+
+  // Process and upload bulk students
+  const handleBulkUpload = async () => {
+    if (!bulkUploadFile) {
+      toastError("Please select a file to upload");
+      return;
+    }
+
+    setIsBulkUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+          if (jsonData.length === 0) {
+            toastError("The Excel file is empty");
+            setIsBulkUploading(false);
+            return;
+          }
+
+          // Transform data to match backend expected format
+          const students = jsonData.map((row) => ({
+            name: row.Name || row.name || "",
+            email: row.Email || row.email || "",
+            gender: row.Gender || row.gender || "",
+            batch: row.Batch || row.batch || "",
+          }));
+
+          // Send to backend
+          const res = await api.post("/admin/users/bulk", { students });
+          setBulkUploadResults(res.data.results);
+          setShowBulkResultsModal(true);
+
+          if (res.data.results.success.length > 0) {
+            fetchUsers(); // Refresh the user list
+          }
+
+          // Reset file input
+          setBulkUploadFile(null);
+          document.getElementById("bulkUploadInput").value = null;
+        } catch (error) {
+          console.error("Error processing Excel file:", error);
+          toastError(
+            error.response?.data?.message || "Failed to process Excel file",
+          );
+        } finally {
+          setIsBulkUploading(false);
+        }
+      };
+      reader.readAsArrayBuffer(bulkUploadFile);
+    } catch (error) {
+      console.error("Error reading file:", error);
+      toastError("Failed to read file");
+      setIsBulkUploading(false);
     }
   };
 
@@ -263,7 +390,11 @@ export default function ManageUsers() {
           {usersToDisplay.length === 0 ? (
             <tr>
               <td
-                colSpan={activeUserTab === "student" || activeUserTab === "examiner" ? "5" : "4"}
+                colSpan={
+                  activeUserTab === "student" || activeUserTab === "examiner"
+                    ? "5"
+                    : "4"
+                }
                 className="px-6 py-4 text-center text-gray-500"
               >
                 No users found.
@@ -313,7 +444,10 @@ export default function ManageUsers() {
   );
 
   return (
-    <div className="p-6 lg:p-10 bg-white min-h-screen" style={{ fontFamily: "Dosis, sans-serif" }}>
+    <div
+      className="p-6 lg:p-10 bg-white min-h-screen"
+      style={{ fontFamily: "Dosis, sans-serif" }}
+    >
       <div className="w-full mb-8">
         <button
           onClick={() => navigate("/admin")}
@@ -330,82 +464,138 @@ export default function ManageUsers() {
         </p>
       </div>
 
-      {/* Add New User Section */}
-      <div className="bg-white p-6 rounded-xl border-2 border-gray-900 mb-8">
-        <h3 className="text-xl font-bold mb-4 text-gray-900">Add New User</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <input
-            type="text"
-            placeholder="Name"
-            value={newUserName}
-            onChange={(e) => setNewUserName(e.target.value)}
-            className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-            required
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={newUserEmail}
-            onChange={(e) => setNewUserEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-            required
-          />
-          <select
-            value={newUserGender}
-            onChange={(e) => setNewUserGender(e.target.value)}
-            className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-            required
-          >
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
-          <select
-            value={newUserRole}
-            onChange={(e) => {
-              setNewUserRole(e.target.value);
-              setNewUserBatch("");
-              setNewUserGender("");
-              setNewUserDepartment("");
-            }}
-            className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-          >
-            <option value="student">Student</option>
-            <option value="examiner">Examiner</option>
-            <option value="admin">Admin</option>
-          </select>
-          {newUserRole === "student" && (
+      {/* Bulk Upload Students Section */}
+
+      <div className="flex gap-6 mb-8">
+        <div className="bg-white w-1/2 p-6 rounded-xl border-2 border-gray-900">
+          <h3 className="text-xl font-bold mb-4 text-gray-900">
+            Bulk Upload Students
+          </h3>
+          <p className="text-sm text-gray-600 mb-4 font-medium">
+            Upload an Excel file (.xlsx, .xls, or .csv) to add multiple students
+            at once. The file should have columns:{" "}
+            <strong>Name, Email, Gender, Batch</strong>
+          </p>
+
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="flex-1">
+              <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-gray-900 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <ArrowUpTrayIcon className="w-5 h-5 mr-2 text-gray-900" />
+                <span className="text-sm font-bold text-gray-900">
+                  {bulkUploadFile ? bulkUploadFile.name : "Choose Excel File"}
+                </span>
+                <input
+                  id="bulkUploadInput"
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleBulkFileChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={downloadSampleTemplate}
+              className="inline-flex items-center px-4 py-2.5 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-50 transition duration-200 font-bold text-sm"
+            >
+              <DocumentArrowDownIcon className="w-5 h-5 mr-2" />
+              Download Template
+            </button>
+
+            <button
+              onClick={handleBulkUpload}
+              disabled={!bulkUploadFile || isBulkUploading}
+              className="inline-flex items-center px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] transition duration-200 font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBulkUploading ? (
+                <>
+                  <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <ArrowUpTrayIcon className="w-5 h-5 mr-2" />
+                  Upload Students
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        <div className="bg-white p-6 w-1/2 rounded-xl border-2 border-gray-900">
+          <h3 className="text-xl font-bold mb-4 text-gray-900">Add New User</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <input
               type="text"
-              placeholder="Batch (e.g., 2023)"
-              value={newUserBatch}
-              onChange={(e) => setNewUserBatch(e.target.value)}
+              placeholder="Name"
+              value={newUserName}
+              onChange={(e) => setNewUserName(e.target.value)}
               className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+              required
             />
-          )}
-          {newUserRole === "examiner" && (
             <input
-              type="text"
-              placeholder="Department (e.g., Computer Science)"
-              value={newUserDepartment}
-              onChange={(e) => setNewUserDepartment(e.target.value)}
+              type="email"
+              placeholder="Email"
+              value={newUserEmail}
+              onChange={(e) => setNewUserEmail(e.target.value)}
               className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+              required
             />
-          )}
-          <button
-            onClick={handleAddUser}
-            className="bg-gray-900 text-white py-2.5 px-6 rounded-lg hover:bg-[#1e3a8a] transition duration-200 font-bold text-sm"
-          >
-            Add User
-          </button>
+            <select
+              value={newUserGender}
+              onChange={(e) => setNewUserGender(e.target.value)}
+              className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+              required
+            >
+              <option value="">Select Gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+            <select
+              value={newUserRole}
+              onChange={(e) => {
+                setNewUserRole(e.target.value);
+                setNewUserBatch("");
+                setNewUserGender("");
+                setNewUserDepartment("");
+              }}
+              className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+            >
+              <option value="student">Student</option>
+              <option value="examiner">Examiner</option>
+              <option value="admin">Admin</option>
+            </select>
+            {newUserRole === "student" && (
+              <input
+                type="text"
+                placeholder="Batch (e.g., 2023)"
+                value={newUserBatch}
+                onChange={(e) => setNewUserBatch(e.target.value)}
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+              />
+            )}
+            {newUserRole === "examiner" && (
+              <input
+                type="text"
+                placeholder="Department (e.g., Computer Science)"
+                value={newUserDepartment}
+                onChange={(e) => setNewUserDepartment(e.target.value)}
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+              />
+            )}
+            <button
+              onClick={handleAddUser}
+              className="bg-gray-900 text-white py-2.5 px-6 rounded-lg hover:bg-[#1e3a8a] transition duration-200 font-bold text-sm"
+            >
+              Add User
+            </button>
+          </div>
         </div>
       </div>
-
       {/* Existing Users Section */}
       <div className="bg-white p-6 rounded-xl border-2 border-gray-900">
         <h3 className="text-xl font-bold mb-4 text-gray-900">Existing Users</h3>
-        
+
         {/* User Role Tabs */}
         <div className="flex border-b-2 border-gray-300 mb-4 overflow-x-auto no-scrollbar">
           <button
@@ -486,7 +676,7 @@ export default function ManageUsers() {
                   users.filter(
                     (user) =>
                       user.role === "student" &&
-                      (batch === "all" || user.batch === batch)
+                      (batch === "all" || user.batch === batch),
                   ).length
                 }
                 )
@@ -498,7 +688,10 @@ export default function ManageUsers() {
         {/* Search Bar */}
         <div className="mb-4 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+            <MagnifyingGlassIcon
+              className="h-5 w-5 text-gray-400"
+              aria-hidden="true"
+            />
           </div>
           <input
             type="text"
@@ -550,7 +743,8 @@ export default function ManageUsers() {
                       }
                     />
                     <span className="ml-2 text-sm text-gray-700 font-medium">
-                      Delete ALL Students in Current Batch ({activeStudentBatchTab})
+                      Delete ALL Students in Current Batch (
+                      {activeStudentBatchTab})
                     </span>
                   </label>
                 )}
@@ -573,7 +767,7 @@ export default function ManageUsers() {
                   activeStudentBatchTab !== "all" &&
                   users.filter(
                     (u) =>
-                      u.role === "student" && u.batch === activeStudentBatchTab
+                      u.role === "student" && u.batch === activeStudentBatchTab,
                   ).length === 0) ||
                 (selectAllInTab && getFilteredUsers(activeUserTab).length === 0)
               }
@@ -581,7 +775,8 @@ export default function ManageUsers() {
             >
               {isDeletingUsers ? (
                 <>
-                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" /> Deleting...
+                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />{" "}
+                  Deleting...
                 </>
               ) : (
                 <>
@@ -619,6 +814,138 @@ export default function ManageUsers() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Bulk Upload Results Modal */}
+      <Modal
+        isOpen={showBulkResultsModal}
+        onClose={() => {
+          setShowBulkResultsModal(false);
+          setBulkUploadResults(null);
+        }}
+        title="Bulk Upload Results"
+        large
+      >
+        {bulkUploadResults && (
+          <div className="p-4">
+            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
+              <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                <div className="text-3xl font-bold text-blue-900">
+                  {bulkUploadResults.total}
+                </div>
+                <div className="text-sm font-semibold text-blue-700">
+                  Total Rows
+                </div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                <div className="text-3xl font-bold text-green-900">
+                  {bulkUploadResults.success.length}
+                </div>
+                <div className="text-sm font-semibold text-green-700">
+                  Successful
+                </div>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
+                <div className="text-3xl font-bold text-red-900">
+                  {bulkUploadResults.failed.length}
+                </div>
+                <div className="text-sm font-semibold text-red-700">Failed</div>
+              </div>
+            </div>
+
+            {bulkUploadResults.success.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-bold text-green-900 mb-3">
+                  Successfully Created Students
+                </h4>
+                <div className="max-h-60 overflow-y-auto border-2 border-green-200 rounded-lg">
+                  <table className="min-w-full divide-y divide-green-200">
+                    <thead className="bg-green-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-green-900 uppercase">
+                          Name
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-green-900 uppercase">
+                          Email
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-green-900 uppercase">
+                          Batch
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-green-100">
+                      {bulkUploadResults.success.map((user, idx) => (
+                        <tr key={idx} className="hover:bg-green-50">
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {user.name}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-700">
+                            {user.email}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-700">
+                            {user.batch}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {bulkUploadResults.failed.length > 0 && (
+              <div>
+                <h4 className="text-lg font-bold text-red-900 mb-3">
+                  Failed Entries
+                </h4>
+                <div className="max-h-60 overflow-y-auto border-2 border-red-200 rounded-lg">
+                  <table className="min-w-full divide-y divide-red-200">
+                    <thead className="bg-red-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-red-900 uppercase">
+                          Name
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-red-900 uppercase">
+                          Email
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-red-900 uppercase">
+                          Reason
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-red-100">
+                      {bulkUploadResults.failed.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-red-50">
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {item.data.name || "N/A"}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-700">
+                            {item.data.email || "N/A"}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-red-700 font-semibold">
+                            {item.reason}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => {
+                  setShowBulkResultsModal(false);
+                  setBulkUploadResults(null);
+                }}
+                className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
