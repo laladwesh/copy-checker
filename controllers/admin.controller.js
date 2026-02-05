@@ -324,7 +324,7 @@ exports.serveDrivePdf = async (req, res, next) => {
 // 1. User Management (No changes needed here for this request)
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, role, gender, batch } = req.body;
+    const { name, email, role, gender, batch, department } = req.body;
     if (!name || !email || !role) {
       return res
         .status(400)
@@ -336,8 +336,8 @@ exports.createUser = async (req, res, next) => {
         .status(409)
         .json({ message: "User with this email already exists." });
     }
-
-    const user = new User({ name, email, role, gender, batch });
+    department = department.toLowerCase();
+    const user = new User({ name, email, role, gender, batch, department });
     await user.save();
     res.status(201).json(user);
   } catch (err) {
