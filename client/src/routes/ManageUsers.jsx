@@ -20,6 +20,7 @@ export default function ManageUsers() {
   const [newUserRole, setNewUserRole] = useState("student");
   const [newUserGender, setNewUserGender] = useState("");
   const [newUserBatch, setNewUserBatch] = useState("");
+  const [newUserDepartment, setNewUserDepartment] = useState("");
 
   // Search and filter states
   const [activeUserTab, setActiveUserTab] = useState("all");
@@ -81,6 +82,7 @@ export default function ManageUsers() {
         role: newUserRole,
         gender: newUserGender,
         batch: newUserRole === "student" ? newUserBatch : undefined,
+        department: newUserRole === "examiner" ? newUserDepartment : undefined,
       });
       toastSuccess("User added successfully");
       setNewUserName("");
@@ -88,6 +90,7 @@ export default function ManageUsers() {
       setNewUserRole("student");
       setNewUserGender("");
       setNewUserBatch("");
+      setNewUserDepartment("");
       fetchUsers();
     } catch (error) {
       console.error("Error adding user:", error);
@@ -249,13 +252,18 @@ export default function ManageUsers() {
                 Batch
               </th>
             )}
+            {activeUserTab === "examiner" && (
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                Department
+              </th>
+            )}
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {usersToDisplay.length === 0 ? (
             <tr>
               <td
-                colSpan={activeUserTab === "student" ? "5" : "4"}
+                colSpan={activeUserTab === "student" || activeUserTab === "examiner" ? "5" : "4"}
                 className="px-6 py-4 text-center text-gray-500"
               >
                 No users found.
@@ -289,6 +297,11 @@ export default function ManageUsers() {
                 {activeUserTab === "student" && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {user.batch || "N/A"}
+                  </td>
+                )}
+                {activeUserTab === "examiner" && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.department || "N/A"}
                   </td>
                 )}
               </tr>
@@ -354,6 +367,7 @@ export default function ManageUsers() {
               setNewUserRole(e.target.value);
               setNewUserBatch("");
               setNewUserGender("");
+              setNewUserDepartment("");
             }}
             className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
           >
@@ -367,6 +381,15 @@ export default function ManageUsers() {
               placeholder="Batch (e.g., 2023)"
               value={newUserBatch}
               onChange={(e) => setNewUserBatch(e.target.value)}
+              className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+            />
+          )}
+          {newUserRole === "examiner" && (
+            <input
+              type="text"
+              placeholder="Department (e.g., Computer Science)"
+              value={newUserDepartment}
+              onChange={(e) => setNewUserDepartment(e.target.value)}
               className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
             />
           )}
