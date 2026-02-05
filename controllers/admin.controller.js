@@ -375,6 +375,72 @@ exports.getExaminers = async (req, res, next) => {
   }
 };
 
+// Bulk create students from Excel data
+exports.bulkCreateStudents = async (req, res, next) => {
+  try {
+    const { students } = req.body;
+    
+    if (!students || !Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({ message: "No students data provided." });
+    }
+
+    const results = {
+      success: [],
+      failed: [],
+      total: students.length
+    };
+
+    for (const studentData of students) {
+      try {
+        const { name, email, gender, batch } = studentData;
+        
+        // Validate required fields
+        if (!name || !email || !batch) {
+          results.failed.push({
+            data: studentData,
+            reason: "Missing required fields (name, email, or batch)"
+          });
+          continue;
+        }
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          results.failed.push({
+            data: studentData,
+            reason: "User with this email already exists"
+          });
+          continue;
+        }
+
+        // Create the student
+        const user = new User({
+          name,
+          email,
+          role: "student",
+          gender: gender || "",
+          batch
+        });
+        
+        await user.save();
+        results.success.push(user);
+      } catch (err) {
+        results.failed.push({
+          data: studentData,
+          reason: err.message || "Unknown error"
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: `Bulk upload completed. ${results.success.length} students created, ${results.failed.length} failed.`,
+      results
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // 2. Exam (Question Paper) Management
 exports.createExam = async (req, res, next) => {
   try {
