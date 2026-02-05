@@ -531,6 +531,9 @@ export default function AdminExamDetails() {
                     <div>
                       <h3 className="text-lg font-bold text-gray-900">{stat.examiner.name}</h3>
                       <p className="text-sm text-gray-600 font-semibold">{stat.examiner.email}</p>
+                      {stat.examiner.department && (
+                        <p className="text-xs text-gray-500 font-semibold mt-0.5">Dept: {stat.examiner.department}</p>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900">{progressPercentage}%</div>
