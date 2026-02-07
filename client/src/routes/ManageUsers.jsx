@@ -502,8 +502,8 @@ export default function ManageUsers() {
               <td
                 colSpan={
                   activeUserTab === "student" || activeUserTab === "examiner"
-                    ? "5"
-                    : "4"
+                    ? "6"
+                    : "5"
                 }
                 className="px-6 py-4 text-center text-gray-500"
               >
@@ -545,6 +545,16 @@ export default function ManageUsers() {
                     {user.department || "N/A"}
                   </td>
                 )}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <button
+                    onClick={() => handleOpenEditModal(user)}
+                    className="inline-flex items-center px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] transition duration-200 text-xs font-bold"
+                    title="Edit User"
+                  >
+                    <PencilSquareIcon className="h-4 w-4 mr-1" />
+                    Edit
+                  </button>
+                </td>
               </tr>
             ))
           )}
@@ -1082,6 +1092,168 @@ export default function ManageUsers() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setUserToEdit(null);
+        }}
+        title="Edit User"
+      >
+        <div className="p-4">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-1">Name *</label>
+              <input
+                type="text"
+                placeholder="Name"
+                value={editUserName}
+                onChange={(e) => setEditUserName(e.target.value)}
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-1">Email *</label>
+              <input
+                type="email"
+                placeholder="Email"
+                value={editUserEmail}
+                onChange={(e) => setEditUserEmail(e.target.value)}
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-1">Gender *</label>
+              <select
+                value={editUserGender}
+                onChange={(e) => setEditUserGender(e.target.value)}
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                required
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-1">Role *</label>
+              <select
+                value={editUserRole}
+                onChange={(e) => {
+                  setEditUserRole(e.target.value);
+                  // Clear role-specific fields when role changes
+                  if (e.target.value !== "student") {
+                    setEditUserBatch("");
+                  }
+                  if (e.target.value !== "examiner") {
+                    setEditUserDepartment("");
+                    setEditUserAadhar("");
+                    setEditUserPan("");
+                    setEditUserBankAccount("");
+                  }
+                }}
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+              >
+                <option value="student">Student</option>
+                <option value="examiner">Examiner</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            {editUserRole === "student" && (
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-1">Batch *</label>
+                <input
+                  type="text"
+                  placeholder="Batch (e.g., 2023)"
+                  value={editUserBatch}
+                  onChange={(e) => setEditUserBatch(e.target.value)}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                />
+              </div>
+            )}
+
+            {editUserRole === "examiner" && (
+              <>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-1">Department</label>
+                  <input
+                    type="text"
+                    placeholder="Department (e.g., Computer Science)"
+                    value={editUserDepartment}
+                    onChange={(e) => setEditUserDepartment(e.target.value)}
+                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-1">Aadhar Card Number</label>
+                  <input
+                    type="text"
+                    placeholder="Aadhar Card Number"
+                    value={editUserAadhar}
+                    onChange={(e) => setEditUserAadhar(e.target.value)}
+                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-1">PAN Card Number</label>
+                  <input
+                    type="text"
+                    placeholder="PAN Card Number"
+                    value={editUserPan}
+                    onChange={(e) => setEditUserPan(e.target.value)}
+                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-1">Bank Account Details</label>
+                  <input
+                    type="text"
+                    placeholder="Bank Account Details"
+                    value={editUserBankAccount}
+                    onChange={(e) => setEditUserBankAccount(e.target.value)}
+                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setUserToEdit(null);
+              }}
+              className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold transition text-sm border-2 border-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpdateUser}
+              disabled={isUpdatingUser}
+              className="px-6 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {isUpdatingUser ? (
+                <>
+                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update User"
+              )}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
