@@ -53,6 +53,10 @@ export default function AdminPanel() {
   const [newUserRole, setNewUserRole] = useState("student");
   const [newUserGender, setNewUserGender] = useState("");
   const [newUserBatch, setNewUserBatch] = useState("");
+  const [newUserDepartment, setNewUserDepartment] = useState("");
+  const [newUserAadhar, setNewUserAadhar] = useState("");
+  const [newUserPan, setNewUserPan] = useState("");
+  const [newUserBankAccount, setNewUserBankAccount] = useState("");
   const [newExamTitle, setNewExamTitle] = useState("");
   const [newExamCourse, setNewExamCourse] = useState("");
   const [newExamExamType, setNewExamExamType] = useState("");
@@ -155,6 +159,12 @@ export default function AdminPanel() {
       if (newUserRole === "student") {
         userData.batch = newUserBatch;
       }
+      if (newUserRole === "examiner") {
+        userData.department = newUserDepartment;
+        userData.aadharCard = newUserAadhar;
+        userData.panCard = newUserPan;
+        userData.bankAccount = newUserBankAccount;
+      }
       await api.post("/admin/users", userData);
       toastSuccess("User added successfully!");
       setNewUserName("");
@@ -162,6 +172,10 @@ export default function AdminPanel() {
       setNewUserRole("student");
       setNewUserGender("");
       setNewUserBatch("");
+      setNewUserDepartment("");
+      setNewUserAadhar("");
+      setNewUserPan("");
+      setNewUserBankAccount("");
       fetchInitialData();
     } catch (err) {
       toastError(`Error adding user: ${err.response?.data?.message || err.message}`);
@@ -1070,7 +1084,10 @@ export default function AdminPanel() {
             onChange={(e) => {
               setNewUserRole(e.target.value);
               setNewUserBatch("");
-              setNewUserGender("");
+              setNewUserDepartment("");
+              setNewUserAadhar("");
+              setNewUserPan("");
+              setNewUserBankAccount("");
             }}
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
           >
@@ -1086,6 +1103,38 @@ export default function AdminPanel() {
               onChange={(e) => setNewUserBatch(e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
             />
+          )}
+          {newUserRole === "examiner" && (
+            <>
+              <input
+                type="text"
+                placeholder="Department"
+                value={newUserDepartment}
+                onChange={(e) => setNewUserDepartment(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+              />
+              <input
+                type="text"
+                placeholder="Aadhar Card Number"
+                value={newUserAadhar}
+                onChange={(e) => setNewUserAadhar(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+              />
+              <input
+                type="text"
+                placeholder="PAN Card Number"
+                value={newUserPan}
+                onChange={(e) => setNewUserPan(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+              />
+              <input
+                type="text"
+                placeholder="Bank Account Details"
+                value={newUserBankAccount}
+                onChange={(e) => setNewUserBankAccount(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+              />
+            </>
           )}
           <button
             onClick={handleAddUser}
