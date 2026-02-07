@@ -10,6 +10,7 @@ import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
   DocumentArrowDownIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { toastSuccess, toastError } from "../utils/hotToast";
 
@@ -24,6 +25,9 @@ export default function ManageUsers() {
   const [newUserGender, setNewUserGender] = useState("");
   const [newUserBatch, setNewUserBatch] = useState("");
   const [newUserDepartment, setNewUserDepartment] = useState("");
+  const [newUserAadhar, setNewUserAadhar] = useState("");
+  const [newUserPan, setNewUserPan] = useState("");
+  const [newUserBankAccount, setNewUserBankAccount] = useState("");
 
   // Search and filter states
   const [activeUserTab, setActiveUserTab] = useState("all");
@@ -43,6 +47,20 @@ export default function ManageUsers() {
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [bulkUploadResults, setBulkUploadResults] = useState(null);
   const [showBulkResultsModal, setShowBulkResultsModal] = useState(false);
+
+  // Edit user states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserRole, setEditUserRole] = useState("");
+  const [editUserGender, setEditUserGender] = useState("");
+  const [editUserBatch, setEditUserBatch] = useState("");
+  const [editUserDepartment, setEditUserDepartment] = useState("");
+  const [editUserAadhar, setEditUserAadhar] = useState("");
+  const [editUserPan, setEditUserPan] = useState("");
+  const [editUserBankAccount, setEditUserBankAccount] = useState("");
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
@@ -85,14 +103,25 @@ export default function ManageUsers() {
     }
 
     try {
-      await api.post("/admin/users", {
+      const userData = {
         name: newUserName,
         email: newUserEmail,
         role: newUserRole,
         gender: newUserGender,
-        batch: newUserRole === "student" ? newUserBatch : undefined,
-        department: newUserRole === "examiner" ? newUserDepartment : undefined,
-      });
+      };
+
+      if (newUserRole === "student") {
+        userData.batch = newUserBatch;
+      }
+
+      if (newUserRole === "examiner") {
+        userData.department = newUserDepartment;
+        userData.aadharCard = newUserAadhar;
+        userData.panCard = newUserPan;
+        userData.bankAccount = newUserBankAccount;
+      }
+
+      await api.post("/admin/users", userData);
       toastSuccess("User added successfully");
       setNewUserName("");
       setNewUserEmail("");
@@ -100,10 +129,88 @@ export default function ManageUsers() {
       setNewUserGender("");
       setNewUserBatch("");
       setNewUserDepartment("");
+      setNewUserAadhar("");
+      setNewUserPan("");
+      setNewUserBankAccount("");
       fetchUsers();
     } catch (error) {
       console.error("Error adding user:", error);
       toastError(error.response?.data?.message || "Failed to add user");
+    }
+  };
+
+  // Open edit modal and populate fields
+  const handleOpenEditModal = (user) => {
+    setUserToEdit(user);
+    setEditUserName(user.name || "");
+    setEditUserEmail(user.email || "");
+    setEditUserRole(user.role || "");
+    setEditUserGender(user.gender || "");
+    setEditUserBatch(user.batch || "");
+    setEditUserDepartment(user.department || "");
+    setEditUserAadhar(user.aadharCard || "");
+    setEditUserPan(user.panCard || "");
+    setEditUserBankAccount(user.bankAccount || "");
+    setIsEditModalOpen(true);
+  };
+
+  // Update user details
+  const handleUpdateUser = async () => {
+    if (!editUserName || !editUserEmail || !editUserGender) {
+      toastError("Please fill in all required fields");
+      return;
+    }
+    if (editUserRole === "student" && !editUserBatch) {
+      toastError("Please provide a batch for student");
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    try {
+      const userData = {
+        name: editUserName,
+        email: editUserEmail,
+        role: editUserRole,
+        gender: editUserGender,
+      };
+
+      if (editUserRole === "student") {
+        userData.batch = editUserBatch;
+        // Clear examiner-specific fields
+        userData.department = "";
+        userData.aadharCard = "";
+        userData.panCard = "";
+        userData.bankAccount = "";
+      }
+
+      if (editUserRole === "examiner") {
+        userData.department = editUserDepartment;
+        userData.aadharCard = editUserAadhar;
+        userData.panCard = editUserPan;
+        userData.bankAccount = editUserBankAccount;
+        // Clear student-specific fields
+        userData.batch = "";
+      }
+
+      if (editUserRole === "admin") {
+        // Clear role-specific fields
+        userData.batch = "";
+        userData.department = "";
+        userData.aadharCard = "";
+        userData.panCard = "";
+        userData.bankAccount = "";
+      }
+
+      await api.put(`/admin/users/${userToEdit._id}`, userData);
+      toastSuccess("User updated successfully");
+      setIsEditModalOpen(false);
+      setUserToEdit(null);
+      fetchUsers();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      toastError(error.response?.data?.message || "Failed to update user");
+    } finally {
+      setIsUpdatingUser(false);
     }
   };
 
@@ -384,6 +491,9 @@ export default function ManageUsers() {
                 Department
               </th>
             )}
+            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -558,6 +668,9 @@ export default function ManageUsers() {
                 setNewUserBatch("");
                 setNewUserGender("");
                 setNewUserDepartment("");
+                setNewUserAadhar("");
+                setNewUserPan("");
+                setNewUserBankAccount("");
               }}
               className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
             >
@@ -575,13 +688,36 @@ export default function ManageUsers() {
               />
             )}
             {newUserRole === "examiner" && (
-              <input
-                type="text"
-                placeholder="Department (e.g., Computer Science)"
-                value={newUserDepartment}
-                onChange={(e) => setNewUserDepartment(e.target.value)}
-                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-              />
+              <>
+                <input
+                  type="text"
+                  placeholder="Department (e.g., Computer Science)"
+                  value={newUserDepartment}
+                  onChange={(e) => setNewUserDepartment(e.target.value)}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Aadhar Card Number"
+                  value={newUserAadhar}
+                  onChange={(e) => setNewUserAadhar(e.target.value)}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="PAN Card Number"
+                  value={newUserPan}
+                  onChange={(e) => setNewUserPan(e.target.value)}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Bank Account Details"
+                  value={newUserBankAccount}
+                  onChange={(e) => setNewUserBankAccount(e.target.value)}
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
+                />
+              </>
             )}
             <button
               onClick={handleAddUser}
