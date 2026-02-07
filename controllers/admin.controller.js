@@ -324,7 +324,7 @@ exports.serveDrivePdf = async (req, res, next) => {
 // 1. User Management (No changes needed here for this request)
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, role, gender, batch, department } = req.body;
+    const { name, email, role, gender, batch, department, aadharCard, panCard, bankAccount } = req.body;
     if (!name || !email || !role) {
       return res
         .status(400)
@@ -337,7 +337,16 @@ exports.createUser = async (req, res, next) => {
         .json({ message: "User with this email already exists." });
     }
     const normalizedDepartment = department ? department.toLowerCase() : undefined;
-    const user = new User({ name, email, role, gender, batch, department: normalizedDepartment });
+    const userData = { name, email, role, gender, batch, department: normalizedDepartment };
+
+    // Add examiner-specific fields if role is examiner
+    if (role === "examiner") {
+      if (aadharCard) userData.aadharCard = aadharCard;
+      if (panCard) userData.panCard = panCard;
+      if (bankAccount) userData.bankAccount = bankAccount;
+    }
+
+    const user = new User(userData);
     await user.save();
     res.status(201).json(user);
   } catch (err) {
