@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { 
-  ArrowLeftIcon, 
-  UserCircleIcon, 
-  BookOpenIcon, 
-  EnvelopeIcon, 
+import {
+  ArrowLeftIcon,
+  UserCircleIcon,
+  BookOpenIcon,
+  EnvelopeIcon,
   ChartPieIcon,
   CheckCircleIcon,
   ClockIcon,
-  InboxStackIcon
+  InboxStackIcon,
+  IdentificationIcon,
+  CreditCardIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 
 export default function AdminExaminerDetails() {
@@ -164,6 +167,51 @@ export default function AdminExaminerDetails() {
              icon={ChartPieIcon}
            />
         </div>
+
+        {/* Document Details Section (Confidential - Admin Only) */}
+        {(examiner?.aadharCard || examiner?.panCard || examiner?.bankAccount) && (
+          <div className="bg-white rounded-lg border-2 border-gray-900 overflow-hidden">
+            <div className="p-6 border-b-2 border-gray-900 bg-red-50">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <IdentificationIcon className="h-5 w-5 text-red-600"/>
+                Confidential Document Details (Admin Only)
+              </h2>
+              <p className="text-xs text-red-700 font-semibold mt-1">This information is sensitive and for administrative records only</p>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {examiner?.aadharCard && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <IdentificationIcon className="h-5 w-5 text-gray-700" />
+                    <span className="text-sm font-bold text-gray-700">Aadhar Card</span>
+                  </div>
+                  <p className="text-base font-mono text-gray-900">{examiner.aadharCard}</p>
+                </div>
+              )}
+
+              {examiner?.panCard && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCardIcon className="h-5 w-5 text-gray-700" />
+                    <span className="text-sm font-bold text-gray-700">PAN Card</span>
+                  </div>
+                  <p className="text-base font-mono text-gray-900">{examiner.panCard}</p>
+                </div>
+              )}
+
+              {examiner?.bankAccount && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BanknotesIcon className="h-5 w-5 text-gray-700" />
+                    <span className="text-sm font-bold text-gray-700">Bank Account</span>
+                  </div>
+                  <p className="text-base font-mono text-gray-900">{examiner.bankAccount}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Exam Breakdown List */}
         <div className="bg-white rounded-lg border-2 border-gray-900 overflow-hidden">
