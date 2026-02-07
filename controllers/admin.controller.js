@@ -336,8 +336,8 @@ exports.createUser = async (req, res, next) => {
         .status(409)
         .json({ message: "User with this email already exists." });
     }
-    department = department.toLowerCase();
-    const user = new User({ name, email, role, gender, batch, department });
+    const normalizedDepartment = department ? department.toLowerCase() : undefined;
+    const user = new User({ name, email, role, gender, batch, department: normalizedDepartment });
     await user.save();
     res.status(201).json(user);
   } catch (err) {
@@ -384,11 +384,19 @@ exports.bulkCreateStudents = async (req, res, next) => {
       return res.status(400).json({ message: "No students data provided." });
     }
 
+    // Add limit check to prevent abuse
+    if (students.length > 1000) {
+      return res.status(400).json({ message: "Cannot upload more than 1000 students at once." });
+    }
+
     const results = {
       success: [],
       failed: [],
       total: students.length
     };
+
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     for (const studentData of students) {
       try {
@@ -403,8 +411,23 @@ exports.bulkCreateStudents = async (req, res, next) => {
           continue;
         }
 
+        // Validate email format
+        if (!emailRegex.test(email)) {
+          results.failed.push({
+            data: studentData,
+            reason: "Invalid email format"
+          });
+          continue;
+        }
+
+        // Sanitize inputs
+        const sanitizedName = name.toString().trim().substring(0, 100);
+        const sanitizedEmail = email.toString().trim().toLowerCase();
+        const sanitizedBatch = batch.toString().trim().substring(0, 20);
+        const sanitizedGender = gender ? gender.toString().trim().substring(0, 20) : "";
+
         // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: sanitizedEmail });
         if (existingUser) {
           results.failed.push({
             data: studentData,
@@ -415,11 +438,11 @@ exports.bulkCreateStudents = async (req, res, next) => {
 
         // Create the student
         const user = new User({
-          name,
-          email,
+          name: sanitizedName,
+          email: sanitizedEmail,
           role: "student",
-          gender: gender || "",
-          batch
+          gender: sanitizedGender,
+          batch: sanitizedBatch
         });
         
         await user.save();
