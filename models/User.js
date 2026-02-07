@@ -13,7 +13,12 @@ const UserSchema = new mongoose.Schema({
   department: { type: String }, // only for examiners
   gender: { type: String },
   createdAt: { type: Date, default: Date.now },
-  
+
+  // Examiner document details (only for examiners)
+  aadharCard: { type: String }, // Aadhar card number
+  panCard: { type: String }, // PAN card number
+  bankAccount: { type: String }, // Bank account details
+
   // Examiner Performance Tracking
   examinerStats: {
     totalCopiesAssigned: { type: Number, default: 0 },
