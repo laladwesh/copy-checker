@@ -72,7 +72,13 @@ function CopyChecker() {
   const [blankPagesArr, setBlankPagesArr] = useState([]); // store as array (transient)
   // Zoom States
   const [acZoomLevel, setAcZoomLevel] = useState(1.25); // Initial zoom level for AC
-  
+
+  // Pan States for zoom and pan feature
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const [startPanPos, setStartPanPos] = useState({ x: 0, y: 0 });
+
   // Draggable marks state - stores marks for each page
   const [pageMarks, setPageMarks] = useState({}); // { pageNumber: [{ value, x, y, id }] }
   const [draggedMarkValue, setDraggedMarkValue] = useState(null);
@@ -168,8 +174,10 @@ function CopyChecker() {
       setComments("");
     }
 
-    // Reset zoom when AC page changes, and set loading to true
+    // Reset zoom and pan when AC page changes, and set loading to true
     setAcZoomLevel(1.25);
+    setPanX(0);
+    setPanY(0);
     setIsAcLoading(true);
   }, [currentPage, copy]);
 
@@ -329,15 +337,32 @@ function CopyChecker() {
     const markValue = parseFloat(markValueRaw);
     if (isNaN(markValue)) return; // invalid drop
 
-    // Get the PDF container and calculate relative position
+    // Find the actual PDF canvas/page element within the container
     const pdfContainer = e.currentTarget;
-    const rect = pdfContainer.getBoundingClientRect();
+    const transformedContainer = pdfContainer.querySelector('[style*="transform"]');
+    const pdfCanvas = pdfContainer.querySelector('.react-pdf__Page');
 
-    // Safety check for rect
-    if (!rect || rect.width === 0 || rect.height === 0) return;
+    if (!pdfCanvas || !transformedContainer) {
+      console.warn('PDF canvas not found');
+      return;
+    }
 
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)); // Percentage, clamped 0-100
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)); // Percentage, clamped 0-100
+    // Get bounding rectangles
+    const canvasRect = pdfCanvas.getBoundingClientRect();
+
+    // Safety check
+    if (!canvasRect || canvasRect.width === 0 || canvasRect.height === 0) return;
+
+    // Calculate position relative to the transformed container (which is the parent of marks)
+    const transformedRect = transformedContainer.getBoundingClientRect();
+
+    // Get mouse position relative to the transformed container
+    let mouseX = e.clientX - transformedRect.left;
+    let mouseY = e.clientY - transformedRect.top;
+
+    // Convert to percentage of the transformed container
+    const x = Math.max(0, Math.min(100, (mouseX / transformedRect.width) * 100));
+    const y = Math.max(0, Math.min(100, (mouseY / transformedRect.height) * 100));
 
     const newMark = {
       value: markValue,
@@ -362,7 +387,55 @@ function CopyChecker() {
     }));
     toastInfo('Mark removed');
   };
-  // Handler: save this page’s marks, then advance
+
+  // Pan event handlers for click-and-drag panning
+  const handlePanStart = (e) => {
+    // Only start panning with middle mouse button or Ctrl+Left click
+    if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+      e.preventDefault();
+      setIsPanning(true);
+      setStartPanPos({ x: e.clientX - panX, y: e.clientY - panY });
+      e.currentTarget.style.cursor = 'grabbing';
+    }
+  };
+
+  const handlePanMove = (e) => {
+    if (isPanning) {
+      e.preventDefault();
+
+      // Calculate new pan positions
+      let newPanX = e.clientX - startPanPos.x;
+      let newPanY = e.clientY - startPanPos.y;
+
+      // Calculate boundaries based on zoom level
+      // The more zoomed in, the more pan range is allowed
+      const zoomFactor = acZoomLevel - 1; // 0 at 1x zoom, increases with zoom
+      const maxPanX = 300 * zoomFactor; // Max horizontal pan in pixels
+      const maxPanY = 300 * zoomFactor; // Max vertical pan in pixels
+
+      // Clamp pan values within boundaries
+      newPanX = Math.max(-maxPanX, Math.min(maxPanX, newPanX));
+      newPanY = Math.max(-maxPanY, Math.min(maxPanY, newPanY));
+
+      setPanX(newPanX);
+      setPanY(newPanY);
+    }
+  };
+
+  const handlePanEnd = (e) => {
+    if (isPanning) {
+      setIsPanning(false);
+      e.currentTarget.style.cursor = acZoomLevel > 1.25 ? 'grab' : 'default';
+    }
+  };
+
+  const resetPan = () => {
+    setPanX(0);
+    setPanY(0);
+    toastInfo('Pan reset');
+  };
+
+  // Handler: save this page's marks, then advance
   const handleSavePage = async () => {
     if (isSaving) return; // Prevent multiple submissions while saving
     setIsSaving(true);
@@ -470,6 +543,9 @@ function CopyChecker() {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
         newZoom = 1.25;
+        // Reset pan when zoom is reset
+        setPanX(0);
+        setPanY(0);
       }
       return parseFloat(newZoom.toFixed(2));
     });
@@ -538,12 +614,19 @@ function CopyChecker() {
                 })()}
               </div>
             </div>
-            <div 
-              className={`relative w-full overflow-hidden flex items-center justify-center ${isDraggingOver ? 'ring-4 ring-blue-500 ring-opacity-50' : ''}`} 
-              style={{ height: 'calc(100vh - 180px)' }}
+            <div
+              className={`relative w-full overflow-hidden flex items-center justify-center ${isDraggingOver ? 'ring-4 ring-blue-500 ring-opacity-50' : ''}`}
+              style={{
+                height: 'calc(100vh - 180px)',
+                cursor: isPanning ? 'grabbing' : (acZoomLevel > 1.25 ? 'grab' : 'default')
+              }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              onMouseDown={handlePanStart}
+              onMouseMove={handlePanMove}
+              onMouseUp={handlePanEnd}
+              onMouseLeave={handlePanEnd}
             >
               {isAcLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
@@ -555,36 +638,44 @@ function CopyChecker() {
                 </div>
               )}
               {acPdfUrl ? (
-                <Document file={acPdfUrl} onLoadSuccess={onDocumentLoadSuccessAC} onLoadError={onDocumentLoadErrorAC} className="w-full h-full flex justify-center items-center">
-                  <Page pageNumber={currentPage} scale={acZoomLevel} renderAnnotationLayer={true} renderTextLayer={true} onRenderSuccess={onRenderSuccessAC} customTextRenderer={({ str, itemIndex }) => (
-                    <span key={itemIndex} className="react-pdf__Page__textContent__text" style={{ opacity: 0 }}>{str}</span>
-                  )} />
-                </Document>
+                <div
+                  style={{
+                    transform: `translate(${panX}px, ${panY}px)`,
+                    transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                    position: 'relative'
+                  }}
+                >
+                  <Document file={acPdfUrl} onLoadSuccess={onDocumentLoadSuccessAC} onLoadError={onDocumentLoadErrorAC} className="w-full h-full flex justify-center items-center">
+                    <Page pageNumber={currentPage} scale={acZoomLevel} renderAnnotationLayer={true} renderTextLayer={true} onRenderSuccess={onRenderSuccessAC} customTextRenderer={({ str, itemIndex }) => (
+                      <span key={itemIndex} className="react-pdf__Page__textContent__text" style={{ opacity: 0 }}>{str}</span>
+                    )} />
+                  </Document>
+
+                  {/* Render placed marks on the current page - inside transformed container */}
+                  {pageMarks[currentPage] && Array.isArray(pageMarks[currentPage]) && pageMarks[currentPage]
+                    .filter(mark => mark && mark.id && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
+                    .map((mark) => (
+                    <div
+                      key={mark.id}
+                      className="absolute cursor-pointer group"
+                      style={{
+                        left: `${mark.x}%`,
+                        top: `${mark.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 20
+                      }}
+                      onClick={() => removeMark(mark.id)}
+                      title="Click to remove"
+                    >
+                      <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg transition ${mark.value > 0 ? 'bg-green-500 group-hover:bg-green-600' : 'bg-red-500 group-hover:bg-red-600'}`}>
+                        {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-gray-500 text-center p-2">Answer Copy PDF Not Found.</div>
               )}
-              
-              {/* Render placed marks on the current page */}
-              {pageMarks[currentPage] && Array.isArray(pageMarks[currentPage]) && pageMarks[currentPage]
-                .filter(mark => mark && mark.id && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
-                .map((mark) => (
-                <div
-                  key={mark.id}
-                  className="absolute cursor-pointer group"
-                  style={{
-                    left: `${mark.x}%`,
-                    top: `${mark.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 20
-                  }}
-                  onClick={() => removeMark(mark.id)}
-                  title="Click to remove"
-                >
-                  <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg transition ${mark.value > 0 ? 'bg-green-500 group-hover:bg-green-600' : 'bg-red-500 group-hover:bg-red-600'}`}>
-                    {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
-                  </div>
-                </div>
-              ))}
             </div>
 
             {/* Horizontal Page Navigation moved below the PDF viewer to use vertical space for the document */}
@@ -677,6 +768,15 @@ function CopyChecker() {
                   <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
                 </div>
                 <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
+              </div>
+
+              <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-gray-700">
+                <strong>Pan Tip:</strong> Hold <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-xs font-mono">Ctrl</kbd> and drag to pan, or use middle mouse button
+                {(panX !== 0 || panY !== 0) && (
+                  <button onClick={resetPan} className="ml-2 text-blue-600 hover:text-blue-800 underline font-semibold">
+                    Reset Pan
+                  </button>
+                )}
               </div>
 
               <div className="mt-2 flex gap-2">
