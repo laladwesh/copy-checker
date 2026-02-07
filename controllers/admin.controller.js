@@ -354,6 +354,69 @@ exports.createUser = async (req, res, next) => {
   }
 };
 
+exports.updateUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, email, role, gender, batch, department, aadharCard, panCard, bankAccount } = req.body;
+
+    if (!name || !email || !role) {
+      return res
+        .status(400)
+        .json({ message: "Name, email, and role are required." });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Check if email is being changed and if new email already exists
+    if (email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res
+          .status(409)
+          .json({ message: "User with this email already exists." });
+      }
+    }
+
+    // Update basic fields
+    user.name = name;
+    user.email = email;
+    user.role = role;
+    user.gender = gender;
+
+    // Handle role-specific fields
+    if (role === "student") {
+      user.batch = batch || "";
+      // Clear examiner-specific fields if role changed from examiner to student
+      user.department = "";
+      user.aadharCard = "";
+      user.panCard = "";
+      user.bankAccount = "";
+    } else if (role === "examiner") {
+      user.department = department ? department.toLowerCase() : "";
+      user.aadharCard = aadharCard || "";
+      user.panCard = panCard || "";
+      user.bankAccount = bankAccount || "";
+      // Clear student-specific fields if role changed from student to examiner
+      user.batch = "";
+    } else if (role === "admin") {
+      // Clear all role-specific fields
+      user.batch = "";
+      user.department = "";
+      user.aadharCard = "";
+      user.panCard = "";
+      user.bankAccount = "";
+    }
+
+    await user.save();
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.listUsers = async (req, res, next) => {
   try {
     const users = await User.find({});
