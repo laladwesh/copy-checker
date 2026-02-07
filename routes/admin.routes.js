@@ -2,6 +2,7 @@
 const express = require("express");
 const {
   createUser,
+  updateUser,
   listUsers,
   getStudentsByBatch,
   getExaminers,
@@ -48,6 +49,7 @@ const router = express.Router();
 
 router.use(verifyToken, ensureRole("admin"));
 router.post("/users", createUser);
+router.put("/users/:id", updateUser);
 router.post("/users/bulk", bulkCreateStudents);
 router.get("/users", listUsers);
 router.get("/students", getStudentsByBatch);
