@@ -61,6 +61,7 @@ function CopyChecker() {
 
   // UI States
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showVisualReviewModal, setShowVisualReviewModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // For Save & Next button loading
 
   // React-pdf states for Answer Copy
@@ -614,6 +615,9 @@ function CopyChecker() {
                     <strong className="text-blue-700">Maximum:</strong>
                     <span className="text-blue-900 font-bold ml-1">{copy.questionPaper?.totalMarks || 'N/A'}</span>
                   </div>
+                  <button onClick={() => setShowVisualReviewModal(true)} className="w-full bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 text-sm font-bold flex items-center justify-center gap-2" title="Visual review of all marked pages">
+                  Visual Review
+                </button>
                 </div>
               </div>
               {/* Page check indicator */}
@@ -920,7 +924,8 @@ function CopyChecker() {
                   {totalMarks <= (copy.questionPaper?.totalMarks || 0) ? 'Within Limit' : 'Exceeds Maximum!'}
                 </span>
               </div>
-              <div className="mt-3">
+              <div className="mt-3 space-y-2">
+                
                 <button onClick={() => setShowReviewModal(true)} className="w-full bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] text-sm font-bold">Review & Submit</button>
               </div>
             </div>
@@ -945,6 +950,177 @@ function CopyChecker() {
             This copy has been fully marked. Ready for final review.
           </div>
         )}
+        {/* Visual Review Modal - All Pages with PDF Preview */}
+        <Modal
+          isOpen={showVisualReviewModal}
+          onClose={() => setShowVisualReviewModal(false)}
+          title="Visual Review - All Marked Pages"
+          maxWidth="max-w-7xl"
+        >
+          <div className="max-h-[65vh] overflow-y-auto pr-2 -mr-2">
+            {acPdfUrl ? (
+              <div className="space-y-8">
+                {Array.from({ length: acNumPages || 0 }, (_, i) => i + 1).map((pageNum) => {
+                  const pageData = copy.pages.find((p) => p.pageNumber === pageNum);
+                  const pageMarksData = pageMarks[pageNum] || [];
+                  const isBlank = blankPagesArr.includes(pageNum);
+                  const isSaved = checkedPagesSet.has(pageNum);
+                  
+                  // Calculate marks for this page
+                  const savedMarks = pageData?.marksAwarded || 0;
+                  const placedMarksSum = pageMarksData.reduce((s, m) => s + Number(m.value || 0), 0);
+                  const displayMarks = isSaved ? savedMarks : placedMarksSum;
+                  
+                  return (
+                    <div key={pageNum} className="bg-white border-2 border-gray-300 rounded-lg overflow-hidden shadow-md">
+                      {/* Page Header */}
+                      <div className="bg-gradient-to-r from-gray-100 to-gray-200 px-4 py-3 border-b-2 border-gray-300 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-gray-900">Page {pageNum}</span>
+                          {isBlank && (
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded border border-yellow-400">
+                              ⚠ Blank
+                            </span>
+                          )}
+                          {isSaved && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded border border-green-400">
+                              ✓ Saved
+                            </span>
+                          )}
+                          {!isSaved && !isBlank && pageMarksData.length > 0 && (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded border border-orange-400">
+                              ⚡ Unsaved
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="text-xs text-gray-600 font-semibold">Marks Awarded</div>
+                            <div className={`text-2xl font-bold ${displayMarks > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                              {Number(displayMarks).toFixed(1)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* PDF Page with Marks Overlay */}
+                      <div className="relative bg-gray-50 flex items-center justify-center p-6">
+                        <div className="relative shadow-xl w-full max-w-3xl mx-auto">
+                          <Document file={acPdfUrl} className="flex justify-center">
+                            <Page 
+                              pageNumber={pageNum} 
+                              width={800}
+                              renderAnnotationLayer={false}
+                              renderTextLayer={false}
+                            />
+                          </Document>
+                          
+                          {/* Overlay marks */}
+                          {pageMarksData.length > 0 && pageMarksData.map((mark) => (
+                            <div
+                              key={mark.id}
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: `${mark.x}%`,
+                                top: `${mark.y}%`,
+                                transform: 'translate(-50%, -50%)',
+                                zIndex: 10
+                              }}
+                            >
+                              <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-2xl border-2 border-white ${
+                                mark.value > 0 ? 'bg-green-500' : 'bg-red-500'
+                              }`}>
+                                {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Blank page overlay */}
+                          {isBlank && (
+                            <div className="absolute inset-0 bg-yellow-100 bg-opacity-20 flex items-center justify-center pointer-events-none">
+                              <div className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold text-lg shadow-lg">
+                                BLANK PAGE
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Comments Section */}
+                      {pageData?.comments && (
+                        <div className="bg-blue-50 px-4 py-3 border-t-2 border-gray-300">
+                          <div className="flex items-start gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                            </svg>
+                            <div className="flex-1">
+                              <div className="text-xs font-bold text-blue-700 mb-1">Examiner's Comments:</div>
+                              <div className="text-sm text-gray-900 font-semibold">{pageData.comments}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* No marks indicator */}
+                      {!isBlank && pageMarksData.length === 0 && !pageData?.marksAwarded && (
+                        <div className="bg-gray-100 px-4 py-2 border-t border-gray-300 text-center">
+                          <span className="text-xs text-gray-500 italic">No marks placed on this page</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}</div>
+            ) : (
+              <div className="text-gray-600 text-center py-8">Answer copy PDF not available.</div>
+            )}
+          </div>
+          
+          {/* Modal Footer */}
+          <div className="mt-6 pt-4 border-t-2 border-gray-300 bg-gray-50 px-2 py-3 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-6">
+                <div className="text-sm">
+                  <span className="text-gray-600 font-semibold">Total Pages:</span>
+                  <span className="ml-2 text-gray-900 font-bold">{acNumPages || 0}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="text-gray-600 font-semibold">Checked:</span>
+                  <span className="ml-2 text-green-600 font-bold">{totalChecked}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-600 font-semibold">Total Marks:</div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-3xl font-bold ${
+                    totalMarks > (copy.questionPaper?.totalMarks || 0) ? 'text-red-600' : 'text-green-600'
+                  }`}>{totalMarks.toFixed(1)}</span>
+                  <span className="text-lg text-gray-400">/</span>
+                  <span className="text-2xl font-bold text-gray-900">{copy.questionPaper?.totalMarks || 0}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowVisualReviewModal(false)}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-bold transition"
+              >
+                Close Review
+              </button>
+              <button
+                onClick={() => {
+                  setShowVisualReviewModal(false);
+                  setShowReviewModal(true);
+                }}
+                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+                Proceed to Submit
+              </button>
+            </div>
+          </div>
+        </Modal>
         {/* Review Modal */}
         <Modal
           isOpen={showReviewModal}
