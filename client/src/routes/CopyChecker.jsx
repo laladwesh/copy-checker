@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import  { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
 import {
-  ArrowLeftIcon,
+  // ArrowLeftIcon,
   ClipboardDocumentCheckIcon,
-  PaperAirplaneIcon,
+  // PaperAirplaneIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
@@ -37,7 +37,7 @@ const DraggableMark = ({ value, onDragStart }) => {
       className="cursor-move select-none"
       style={{ touchAction: 'none' }}
     >
-      <div className="w-12 h-12 flex items-center justify-center bg-gray-900 text-white rounded-full text-sm font-bold hover:scale-105 transition shadow-lg">
+      <div className="w-12 h-12 flex items-center justify-center bg-blue-600 text-white rounded-full text-sm font-bold hover:scale-105 transition">
         {Number(value).toFixed(value % 1 === 0 ? 0 : 1)}
       </div>
     </div>
@@ -573,14 +573,14 @@ function CopyChecker() {
           </h1>
         </div> */}
         {/* Completion Timeline */}
-        <div className="bg-white p-3 rounded-md border border-gray-200 max-w-6xl mx-auto mb-6">
+        <div className="bg-white p-4 rounded-lg max-w-6xl mx-auto mb-6">
           <h3 className="text-xl font-bold text-gray-900 mb-3">
             Marking Progress: {totalChecked} of {copy.totalPages} pages
             checked ({completionPercentage.toFixed(1)}%)
           </h3>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-full h-5">
             <div
-              className="bg-gray-900 h-4 rounded-full transition-all duration-500 ease-out"
+              className="bg-blue-600 h-5 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${completionPercentage}%` }}
             ></div>
           </div>
@@ -592,7 +592,7 @@ function CopyChecker() {
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">Answer Copy</h2>
                 <div className="flex items-center gap-2">
-                  <div className="text-xs bg-gray-100 px-3 py-1 rounded-full border border-gray-300">
+                  <div className="text-xs bg-green-100 px-3 py-1 rounded-full">
                     <strong className="text-gray-700">Awarded:</strong>
                     <span className={(function(){
                         const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
@@ -611,13 +611,13 @@ function CopyChecker() {
                     </span>
                   </div>
                   <span className="text-gray-400">/</span>
-                  <div className="text-xs bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                    <strong className="text-blue-700">Maximum:</strong>
-                    <span className="text-blue-900 font-bold ml-1">{copy.questionPaper?.totalMarks || 'N/A'}</span>
+                  <div className="text-xs bg-blue-100 px-3 py-1 rounded-full">
+                    <strong className="text-gray-700">Maximum:</strong>
+                    <span className="text-blue-600 font-bold ml-1">{copy.questionPaper?.totalMarks || 'N/A'}</span>
                   </div>
-                  <button onClick={() => setShowVisualReviewModal(true)} className="w-full bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 text-sm font-bold flex items-center justify-center gap-2" title="Visual review of all marked pages">
-                  Visual Review
-                </button>
+                  <button onClick={() => setShowVisualReviewModal(true)} className="bg-orange-600 text-white px-3 py-1 rounded-lg hover:bg-orange-700 text-sm font-bold flex items-center justify-center gap-2" title="Visual review of all marked pages">
+                    Visual Review
+                  </button>
                 </div>
               </div>
               {/* Page check indicator */}
@@ -698,7 +698,7 @@ function CopyChecker() {
             </div>
 
             {/* Horizontal Page Navigation moved below the PDF viewer to use vertical space for the document */}
-            <div className="w-full bg-white p-3 mt-3 flex items-center justify-center overflow-x-auto">
+            <div className="w-full bg-gray-50 p-3 mt-3 flex items-center justify-center overflow-x-auto">
               <div className="flex flex-wrap gap-2 justify-center">
                 {Array.from({ length: acNumPages || 0 }, (_, i) => i + 1).map((pageNum) => {
                   const isChecked = combinedCheckedSet.has(pageNum);
@@ -710,9 +710,9 @@ function CopyChecker() {
                       onClick={() => setCurrentPage(pageNum)}
                       className={`w-10 h-10 rounded-full text-sm font-bold transition relative flex items-center justify-center ${
                         isCurrentPage
-                          ? 'bg-gray-900 text-white shadow-md ring-2 ring-gray-700'
+                          ? 'bg-blue-600 text-white'
                           : isBlank
-                          ? 'bg-red-200 text-red-900 hover:bg-red-300'
+                          ? 'bg-orange-200 text-orange-900 hover:bg-orange-300'
                           : isChecked
                           ? 'bg-green-500 text-white hover:bg-green-600'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -730,7 +730,7 @@ function CopyChecker() {
           {/* Right Sidebar - Marking and Controls */}
           <aside className="lg:col-span-3 flex flex-col space-y-4">
             {/* Draggable Marking Tools */}
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-md border-2 border-dashed border-blue-300 shadow-sm">
+            <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm font-bold text-gray-900 mb-3 text-center">Marking Tools</h3>
               <p className="text-xs text-gray-600 mb-3 text-center">Drag and drop marks onto the answer copy</p>
               <div className="flex justify-center gap-3 flex-wrap">
@@ -753,7 +753,7 @@ function CopyChecker() {
               )}
             </div>
             
-            <div className="bg-white p-3 rounded-md border border-gray-200">
+            <div className="bg-white p-3 rounded-lg">
               {/* <h3 className="text-lg font-semibold text-gray-800 mb-3">Viewing Controls</h3> */}
               <div className="text-center mb-3">
                 {/* <div className="text-sm text-gray-600">Page</div> */}
@@ -782,14 +782,14 @@ function CopyChecker() {
 
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
-                  <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
-                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
                 </div>
                 <div className="text-sm text-gray-600">{acZoomLevel.toFixed(2)}x</div>
               </div>
 
-              <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-gray-700">
+              <div className="mb-3 p-2 bg-blue-50 rounded text-xs text-gray-700">
                 <strong>Pan Tip:</strong> Hold <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-xs font-mono">Ctrl</kbd> and drag to pan, or use middle mouse button
                 {(panX !== 0 || panY !== 0) && (
                   <button onClick={resetPan} className="ml-2 text-blue-600 hover:text-blue-800 underline font-semibold">
@@ -800,21 +800,21 @@ function CopyChecker() {
 
               <div className="mt-2 flex gap-2">
                 {qpPdfUrl ? (
-                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] text-sm font-bold flex items-center justify-center" title="Open Question Paper">
-                     Question Paper
+                  <a href={qpPdfUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm font-bold flex items-center justify-center" title="Open Question Paper">
+                    Question Paper
                   </a>
                 ) : (
-                  <button disabled className="flex-1 bg-gray-300 text-gray-500 px-3 py-1 rounded-md text-sm font-bold flex items-center justify-center cursor-not-allowed" title="Question paper not available">
-                     Question Paper
+                  <button disabled className="flex-1 bg-gray-300 text-gray-500 px-3 py-2 rounded-lg text-sm font-bold flex items-center justify-center cursor-not-allowed" title="Question paper not available">
+                    Question Paper
                   </button>
                 )}
-                <button onClick={() => setIsBlankModalOpen(true)} className="flex-1 bg-red-100 text-red-900 px-3 py-1 rounded-md hover:bg-red-200 text-sm font-bold flex items-center justify-center" title="Identify blank pages">
-                  Identify Blank Pages
+                <button onClick={() => setIsBlankModalOpen(true)} className="flex-1 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-sm font-bold flex items-center justify-center" title="Identify blank pages">
+                  Mark Blank Pages
                 </button>
               </div>
             </div>
 
-            <div className="bg-white p-3 rounded-md border border-gray-200 max-h-[calc(100vh-400px)] overflow-y-auto">
+            <div className="bg-white p-3 rounded-lg max-h-[calc(100vh-400px)] overflow-y-auto">
               <div className="mb-3">
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   {Array.from({ length: 21 }, (_, i) => i * 0.5).map((markValue) => {
@@ -832,7 +832,7 @@ function CopyChecker() {
                         disabled={wouldExceed}
                         className={`px-2 py-1 rounded text-xs font-bold transition ${
                           marksPool.includes(markValue)
-                            ? 'bg-gray-900 text-white shadow-md'
+                            ? 'bg-blue-600 text-white'
                             : wouldExceed
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -852,12 +852,12 @@ function CopyChecker() {
                     step="0.5" 
                     value={marks} 
                     onChange={(e) => setMarks(e.target.value)} 
-                    className="flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm" 
+                    className="flex-1 px-2 py-1 bg-gray-50 rounded-lg text-sm" 
                     placeholder="Enter custom mark" 
                   />
                   <button
                     onClick={() => addToPool(marks)}
-                    className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-bold whitespace-nowrap"
+                    className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-bold whitespace-nowrap"
                     title="Add mark to tools"
                   >
                     Add to Tools
@@ -866,7 +866,7 @@ function CopyChecker() {
               </div>
               <div className="mb-3">
                 <label htmlFor="comments" className="block text-sm font-bold text-gray-900 mb-1">Comments:</label>
-                <textarea id="comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm resize-y" placeholder="Add comments..."></textarea>
+                <textarea id="comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} className="w-full px-2 py-1 bg-gray-50 rounded-lg text-sm resize-y" placeholder="Add comments..."></textarea>
               </div>
               {(function(){
                 const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
@@ -877,8 +877,8 @@ function CopyChecker() {
                 const wouldExceed = newTotalMarks > maxMarks;
                 const hasMarks = pageMarksVal > 0;
                 return wouldExceed && hasMarks ? (
-                  <div className="mb-2 p-2 bg-red-50 border border-red-300 rounded text-xs text-red-700">
-                    <strong> Warning:</strong> These marks would exceed the maximum total marks allowed ({maxMarks}). Please reduce the marks.
+                  <div className="mb-2 p-2 bg-orange-100 rounded text-xs text-orange-700">
+                    <strong>Warning:</strong> These marks would exceed the maximum total marks allowed ({maxMarks}). Please reduce the marks.
                   </div>
                 ) : null;
               })()}
@@ -891,7 +891,7 @@ function CopyChecker() {
                   const maxMarks = copy.questionPaper?.totalMarks || 0;
                   const hasMarks = pageMarksVal > 0;
                   return hasMarks && newTotalMarks > maxMarks;
-                })()} className="bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-bold flex items-center">
+                })()} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-bold flex items-center">
                   {isSaving ? (
                     <svg className="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   ) : (
@@ -902,7 +902,7 @@ function CopyChecker() {
               </div>
             </div>
 
-            <div className="bg-white p-3 rounded-md border border-gray-200">
+            <div className="bg-green-50 p-3 rounded-lg">
               <div className="text-sm font-bold text-gray-900 mb-1">Total Marks Summary</div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -918,15 +918,15 @@ function CopyChecker() {
               <div className="mt-2 text-xs text-center">
                 <span className={`inline-block px-3 py-1 rounded-full font-bold ${
                   totalMarks <= (copy.questionPaper?.totalMarks || 0)
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-100 text-orange-700'
                 }`}>
-                  {totalMarks <= (copy.questionPaper?.totalMarks || 0) ? 'Within Limit' : 'Exceeds Maximum!'}
+                  {totalMarks <= (copy.questionPaper?.totalMarks || 0) ? 'Within Limit' : 'Exceeds Maximum'}
                 </span>
               </div>
               <div className="mt-3 space-y-2">
                 
-                <button onClick={() => setShowReviewModal(true)} className="w-full bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] text-sm font-bold">Review & Submit</button>
+                <button onClick={() => setShowReviewModal(true)} className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm font-bold">Review & Submit</button>
               </div>
             </div>
           </aside>
@@ -946,7 +946,7 @@ function CopyChecker() {
         </div> */}
         {/* Completion Status */}
         {copy.status === "evaluated" && ( // Changed from 'completed' to 'evaluated' based on examiner.controller.js
-          <div className="text-center text-xl text-green-600 font-semibold bg-green-50 p-4 rounded-lg mt-6 max-w-4xl mx-auto border border-green-200">
+          <div className="text-center text-xl text-green-600 font-semibold bg-green-100 p-4 rounded-lg mt-6 max-w-4xl mx-auto">
             This copy has been fully marked. Ready for final review.
           </div>
         )}
@@ -972,24 +972,24 @@ function CopyChecker() {
                   const displayMarks = isSaved ? savedMarks : placedMarksSum;
                   
                   return (
-                    <div key={pageNum} className="bg-white border-2 border-gray-300 rounded-lg overflow-hidden shadow-md">
+                    <div key={pageNum} className="bg-white rounded-lg overflow-hidden">
                       {/* Page Header */}
-                      <div className="bg-gradient-to-r from-gray-100 to-gray-200 px-4 py-3 border-b-2 border-gray-300 flex items-center justify-between">
+                      <div className="bg-gray-100 px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <span className="text-lg font-bold text-gray-900">Page {pageNum}</span>
                           {isBlank && (
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded border border-yellow-400">
-                              ⚠ Blank
+                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded">
+                              Blank
                             </span>
                           )}
                           {isSaved && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded border border-green-400">
-                              ✓ Saved
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded">
+                              Saved
                             </span>
                           )}
                           {!isSaved && !isBlank && pageMarksData.length > 0 && (
-                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded border border-orange-400">
-                              ⚡ Unsaved
+                            <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded">
+                              Unsaved
                             </span>
                           )}
                         </div>
@@ -1037,8 +1037,8 @@ function CopyChecker() {
                           
                           {/* Blank page overlay */}
                           {isBlank && (
-                            <div className="absolute inset-0 bg-yellow-100 bg-opacity-20 flex items-center justify-center pointer-events-none">
-                              <div className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold text-lg shadow-lg">
+                            <div className="absolute inset-0 bg-orange-100 bg-opacity-20 flex items-center justify-center pointer-events-none">
+                              <div className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
                                 BLANK PAGE
                               </div>
                             </div>
@@ -1048,7 +1048,7 @@ function CopyChecker() {
                       
                       {/* Comments Section */}
                       {pageData?.comments && (
-                        <div className="bg-blue-50 px-4 py-3 border-t-2 border-gray-300">
+                        <div className="bg-blue-50 px-4 py-3">
                           <div className="flex items-start gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -1063,7 +1063,7 @@ function CopyChecker() {
                       
                       {/* No marks indicator */}
                       {!isBlank && pageMarksData.length === 0 && !pageData?.marksAwarded && (
-                        <div className="bg-gray-100 px-4 py-2 border-t border-gray-300 text-center">
+                        <div className="bg-gray-100 px-4 py-2 text-center">
                           <span className="text-xs text-gray-500 italic">No marks placed on this page</span>
                         </div>
                       )}
@@ -1076,7 +1076,7 @@ function CopyChecker() {
           </div>
           
           {/* Modal Footer */}
-          <div className="mt-6 pt-4 border-t-2 border-gray-300 bg-gray-50 px-2 py-3 rounded-lg">
+          <div className="mt-6 pt-4 bg-gray-50 px-2 py-3 rounded-lg">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-6">
                 <div className="text-sm">
@@ -1111,7 +1111,7 @@ function CopyChecker() {
                   setShowVisualReviewModal(false);
                   setShowReviewModal(true);
                 }}
-                className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition flex items-center gap-2"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition flex items-center gap-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
@@ -1143,7 +1143,7 @@ function CopyChecker() {
                     return (
                       <div
                         key={page.pageNumber}
-                        className={`bg-gray-50 p-4 rounded-lg border ${isChecked ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}
+                        className={`p-4 rounded-lg ${isChecked ? 'bg-green-50' : 'bg-gray-50'}`}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="text-lg font-bold text-gray-900">Page {page.pageNumber}</h4>
@@ -1166,7 +1166,7 @@ function CopyChecker() {
               </div>
             )}
           </div>
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 mt-6 pt-4">
             {/* Total marks showing*/}
             <div className="flex items-center gap-3 pt-2">
               <div className="text-sm text-gray-600">Total Marks:</div>
@@ -1190,7 +1190,7 @@ function CopyChecker() {
             <button
               onClick={handleFinalSubmit}
               disabled={totalChecked !== copy.totalPages} // Only enable if all pages are checked/saved
-              className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm & Finish
             </button>
@@ -1215,7 +1215,7 @@ function CopyChecker() {
                   const pageNum = i + 1;
                   const isMarkedBlank = blankPagesArr.includes(pageNum);
                   return (
-                    <div key={pageNum} className={`p-1 border rounded cursor-pointer flex flex-col items-center ${isMarkedBlank ? 'ring-2 ring-red-500 bg-red-50' : ''}`} onClick={() => toggleBlankPage(pageNum)}>
+                    <div key={pageNum} className={`p-1 rounded cursor-pointer flex flex-col items-center ${isMarkedBlank ? 'bg-orange-100' : 'bg-gray-50'}`} onClick={() => toggleBlankPage(pageNum)}>
                       <div className="w-full flex items-center justify-center overflow-hidden relative" style={{ height: 140 }}>
                         <Document file={acPdfUrl}>
                           <Page pageNumber={pageNum} scale={0.45} renderTextLayer={false} renderAnnotationLayer={false} />
@@ -1223,8 +1223,8 @@ function CopyChecker() {
                         {isMarkedBlank && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                              <line x1="0" y1="0" x2="100" y2="100" stroke="red" strokeWidth="3" />
-                              <line x1="100" y1="0" x2="0" y2="100" stroke="red" strokeWidth="3" />
+                              <line x1="0" y1="0" x2="100" y2="100" stroke="#ea580c" strokeWidth="3" />
+                              <line x1="100" y1="0" x2="0" y2="100" stroke="#ea580c" strokeWidth="3" />
                             </svg>
                           </div>
                         )}
@@ -1238,7 +1238,7 @@ function CopyChecker() {
               <div className="text-gray-600">Answer copy PDF not available for thumbnail rendering.</div>
             )}
           </div>
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 mt-6 pt-4">
             <button onClick={() => setIsBlankModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Done</button>
           </div>
         </Modal>
