@@ -324,7 +324,7 @@ exports.serveDrivePdf = async (req, res, next) => {
 // 1. User Management (No changes needed here for this request)
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, role, gender, batch, department, aadharCard, panCard, bankAccount } = req.body;
+    const { name, email, role, gender, batch, department } = req.body;
     if (!name || !email || !role) {
       return res
         .status(400)
@@ -337,16 +337,7 @@ exports.createUser = async (req, res, next) => {
         .json({ message: "User with this email already exists." });
     }
     const normalizedDepartment = department ? department.toLowerCase() : undefined;
-    const userData = { name, email, role, gender, batch, department: normalizedDepartment };
-
-    // Add examiner-specific fields if role is examiner
-    if (role === "examiner") {
-      if (aadharCard) userData.aadharCard = aadharCard;
-      if (panCard) userData.panCard = panCard;
-      if (bankAccount) userData.bankAccount = bankAccount;
-    }
-
-    const user = new User(userData);
+    const user = new User({ name, email, role, gender, batch, department: normalizedDepartment });
     await user.save();
     res.status(201).json(user);
   } catch (err) {
@@ -357,7 +348,7 @@ exports.createUser = async (req, res, next) => {
 exports.updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, email, role, gender, batch, department, aadharCard, panCard, bankAccount } = req.body;
+    const { name, email, role, gender, batch, department } = req.body;
 
     if (!name || !email || !role) {
       return res
@@ -393,12 +384,13 @@ exports.updateUser = async (req, res, next) => {
       user.department = "";
       user.aadharCard = "";
       user.panCard = "";
-      user.bankAccount = "";
+      user.accountNumber = "";
+      user.bankName = "";
+      user.ifscCode = "";
+      user.profileComplete = false;
     } else if (role === "examiner") {
       user.department = department ? department.toLowerCase() : "";
-      user.aadharCard = aadharCard || "";
-      user.panCard = panCard || "";
-      user.bankAccount = bankAccount || "";
+      // Don't allow admin to set banking fields - examiner must enter them via profile
       // Clear student-specific fields if role changed from student to examiner
       user.batch = "";
     } else if (role === "admin") {
@@ -407,7 +399,10 @@ exports.updateUser = async (req, res, next) => {
       user.department = "";
       user.aadharCard = "";
       user.panCard = "";
-      user.bankAccount = "";
+      user.accountNumber = "";
+      user.bankName = "";
+      user.ifscCode = "";
+      user.profileComplete = false;
     }
 
     await user.save();
