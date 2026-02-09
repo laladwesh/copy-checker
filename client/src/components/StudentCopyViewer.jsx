@@ -351,11 +351,28 @@ export default function StudentCopyViewer() {
         {/* Total Marks Display */}
         <div className="mx-auto mb-8 text-center">
           <span className="text-gray-900 font-bold">{copy.questionPaper.title}</span>
-          <h3 className="text-2xl font-bold text-gray-900">
-            Your Total Marks:{" "}
-            <span className="text-gray-900">{totalMarks}</span> /{" "}
-            {copy.questionPaper.totalMarks}
+          <h3 className="text-2xl font-bold text-gray-900 mt-2">
+            Your Total Marks
           </h3>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <span className="text-4xl font-extrabold text-gray-900">{totalMarks}</span>
+            <span className="text-2xl text-gray-500">/</span>
+            <div className="flex flex-col items-start">
+              <span className="text-sm text-gray-600 font-medium">Maximum Marks</span>
+              <span className="text-2xl font-bold text-gray-900">{copy.questionPaper.totalMarks}</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <span className={`inline-block px-4 py-1 rounded-full text-sm font-bold ${
+              totalMarks >= copy.questionPaper.totalMarks * 0.75
+                ? 'bg-green-100 text-green-800'
+                : totalMarks >= copy.questionPaper.totalMarks * 0.5
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {Math.round((totalMarks / copy.questionPaper.totalMarks) * 100)}% Score
+            </span>
+          </div>
         </div>
 
         {/* Question Paper Link */}
