@@ -3,6 +3,7 @@ import { XMarkIcon, DocumentArrowDownIcon, CheckCircleIcon, XCircleIcon, ArrowPa
 import { toastSuccess, toastError } from '../utils/hotToast';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export default function ExamReportGenerator({ 
   isOpen, 
@@ -13,6 +14,7 @@ export default function ExamReportGenerator({
 }) {
   const [includeExaminerDetails, setIncludeExaminerDetails] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [reportFormat, setReportFormat] = useState('pdf'); // 'pdf' or 'excel'
 
   if (!isOpen || !exam) return null;
 
@@ -282,6 +284,106 @@ export default function ExamReportGenerator({
     }
   };
 
+  // 3. Excel Generator
+  const generateExcelReport = () => {
+    setIsGenerating(true);
+    
+    try {
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Prepare main data for student marks
+      const studentData = examCopies.map((copy, index) => ({
+        'S.No': index + 1,
+        'Student Name': copy.studentName,
+        'Email': copy.studentEmail,
+        'Batch': copy.studentBatch,
+        'Marks Awarded': copy.marksAwarded,
+        'Maximum Marks': copy.maxMarks,
+        'Status': copy.status,
+        ...(includeExaminerDetails && { 'Examiners': copy.examiners })
+      }));
+      
+      // Calculate statistics
+      const evaluatedCount = examCopies.filter(c => c.status === 'Evaluated').length;
+      const averageMarks = evaluatedCount > 0 
+        ? (examCopies.filter(c => c.status === 'Evaluated').reduce((sum, c) => sum + c.marksAwarded, 0) / evaluatedCount).toFixed(2)
+        : '0';
+      const highestMarks = evaluatedCount > 0 
+        ? Math.max(...examCopies.filter(c => c.status === 'Evaluated').map(c => c.marksAwarded))
+        : '0';
+      
+      // Create exam info sheet
+      const examInfo = [
+        ['PRASAD INSTITUTE OF MEDICAL SCIENCES'],
+        ['Official Examination Report'],
+        [''],
+        ['Exam Title:', exam.title],
+        ['Course:', exam.course || 'N/A'],
+        ['Exam Type:', exam.examType || 'N/A'],
+        ['Date:', exam.date ? new Date(exam.date).toLocaleDateString('en-IN') : 'N/A'],
+        ['Total Marks:', exam.totalMarks || 'N/A'],
+        [''],
+        ['STATISTICS'],
+        ['Total Students:', examCopies.length],
+        ['Evaluated:', evaluatedCount],
+        ['Pending:', examCopies.length - evaluatedCount],
+        ['Average Marks:', averageMarks],
+        ['Highest Marks:', highestMarks],
+        [''],
+        ['Generated On:', new Date().toLocaleString('en-IN')]
+      ];
+      
+      const wsInfo = XLSX.utils.aoa_to_sheet(examInfo);
+      XLSX.utils.book_append_sheet(wb, wsInfo, 'Exam Info');
+      
+      // Create student marks sheet
+      const wsData = XLSX.utils.json_to_sheet(studentData);
+      
+      // Set column widths
+      const colWidths = [
+        { wch: 6 },  // S.No
+        { wch: 25 }, // Student Name
+        { wch: 30 }, // Email
+        { wch: 12 }, // Batch
+        { wch: 15 }, // Marks Awarded
+        { wch: 15 }, // Maximum Marks
+        { wch: 12 }, // Status
+      ];
+      
+      if (includeExaminerDetails) {
+        colWidths.push({ wch: 30 }); // Examiners
+      }
+      
+      wsData['!cols'] = colWidths;
+      XLSX.utils.book_append_sheet(wb, wsData, 'Student Marks');
+      
+      // Generate file name
+      const fileName = `Report_${exam.title.substring(0, 15).replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Write file
+      XLSX.writeFile(wb, fileName);
+      
+      toastSuccess('Excel report downloaded successfully!');
+      setIsGenerating(false);
+      onClose();
+      
+    } catch (error) {
+      console.error('Excel Error:', error);
+      toastError('Failed to generate Excel report.');
+      setIsGenerating(false);
+    }
+  };
+
+  // Handle format-specific generation
+  const handleGenerateReport = () => {
+    if (reportFormat === 'pdf') {
+      generatePDFReport();
+    } else {
+      generateExcelReport();
+    }
+  };
+
   // ... (Keep existing Render/UI code) ...
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{fontFamily: 'Dosis, sans-serif'}}>
@@ -321,6 +423,47 @@ export default function ExamReportGenerator({
                </div>
             </div>
 
+            {/* Format Selection */}
+            <div className="p-4 border-2 border-gray-900 rounded-xl bg-gray-50">
+              <label className="block text-sm font-bold text-gray-900 mb-3">Report Format</label>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center">
+                  <input
+                    id="format-pdf"
+                    type="radio"
+                    name="reportFormat"
+                    value="pdf"
+                    checked={reportFormat === 'pdf'}
+                    onChange={(e) => setReportFormat(e.target.value)}
+                    className="h-4 w-4 text-gray-900 focus:ring-gray-900 border-gray-300 cursor-pointer"
+                  />
+                  <label htmlFor="format-pdf" className="ml-2 text-sm text-gray-900 cursor-pointer font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-red-600">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    PDF Report
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    id="format-excel"
+                    type="radio"
+                    name="reportFormat"
+                    value="excel"
+                    checked={reportFormat === 'excel'}
+                    onChange={(e) => setReportFormat(e.target.value)}
+                    className="h-4 w-4 text-gray-900 focus:ring-gray-900 border-gray-300 cursor-pointer"
+                  />
+                  <label htmlFor="format-excel" className="ml-2 text-sm text-gray-900 cursor-pointer font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-green-600">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5" />
+                    </svg>
+                    Excel Report
+                  </label>
+                </div>
+              </div>
+            </div>
+
             {/* Config Option */}
             <div className="flex items-center p-3 border-2 border-gray-900 rounded-xl hover:bg-gray-50 transition">
               <input
@@ -331,12 +474,14 @@ export default function ExamReportGenerator({
                 className="h-4 w-4 text-gray-900 focus:ring-gray-900 border-gray-300 rounded cursor-pointer"
               />
               <label htmlFor="examiner-check" className="ml-3 text-sm text-gray-900 cursor-pointer font-bold">
-                Include Examiner Details in PDF
+                Include Examiner Details in Report
               </label>
             </div>
 
             <div className="text-xs text-gray-600 italic bg-gray-50 border border-gray-300 p-3 rounded-xl font-bold">
-               * The PDF report will include institute header, exam details, student marks table, and a summary dashboard.
+               {reportFormat === 'pdf' 
+                 ? '* The PDF report will include institute header, exam details, student marks table, and a summary dashboard.'
+                 : '* The Excel report will include two sheets: Exam Info with statistics, and Student Marks with detailed data.'}
             </div>
           </div>
 
@@ -350,7 +495,7 @@ export default function ExamReportGenerator({
               Cancel
             </button>
             <button
-              onClick={generatePDFReport}
+              onClick={handleGenerateReport}
               disabled={isGenerating || examCopies.length === 0}
               className="px-6 py-2 bg-gray-900 text-white rounded-xl hover:bg-gray-800 font-bold text-sm flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
@@ -362,7 +507,7 @@ export default function ExamReportGenerator({
               ) : (
                 <>
                   <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
-                  Generate PDF
+                  Generate {reportFormat === 'pdf' ? 'PDF' : 'Excel'}
                 </>
               )}
             </button>
