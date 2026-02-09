@@ -426,3 +426,74 @@ exports.getSingleQuery = async (req, res, next) => {
     next(err);
   }
 };
+
+// Get examiner profile to check if banking details are complete
+exports.getProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select(
+      'name email department aadharCard panCard accountNumber bankName ifscCode profileComplete'
+    );
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Update examiner banking details
+exports.updateBankingDetails = async (req, res, next) => {
+  try {
+    const { aadharCard, panCard, accountNumber, bankName, ifscCode } = req.body;
+
+    // Validate required fields
+    if (!aadharCard || !panCard || !accountNumber || !bankName || !ifscCode) {
+      return res.status(400).json({ 
+        message: "All banking details are required: Aadhar Card, PAN Card, Account Number, Bank Name, and IFSC Code." 
+      });
+    }
+
+    // Validate Aadhar format (12 digits)
+    if (!/^\d{12}$/.test(aadharCard)) {
+      return res.status(400).json({ message: "Aadhar Card must be 12 digits." });
+    }
+
+    // Validate PAN format (5 letters, 4 digits, 1 letter)
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panCard.toUpperCase())) {
+      return res.status(400).json({ message: "Invalid PAN Card format." });
+    }
+
+    // Validate IFSC format (11 characters)
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode.toUpperCase())) {
+      return res.status(400).json({ message: "Invalid IFSC Code format." });
+    }
+
+    // Update user
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        aadharCard: aadharCard.trim(),
+        panCard: panCard.toUpperCase().trim(),
+        accountNumber: accountNumber.trim(),
+        bankName: bankName.trim(),
+        ifscCode: ifscCode.toUpperCase().trim(),
+        profileComplete: true
+      },
+      { new: true, runValidators: true }
+    ).select('name email department aadharCard panCard accountNumber bankName ifscCode profileComplete');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.json({ 
+      message: "Banking details updated successfully.", 
+      user 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
