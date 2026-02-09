@@ -25,9 +25,6 @@ export default function ManageUsers() {
   const [newUserGender, setNewUserGender] = useState("");
   const [newUserBatch, setNewUserBatch] = useState("");
   const [newUserDepartment, setNewUserDepartment] = useState("");
-  const [newUserAadhar, setNewUserAadhar] = useState("");
-  const [newUserPan, setNewUserPan] = useState("");
-  const [newUserBankAccount, setNewUserBankAccount] = useState("");
 
   // Search and filter states
   const [activeUserTab, setActiveUserTab] = useState("all");
@@ -57,9 +54,6 @@ export default function ManageUsers() {
   const [editUserGender, setEditUserGender] = useState("");
   const [editUserBatch, setEditUserBatch] = useState("");
   const [editUserDepartment, setEditUserDepartment] = useState("");
-  const [editUserAadhar, setEditUserAadhar] = useState("");
-  const [editUserPan, setEditUserPan] = useState("");
-  const [editUserBankAccount, setEditUserBankAccount] = useState("");
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   // Fetch users
@@ -116,9 +110,6 @@ export default function ManageUsers() {
 
       if (newUserRole === "examiner") {
         userData.department = newUserDepartment;
-        userData.aadharCard = newUserAadhar;
-        userData.panCard = newUserPan;
-        userData.bankAccount = newUserBankAccount;
       }
 
       await api.post("/admin/users", userData);
@@ -129,9 +120,6 @@ export default function ManageUsers() {
       setNewUserGender("");
       setNewUserBatch("");
       setNewUserDepartment("");
-      setNewUserAadhar("");
-      setNewUserPan("");
-      setNewUserBankAccount("");
       fetchUsers();
     } catch (error) {
       console.error("Error adding user:", error);
@@ -148,9 +136,6 @@ export default function ManageUsers() {
     setEditUserGender(user.gender || "");
     setEditUserBatch(user.batch || "");
     setEditUserDepartment(user.department || "");
-    setEditUserAadhar(user.aadharCard || "");
-    setEditUserPan(user.panCard || "");
-    setEditUserBankAccount(user.bankAccount || "");
     setIsEditModalOpen(true);
   };
 
@@ -178,16 +163,10 @@ export default function ManageUsers() {
         userData.batch = editUserBatch;
         // Clear examiner-specific fields
         userData.department = "";
-        userData.aadharCard = "";
-        userData.panCard = "";
-        userData.bankAccount = "";
       }
 
       if (editUserRole === "examiner") {
         userData.department = editUserDepartment;
-        userData.aadharCard = editUserAadhar;
-        userData.panCard = editUserPan;
-        userData.bankAccount = editUserBankAccount;
         // Clear student-specific fields
         userData.batch = "";
       }
@@ -196,9 +175,6 @@ export default function ManageUsers() {
         // Clear role-specific fields
         userData.batch = "";
         userData.department = "";
-        userData.aadharCard = "";
-        userData.panCard = "";
-        userData.bankAccount = "";
       }
 
       await api.put(`/admin/users/${userToEdit._id}`, userData);
@@ -678,9 +654,6 @@ export default function ManageUsers() {
                 setNewUserBatch("");
                 setNewUserGender("");
                 setNewUserDepartment("");
-                setNewUserAadhar("");
-                setNewUserPan("");
-                setNewUserBankAccount("");
               }}
               className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
             >
@@ -706,27 +679,11 @@ export default function ManageUsers() {
                   onChange={(e) => setNewUserDepartment(e.target.value)}
                   className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
                 />
-                <input
-                  type="text"
-                  placeholder="Aadhar Card Number"
-                  value={newUserAadhar}
-                  onChange={(e) => setNewUserAadhar(e.target.value)}
-                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="PAN Card Number"
-                  value={newUserPan}
-                  onChange={(e) => setNewUserPan(e.target.value)}
-                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="Bank Account Details"
-                  value={newUserBankAccount}
-                  onChange={(e) => setNewUserBankAccount(e.target.value)}
-                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-                />
+                {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="text-blue-800">
+                    <span className="font-bold"> Note:</span> Examiners will be prompted to enter their banking details (Aadhar, PAN, Account) on first login for payment processing.
+                  </p>
+                </div> */}
               </>
             )}
             <button
@@ -1156,9 +1113,6 @@ export default function ManageUsers() {
                   }
                   if (e.target.value !== "examiner") {
                     setEditUserDepartment("");
-                    setEditUserAadhar("");
-                    setEditUserPan("");
-                    setEditUserBankAccount("");
                   }
                 }}
                 className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
@@ -1194,35 +1148,10 @@ export default function ManageUsers() {
                     className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-1">Aadhar Card Number</label>
-                  <input
-                    type="text"
-                    placeholder="Aadhar Card Number"
-                    value={editUserAadhar}
-                    onChange={(e) => setEditUserAadhar(e.target.value)}
-                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-1">PAN Card Number</label>
-                  <input
-                    type="text"
-                    placeholder="PAN Card Number"
-                    value={editUserPan}
-                    onChange={(e) => setEditUserPan(e.target.value)}
-                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-1">Bank Account Details</label>
-                  <input
-                    type="text"
-                    placeholder="Bank Account Details"
-                    value={editUserBankAccount}
-                    onChange={(e) => setEditUserBankAccount(e.target.value)}
-                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent text-sm"
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="text-blue-800">
+                    <span className="font-bold">ℹ️ Note:</span> Banking details (Aadhar, PAN, Account) are entered by examiners on first login.
+                  </p>
                 </div>
               </>
             )}
