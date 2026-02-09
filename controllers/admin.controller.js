@@ -1041,7 +1041,11 @@ exports.uploadCopy = async (req, res, next) => {
     const copy = new Copy({
       student: studentId,
       questionPaper: paperId,
-      driveFile,
+      driveFile: {
+        id: driveFile.id,
+        link: driveFile.contentLink || driveFile.viewLink, // Use contentLink as the main link
+        viewLink: driveFile.viewLink,
+      },
       totalPages: numPagesInPdf,
       status: "pending",
       pages: initialPagesData,
@@ -1389,7 +1393,7 @@ exports.uploadScannedCopy = async (req, res, next) => {
       questionPaper: questionPaper._id,
       driveFile: {
         id: uploadedFileDetails.id,
-        link: uploadedFileDetails.viewLink,
+        link: uploadedFileDetails.contentLink || uploadedFileDetails.viewLink,
         viewLink: uploadedFileDetails.viewLink,
       },
       totalPages: numPagesInPdf,
@@ -1731,16 +1735,89 @@ exports.deleteUserBulk = async (req, res, next) => {
 // ==================== SMART ALLOCATION & PERFORMANCE TRACKING ====================
 
 /**
- * Smart distribute copies for an exam based on examiner performance
+ * Simple equal distribute copies for an exam - round robin distribution
  * POST /api/admin/exams/:examId/smart-distribute
  */
 exports.smartDistribute = async (req, res, next) => {
   try {
     const { examId } = req.params;
-    const result = await smartDistributeCopies(examId);
-    res.json(result);
+    
+    // Get the exam/paper
+    const paper = await Paper.findById(examId).populate('assignedExaminers');
+    if (!paper || !paper.assignedExaminers || paper.assignedExaminers.length === 0) {
+      return res.status(400).json({ message: 'No examiners assigned to this exam' });
+    }
+
+    // Get unassigned copies (pending copies with no examiners)
+    const copiesToDistribute = await Copy.find({
+      questionPaper: examId,
+      status: 'pending',
+      $or: [
+        { examiners: { $size: 0 } },
+        { examiners: { $exists: false } }
+      ]
+    }).populate('student', 'name email');
+
+    if (copiesToDistribute.length === 0) {
+      return res.json({ message: 'No pending copies to assign', assignedCount: 0 });
+    }
+
+    // Simple round-robin distribution
+    const examiners = paper.assignedExaminers;
+    let assignedCount = 0;
+    let currentExaminerIndex = 0;
+
+    for (const copy of copiesToDistribute) {
+      const examiner = examiners[currentExaminerIndex];
+      
+      copy.examiners = [examiner._id];
+      copy.assignedAt = new Date();
+      copy.status = 'pending';
+      await copy.save();
+
+      assignedCount++;
+      currentExaminerIndex = (currentExaminerIndex + 1) % examiners.length;
+    }
+
+    // Send email notifications to examiners
+    const examinerCopyCounts = {};
+    for (const copy of copiesToDistribute) {
+      const examinerId = copy.examiners[0].toString();
+      examinerCopyCounts[examinerId] = (examinerCopyCounts[examinerId] || 0) + 1;
+    }
+
+    for (const examiner of examiners) {
+      const count = examinerCopyCounts[examiner._id.toString()] || 0;
+      if (count > 0) {
+        try {
+          await sendEmail({
+            to: examiner.email,
+            subject: `${count} New Answer ${count === 1 ? 'Copy' : 'Copies'} Assigned - ${paper.title}`,
+            html: `
+              <h2>Dear ${examiner.name},</h2>
+              <p>You have been assigned <strong>${count} answer ${count === 1 ? 'copy' : 'copies'}</strong> for evaluation.</p>
+              <p><strong>Exam:</strong> ${paper.title}</p>
+              <p><strong>Course:</strong> ${paper.course || 'N/A'}</p>
+              <p><strong>Total Marks:</strong> ${paper.totalMarks || 'N/A'}</p>
+              <p>Please log into the system to begin evaluation.</p>
+              <p>Thank you!</p>
+            `
+          });
+        } catch (emailErr) {
+          console.error(`[ERROR] Failed to send email to ${examiner.email}:`, emailErr);
+        }
+      }
+    }
+
+    res.json({
+      message: `${assignedCount} copies distributed equally among ${examiners.length} examiner(s)`,
+      assignedCount,
+      examinerCount: examiners.length,
+      averageCopiesPerExaminer: Math.round((assignedCount / examiners.length) * 10) / 10
+    });
+
   } catch (err) {
-    console.error("[ERROR] Error in smart distribution:", err);
+    console.error("[ERROR] Error in distribution:", err);
     next(err);
   }
 };

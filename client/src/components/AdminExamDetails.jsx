@@ -17,6 +17,8 @@ import {
   ClipboardDocumentListIcon, // For total copies
   TagIcon, // For exam type
   TrashIcon,
+  CloudArrowUpIcon, // For upload icon
+  ArrowRightCircleIcon, // For distribution
 } from "@heroicons/react/24/outline";
 import Modal from "../components/Modal";
 import { toastSuccess, toastError, toastInfo } from "../utils/hotToast";
@@ -60,18 +62,46 @@ export default function AdminExamDetails() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [deleteMessage, setDeleteMessage] = useState("");
 
+  // Upload copies states
+  const [showUploadCopyModal, setShowUploadCopyModal] = useState(false);
+  const [allStudents, setAllStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState("");
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [isUploadingCopy, setIsUploadingCopy] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+
+  // Smart distribution state
+  const [isDistributing, setIsDistributing] = useState(false);
+
   // Function to fetch exam details and copies
   const fetchExamDetailsAndCopies = async () => {
     setIsLoading(true);
     try {
+      // First fetch exam and examiners
       const [examResponse, examinersResponse] = await Promise.all([
         api.get(`/admin/exams/${examId}/copies`),
-        api.get('/admin/examiners') // Fetch all examiners
+        api.get('/admin/examiners')
       ]);
       
-      setExam(examResponse.data.exam);
+      const examData = examResponse.data.exam;
+      setExam(examData);
       setCopies(examResponse.data.copies);
       setAllExaminers(examinersResponse.data);
+
+      // Then fetch students by batch using the exam's course
+      if (examData && examData.course) {
+        try {
+          const studentsResponse = await api.get('/admin/students', {
+            params: { batch: examData.course }
+          });
+          setAllStudents(studentsResponse.data || []);
+        } catch (studErr) {
+          console.error("Error fetching students by batch:", studErr);
+          setAllStudents([]);
+        }
+      } else {
+        setAllStudents([]);
+      }
     } catch (err) {
       console.error("Error fetching exam details or copies:", err);
       setError(err.response?.data?.message || err.message);
@@ -359,6 +389,121 @@ export default function AdminExamDetails() {
     }
   };
 
+  // Upload copy handler
+  const handleUploadCopy = async (e) => {
+    e.preventDefault();
+    setUploadMessage("");
+
+    if (!selectedStudent || uploadFiles.length === 0) {
+      setUploadMessage("Please select a student and upload files.");
+      toastError("Please select a student and upload files.");
+      return;
+    }
+
+    // Check if student already has a copy for this exam
+    const studentAlreadyHasCopy = copies.some(
+      c => c.student?._id === selectedStudent || c.student === selectedStudent
+    );
+    
+    if (studentAlreadyHasCopy) {
+      setUploadMessage("This student already has a copy for this exam.");
+      toastError("This student already has a copy for this exam.");
+      return;
+    }
+
+    setIsUploadingCopy(true);
+    const formData = new FormData();
+    formData.append("studentId", selectedStudent);
+    formData.append("paperId", examId);
+
+    // Determine if it's a PDF or images
+    const isPdfUpload = uploadFiles[0].type === "application/pdf";
+
+    if (isPdfUpload) {
+      formData.append("copyPdf", uploadFiles[0]);
+    } else {
+      uploadFiles.forEach((file) => {
+        formData.append("images", file);
+      });
+    }
+
+    try {
+      const res = await api.post("/admin/copies", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      toastSuccess("Copy uploaded successfully!");
+      setShowUploadCopyModal(false);
+      setSelectedStudent("");
+      setUploadFiles([]);
+      setUploadMessage("");
+      fetchExamDetailsAndCopies();
+    } catch (err) {
+      console.error("Upload error:", err);
+      const errorMsg = err.response?.data?.message || err.message;
+      setUploadMessage(`Upload failed: ${errorMsg}`);
+      toastError(`Upload failed: ${errorMsg}`);
+    } finally {
+      setIsUploadingCopy(false);
+    }
+  };
+
+  // Handle file selection for upload
+  const handleFileSelection = (e) => {
+    setUploadMessage("");
+    const files = Array.from(e.target.files);
+
+    // Basic validation
+    const hasPdf = files.some((file) => file.type === "application/pdf");
+    if (hasPdf && files.length > 1) {
+      setUploadMessage(
+        "Cannot upload multiple files if one is a PDF. Please select either one PDF or multiple images."
+      );
+      setUploadFiles([]);
+      return;
+    }
+    if (!hasPdf && files.some((file) => !file.type.startsWith("image/"))) {
+      setUploadMessage(
+        "Only PDF files or image files (JPEG, PNG, etc.) are allowed."
+      );
+      setUploadFiles([]);
+      return;
+    }
+
+    setUploadFiles(files);
+  };
+
+  // Smart distribution handler
+  const handleSmartDistribute = async () => {
+    // Get pending/unassigned copies
+    const unassignedCopies = copies.filter(
+      c => !c.examiners || c.examiners.length === 0
+    );
+
+    if (unassignedCopies.length === 0) {
+      toastInfo("No pending copies to assign.");
+      return;
+    }
+
+    if (!exam.assignedExaminers || exam.assignedExaminers.length === 0) {
+      toastError("No examiners assigned to this exam. Please add examiners first.");
+      return;
+    }
+
+    setIsDistributing(true);
+    try {
+      const res = await api.post(`/admin/exams/${examId}/smart-distribute`);
+      toastSuccess(res.data.message || "Copies distributed successfully!");
+      fetchExamDetailsAndCopies();
+    } catch (err) {
+      console.error("Error distributing copies:", err);
+      toastError(`Failed to distribute copies: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsDistributing(false);
+    }
+  };
+
   // NEW: Group copies by examiner
   const getExaminerStats = () => {
     const stats = {};
@@ -499,6 +644,60 @@ export default function AdminExamDetails() {
           <ClipboardDocumentListIcon className="h-6 w-6 text-gray-900" />
           <p className="text-gray-700"><strong className="font-bold">Total Copies Uploaded:</strong> {copies.length}</p>
         </div>
+      </div>
+
+      {/* NEW: Copy Management Actions Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-gray-900 mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <ClipboardDocumentListIcon className="h-6 w-6 mr-2" />
+          Copy Management Actions
+        </h2>
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={() => setShowUploadCopyModal(true)}
+            className="flex items-center px-5 py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-[#1e3a8a] focus:outline-none transition duration-150 shadow-md"
+          >
+            <CloudArrowUpIcon className="h-5 w-5 mr-2" />
+            Upload More Copies
+          </button>
+          
+          {(() => {
+            const unassignedCopies = copies.filter(
+              c => !c.examiners || c.examiners.length === 0
+            );
+            return unassignedCopies.length > 0 && (
+              <button
+                onClick={handleSmartDistribute}
+                disabled={isDistributing || !exam.assignedExaminers || exam.assignedExaminers.length === 0}
+                className="flex items-center px-5 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 focus:outline-none transition duration-150 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDistributing ? (
+                  <>
+                    <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                    Distributing...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightCircleIcon className="h-5 w-5 mr-2" />
+                    Distribute {unassignedCopies.length} {unassignedCopies.length === 1 ? 'Copy' : 'Copies'} Equally
+                  </>
+                )}
+              </button>
+            );
+          })()}
+        </div>
+        {(() => {
+          const unassignedCopies = copies.filter(
+            c => !c.examiners || c.examiners.length === 0
+          );
+          return (
+            <p className="text-sm text-gray-600 font-semibold mt-3">
+              {unassignedCopies.length > 0 
+                ? `You have ${unassignedCopies.length} unassigned ${unassignedCopies.length === 1 ? 'copy' : 'copies'}. Click "Distribute Copies Equally" to divide them evenly among all assigned examiners.`
+                : 'All copies are currently assigned to examiners.'}
+            </p>
+          );
+        })()}
       </div>
 
       {/* NEW: Examiners Info Section */}
@@ -1080,6 +1279,156 @@ export default function AdminExamDetails() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Upload Copy Modal */}
+      <Modal
+        isOpen={showUploadCopyModal}
+        onClose={() => {
+          setShowUploadCopyModal(false);
+          setSelectedStudent("");
+          setUploadFiles([]);
+          setUploadMessage("");
+        }}
+        title="Upload Additional Answer Copy"
+      >
+        <form onSubmit={handleUploadCopy} className="p-4 space-y-4" style={{fontFamily: 'Dosis, sans-serif'}}>
+          <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-900 font-semibold">
+              <strong>Exam:</strong> {exam.title}
+            </p>
+            <p className="text-sm text-blue-900 font-semibold">
+              <strong>Course:</strong> {exam.course || 'N/A'}
+            </p>
+          </div>
+
+          {/* Student Selection */}
+          <div>
+            <label className="block text-gray-900 font-bold mb-2">
+              Select Student: <span className="text-red-600">*</span>
+            </label>
+            <select
+              value={selectedStudent}
+              onChange={(e) => {
+                setSelectedStudent(e.target.value);
+                setUploadMessage("");
+              }}
+              className="w-full px-4 py-2 border-2 border-gray-900 rounded-lg font-bold focus:outline-none focus:border-[#1e3a8a]"
+              required
+            >
+              <option value="">-- Select Student --</option>
+              {allStudents
+                .filter(student => !copies.some(c => (c.student?._id === student._id) || (c.student === student._id))) // Exclude students who already have copies
+                .map(student => (
+                  <option key={student._id} value={student._id}>
+                    {student.name} ({student.email}) - {student.batch}
+                  </option>
+                ))}
+            </select>
+            {(() => {
+              const availableStudents = allStudents.filter(s => !copies.some(c => (c.student?._id === s._id) || (c.student === s._id)));
+              
+              if (availableStudents.length === 0) {
+                return (
+                  <p className="text-sm text-yellow-700 font-semibold mt-2 bg-yellow-50 p-2 rounded">
+                    {allStudents.length === 0 
+                      ? `No students found in batch "${exam.course}". Please add students to this batch first.`
+                      : `All ${allStudents.length} students in batch "${exam.course}" already have copies for this exam.`
+                    }
+                  </p>
+                );
+              }
+              return (
+                <p className="text-sm text-green-700 font-semibold mt-2 bg-green-50 p-2 rounded">
+                  {availableStudents.length} student(s) available in batch "{exam.course}"
+                </p>
+              );
+            })()}
+          </div>
+
+          {/* File Upload */}
+          <div>
+            <label className="block text-gray-900 font-bold mb-2">
+              Upload Files: <span className="text-red-600">*</span>
+            </label>
+            <div className="border-2 border-dashed border-gray-900 rounded-lg p-2 text-center hover:border-[#1e3a8a] transition">
+              {/* <CloudArrowUpIcon className="h-12 w-12 mx-auto text-gray-400 mb-2" /> */}
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                multiple
+                onChange={handleFileSelection}
+                className="block w-full text-sm text-gray-700 font-semibold
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-lg file:border-2 file:border-gray-900
+                  file:text-sm file:font-bold
+                  file:bg-gray-900 file:text-white
+                  hover:file:bg-[#1e3a8a]
+                  file:cursor-pointer cursor-pointer"
+                required
+              />
+              {/* <p className="text-xs text-gray-600 font-semibold mt-2">
+                Upload one PDF or multiple images (JPEG, PNG)
+              </p> */}
+            </div>
+            {uploadFiles.length > 0 && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-300 rounded-lg">
+                <p className="text-sm text-green-800 font-bold">
+                  {uploadFiles.length} file(s) selected
+                </p>
+                <ul className="text-xs text-green-700 mt-1 space-y-1">
+                  {Array.from(uploadFiles).map((file, idx) => (
+                    <li key={idx}>• {file.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Upload Message */}
+          {uploadMessage && (
+            <div className={`p-3 rounded-lg ${
+              uploadMessage.includes('failed') || uploadMessage.includes('Cannot') 
+                ? 'bg-red-50 border-2 border-red-300 text-red-800' 
+                : 'bg-green-50 border-2 border-green-300 text-green-800'
+            }`}>
+              <p className="text-sm font-bold">{uploadMessage}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowUploadCopyModal(false);
+                setSelectedStudent("");
+                setUploadFiles([]);
+                setUploadMessage("");
+              }}
+              className="px-5 py-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-100 font-bold transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!selectedStudent || uploadFiles.length === 0 || isUploadingCopy}
+              className="px-5 py-2 bg-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {isUploadingCopy ? (
+                <>
+                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <CloudArrowUpIcon className="h-5 w-5 mr-2" />
+                  Upload Copy
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
