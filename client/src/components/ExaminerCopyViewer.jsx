@@ -198,12 +198,24 @@ export default function ExaminerCopyViewer() {
         </h1> */}
 
         {/* Total Marks Display */}
-        <div className=" max-w-lg mx-auto mb-8 text-center">
-          <h3 className="text-2xl font-bold text-gray-900">
-            Total Marks:{" "}
-            <span className="text-gray-900">{totalMarksAwarded}</span> /{" "}
-            {totalPossibleMarks}
-          </h3>
+        <div className="max-w-2xl mx-auto mb-8 text-center">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Total Marks</h3>
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-gray-600 font-medium">Awarded</span>
+              <span className="text-3xl font-extrabold text-green-600">{totalMarksAwarded}</span>
+            </div>
+            <span className="text-2xl text-gray-400">/</span>
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-gray-600 font-medium">Maximum</span>
+              <span className="text-3xl font-extrabold text-gray-900">{totalPossibleMarks}</span>
+            </div>
+          </div>
+          <div className="mt-2">
+            <span className="inline-block px-4 py-1 rounded-full text-sm font-bold bg-blue-50 text-blue-800 border border-blue-200">
+              {totalPossibleMarks !== "N/A" && totalPossibleMarks > 0 ? Math.round((totalMarksAwarded / totalPossibleMarks) * 100) : 0}% Score
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
