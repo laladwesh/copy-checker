@@ -20,7 +20,7 @@ import ExaminerCopyViewer from './components/ExaminerCopyViewer';
 import AdminManageQueries from './routes/AdminManageQueries';
 import ManageUsers from './routes/ManageUsers';
 // import ExaminerInstructions from './routes/ExaminerInstructions';
-// import ExaminerHowTo from './routes/ExaminerHowTo';
+import ExaminerHowTo from './routes/ExaminerHowTo';
 import AdminAllocationGuide from './routes/AdminAllocationGuide';
 import TermsAndConditions from './routes/TermsAndConditions';
 import PrivacyPolicy from './routes/PrivacyPolicy';
@@ -148,10 +148,14 @@ export default function App() {
               // <ExaminerInstructions />
             }
           /> */}
-          {/* <Route
-            path="/how-to-examiner"
-            element={<ExaminerHowTo />}
-          /> */}
+          <Route
+            path="/examiner/how-to"
+            element={
+              <ProtectedRoute user={user} role="examiner">
+                <ExaminerHowTo />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/examiner/check/:copyId"
             element={
