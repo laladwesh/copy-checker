@@ -14,10 +14,13 @@ const UserSchema = new mongoose.Schema({
   gender: { type: String },
   createdAt: { type: Date, default: Date.now },
 
-  // Examiner document details (only for examiners)
+  // Examiner Banking & Document Details (only for examiners)
   aadharCard: { type: String }, // Aadhar card number
   panCard: { type: String }, // PAN card number
-  bankAccount: { type: String }, // Bank account details
+  accountNumber: { type: String }, // Bank account number
+  bankName: { type: String }, // Bank name
+  ifscCode: { type: String }, // IFSC code
+  profileComplete: { type: Boolean, default: false }, // true if all banking details filled
 
   // Examiner Performance Tracking
   examinerStats: {
