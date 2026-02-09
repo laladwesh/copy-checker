@@ -590,15 +590,30 @@ function CopyChecker() {
             <div className="w-full flex items-center justify-between mb-2 px-4">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl font-bold text-gray-900">Answer Copy</h2>
-                <div className="text-xs text-gray-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                  <strong>Max:</strong> {copy.questionPaper?.totalMarks || 'N/A'} <span className={(function(){
-                      const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
-                      const currentPageMarks = currentPageData?.marksAwarded || 0;
-                      const pageMarksVal = getCurrentPageMarkValue();
-                      const newTotalMarks = totalMarks - currentPageMarks + pageMarksVal;
-                      const maxMarks = copy.questionPaper?.totalMarks || 0;
-                      return newTotalMarks > maxMarks ? 'text-red-600 font-bold' : 'text-green-600 font-semibold';
-                    })()}></span>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs bg-gray-100 px-3 py-1 rounded-full border border-gray-300">
+                    <strong className="text-gray-700">Awarded:</strong>
+                    <span className={(function(){
+                        const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                        const currentPageMarks = currentPageData?.marksAwarded || 0;
+                        const pageMarksVal = getCurrentPageMarkValue();
+                        const newTotalMarks = totalMarks - currentPageMarks + pageMarksVal;
+                        const maxMarks = copy.questionPaper?.totalMarks || 0;
+                        return newTotalMarks > maxMarks ? 'text-red-600 font-bold ml-1' : 'text-green-600 font-bold ml-1';
+                      })()}>
+                      {(function(){
+                        const currentPageData = copy.pages.find((p) => p.pageNumber === currentPage);
+                        const currentPageMarks = currentPageData?.marksAwarded || 0;
+                        const pageMarksVal = getCurrentPageMarkValue();
+                        return (totalMarks - currentPageMarks + pageMarksVal).toFixed(1);
+                      })()}
+                    </span>
+                  </div>
+                  <span className="text-gray-400">/</span>
+                  <div className="text-xs bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                    <strong className="text-blue-700">Maximum:</strong>
+                    <span className="text-blue-900 font-bold ml-1">{copy.questionPaper?.totalMarks || 'N/A'}</span>
+                  </div>
                 </div>
               </div>
               {/* Page check indicator */}
@@ -884,7 +899,27 @@ function CopyChecker() {
             </div>
 
             <div className="bg-white p-3 rounded-md border border-gray-200">
-              <div className="text-sm font-bold text-gray-900">Total: <span className="text-gray-900">{totalMarks}</span></div>
+              <div className="text-sm font-bold text-gray-900 mb-1">Total Marks Summary</div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">Awarded:</span>
+                  <span className={`text-xl font-bold ${totalMarks > (copy.questionPaper?.totalMarks || 0) ? 'text-red-600' : 'text-green-600'}`}>{totalMarks.toFixed(1)}</span>
+                </div>
+                <span className="text-gray-400">/</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">Maximum:</span>
+                  <span className="text-xl font-bold text-gray-900">{copy.questionPaper?.totalMarks || 0}</span>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-center">
+                <span className={`inline-block px-3 py-1 rounded-full font-bold ${
+                  totalMarks <= (copy.questionPaper?.totalMarks || 0)
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {totalMarks <= (copy.questionPaper?.totalMarks || 0) ? 'Within Limit' : 'Exceeds Maximum!'}
+                </span>
+              </div>
               <div className="mt-3">
                 <button onClick={() => setShowReviewModal(true)} className="w-full bg-gray-900 text-white px-3 py-1 rounded-md hover:bg-[#1e3a8a] text-sm font-bold">Review & Submit</button>
               </div>
@@ -957,9 +992,18 @@ function CopyChecker() {
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
             {/* Total marks showing*/}
-            <div className="text-lg font-bold text-gray-900 pt-2">
-              Total Marks:{" "}
-              <span className="text-gray-900">{totalMarks}</span>
+            <div className="flex items-center gap-3 pt-2">
+              <div className="text-sm text-gray-600">Total Marks:</div>
+              <div className="flex items-center gap-2">
+                <span className={`text-2xl font-bold ${
+                  totalMarks > (copy.questionPaper?.totalMarks || 0) ? 'text-red-600' : 'text-green-600'
+                }`}>{totalMarks.toFixed(1)}</span>
+                <span className="text-lg text-gray-400">/</span>
+                <div className="flex flex-col items-start">
+                  <span className="text-xs text-gray-500">Maximum</span>
+                  <span className="text-lg font-bold text-gray-900">{copy.questionPaper?.totalMarks || 0}</span>
+                </div>
+              </div>
             </div>
             <button
               onClick={() => setShowReviewModal(false)}
