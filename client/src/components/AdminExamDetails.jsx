@@ -489,7 +489,7 @@ export default function AdminExamDetails() {
         </div>
         <div className="flex items-center space-x-3">
           <ClipboardDocumentCheckIcon className="h-6 w-6 text-gray-900" />
-          <p className="text-gray-700"><strong className="font-bold">Total Marks:</strong> {exam.totalMarks || 'N/A'}</p>
+          <p className="text-gray-700"><strong className="font-bold">Maximum Marks:</strong> <span className="text-blue-800 font-bold text-lg">{exam.totalMarks || 'N/A'}</span></p>
         </div>
         <div className="flex items-center space-x-3">
           <BookOpenIcon className="h-6 w-6 text-gray-900" />
