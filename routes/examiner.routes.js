@@ -9,7 +9,9 @@ const {
   listQueries,
   getSingleQuery,
   replyQuery,
-  getExaminerCopyDetails, 
+  getExaminerCopyDetails,
+  getProfile,
+  updateBankingDetails,
 } = require("../controllers/examiner.controller");
 const { verifyToken } = require("../middleware/jwtAuth");
 const { ensureRole } = require("../middleware/auth");
@@ -18,6 +20,10 @@ const upload = require("../middleware/fileUpload"); // Assuming multer setup for
 const router = express.Router();
 
 router.use(verifyToken, ensureRole("examiner"));
+
+// Profile Management
+router.get("/profile", getProfile);
+router.put("/profile/banking", updateBankingDetails);
 
 // Copy Management
 router.get("/copies/pending", listPending);
