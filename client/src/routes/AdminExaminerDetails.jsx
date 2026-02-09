@@ -12,7 +12,8 @@ import {
   InboxStackIcon,
   IdentificationIcon,
   CreditCardIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  BuildingLibraryIcon
 } from '@heroicons/react/24/outline';
 
 export default function AdminExaminerDetails() {
@@ -121,11 +122,20 @@ export default function AdminExaminerDetails() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{examiner?.name}</h1>
-                <div className="flex items-center gap-4 mt-1 text-sm text-gray-700 font-semibold">
+                <div className="flex flex-wrap items-center gap-4 mt-1 text-sm text-gray-700 font-semibold">
                   <span className="flex items-center gap-1.5">
                     <EnvelopeIcon className="w-4 h-4" />
                     {examiner?.email}
                   </span>
+                  {examiner?.department && (
+                    <>
+                      <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                      <span className="flex items-center gap-1.5">
+                        <BuildingLibraryIcon className="w-4 h-4" />
+                        {examiner.department}
+                      </span>
+                    </>
+                  )}
                   <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                   <span className="text-gray-600">ID: {examinerId.slice(-6).toUpperCase()}</span>
                 </div>
@@ -168,20 +178,20 @@ export default function AdminExaminerDetails() {
            />
         </div>
 
-        {/* Document Details Section (Confidential - Admin Only) */}
-        {(examiner?.aadharCard || examiner?.panCard || examiner?.bankAccount) && (
+        {/* Banking Details Section (View Only for Admin) */}
+        {(examiner?.aadharCard || examiner?.panCard || examiner?.accountNumber || examiner?.bankName || examiner?.ifscCode) && (
           <div className="bg-white rounded-lg border-2 border-gray-900 overflow-hidden">
-            <div className="p-6 border-b-2 border-gray-900 bg-red-50">
+            <div className="p-6 border-b-2 border-gray-900 bg-yellow-50">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <IdentificationIcon className="h-5 w-5 text-red-600"/>
-                Confidential Document Details (Admin Only)
+                <BanknotesIcon className="h-5 w-5 text-yellow-700"/>
+                Banking & Document Details (View Only)
               </h2>
-              <p className="text-xs text-red-700 font-semibold mt-1">This information is sensitive and for administrative records only</p>
+              <p className="text-xs text-yellow-700 font-semibold mt-1">This information is for administrative reference only. Examiners manage their own banking details.</p>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {examiner?.aadharCard && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-300">
                   <div className="flex items-center gap-2 mb-2">
                     <IdentificationIcon className="h-5 w-5 text-gray-700" />
                     <span className="text-sm font-bold text-gray-700">Aadhar Card</span>
@@ -191,7 +201,7 @@ export default function AdminExaminerDetails() {
               )}
 
               {examiner?.panCard && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-300">
                   <div className="flex items-center gap-2 mb-2">
                     <CreditCardIcon className="h-5 w-5 text-gray-700" />
                     <span className="text-sm font-bold text-gray-700">PAN Card</span>
@@ -200,13 +210,33 @@ export default function AdminExaminerDetails() {
                 </div>
               )}
 
-              {examiner?.bankAccount && (
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              {examiner?.accountNumber && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-300">
                   <div className="flex items-center gap-2 mb-2">
                     <BanknotesIcon className="h-5 w-5 text-gray-700" />
-                    <span className="text-sm font-bold text-gray-700">Bank Account</span>
+                    <span className="text-sm font-bold text-gray-700">Account Number</span>
                   </div>
-                  <p className="text-base font-mono text-gray-900">{examiner.bankAccount}</p>
+                  <p className="text-base font-mono text-gray-900">{examiner.accountNumber}</p>
+                </div>
+              )}
+
+              {examiner?.bankName && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BuildingLibraryIcon className="h-5 w-5 text-gray-700" />
+                    <span className="text-sm font-bold text-gray-700">Bank Name</span>
+                  </div>
+                  <p className="text-base text-gray-900">{examiner.bankName}</p>
+                </div>
+              )}
+
+              {examiner?.ifscCode && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCardIcon className="h-5 w-5 text-gray-700" />
+                    <span className="text-sm font-bold text-gray-700">IFSC Code</span>
+                  </div>
+                  <p className="text-base font-mono text-gray-900">{examiner.ifscCode}</p>
                 </div>
               )}
             </div>
