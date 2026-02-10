@@ -72,7 +72,7 @@ function CopyChecker() {
   const [isBlankModalOpen, setIsBlankModalOpen] = useState(true); // open immediately on landing
   const [blankPagesArr, setBlankPagesArr] = useState([]); // store as array (transient)
   // Zoom States
-  const [acZoomLevel, setAcZoomLevel] = useState(1.25); // Initial zoom level for AC
+  const [acZoomLevel, setAcZoomLevel] = useState(1.0); // Initial zoom level for AC
 
   // Pan States for zoom and pan feature
   const [panX, setPanX] = useState(0);
@@ -176,7 +176,7 @@ function CopyChecker() {
     }
 
     // Reset zoom and pan when AC page changes, and set loading to true
-    setAcZoomLevel(1.25);
+    setAcZoomLevel(1.0);
     setPanX(0);
     setPanY(0);
     setIsAcLoading(true);
@@ -543,7 +543,7 @@ function CopyChecker() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = 1.25;
+        newZoom = 1.0;
         // Reset pan when zoom is reset
         setPanX(0);
         setPanY(0);
@@ -637,7 +637,7 @@ function CopyChecker() {
               className={`relative w-full overflow-hidden flex items-center justify-center ${isDraggingOver ? 'ring-4 ring-blue-500 ring-opacity-50' : ''}`}
               style={{
                 height: 'calc(100vh - 180px)',
-                cursor: isPanning ? 'grabbing' : (acZoomLevel > 1.25 ? 'grab' : 'default')
+                cursor: isPanning ? 'grabbing' : (acZoomLevel > 1.0 ? 'grab' : 'default')
               }}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -784,7 +784,7 @@ function CopyChecker() {
                 <div className="flex items-center space-x-2">
                   <button onClick={() => handleZoom("ac", "out")} disabled={acZoomLevel === MIN_ZOOM} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom Out"><MagnifyingGlassMinusIcon className="h-5 w-5" /></button>
                   <button onClick={() => handleZoom("ac", "in")} disabled={acZoomLevel === MAX_ZOOM} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Zoom In"><MagnifyingGlassPlusIcon className="h-5 w-5" /></button>
-                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.25} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
+                  <button onClick={() => handleZoom("ac", "reset")} disabled={acZoomLevel === 1.0} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition" title="Reset Zoom"><ArrowsPointingInIcon className="h-5 w-5" /></button>
                 </div>
                 <div className="flex justify-end">
                 <button onClick={handleSavePage} disabled={isSaving || (function(){
