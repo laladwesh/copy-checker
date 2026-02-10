@@ -561,7 +561,7 @@ function CopyChecker() {
       {/* Toasts are provided globally via react-hot-toast */}
       {/* Top Navigation Bar */}
      
-      <div className="p-4">
+      <div className="px-4 py-2">
         {" "}
         {/* Main content padding */}
         {/* <div>
@@ -573,18 +573,7 @@ function CopyChecker() {
           </h1>
         </div> */}
         {/* Completion Timeline */}
-        <div className="bg-white p-4 rounded-lg max-w-6xl mx-auto mb-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-3">
-            Marking Progress: {totalChecked} of {copy.totalPages} pages
-            checked ({completionPercentage.toFixed(1)}%)
-          </h3>
-          <div className="w-full bg-gray-200 rounded-full h-5">
-            <div
-              className="bg-blue-600 h-5 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${completionPercentage}%` }}
-            ></div>
-          </div>
-        </div>
+        
         {/* Main layout: Answer Copy center-expanded, controls + marking on right sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
           <div className="lg:col-span-9 bg-white flex flex-col items-center">
@@ -619,6 +608,18 @@ function CopyChecker() {
                     Visual Review
                   </button>
                 </div>
+                <div className="bg-white p-2 rounded-lg max-w-4xl mx-auto mb-4">
+          <h3 className="text-base font-bold text-gray-900 mb-2">
+            Marking Progress: {totalChecked} of {copy.totalPages} pages
+            checked ({completionPercentage.toFixed(1)}%)
+          </h3>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${completionPercentage}%` }}
+            ></div>
+          </div>
+        </div>
               </div>
               {/* Page check indicator */}
               <div className="flex items-center space-x-2">
