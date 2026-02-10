@@ -647,7 +647,7 @@ export default function AdminExamDetails() {
       </div>
 
       {/* NEW: Copy Management Actions Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-gray-900 mb-8">
+      {/* <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-gray-900 mb-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
           <ClipboardDocumentListIcon className="h-6 w-6 mr-2" />
           Copy Management Actions
@@ -698,7 +698,7 @@ export default function AdminExamDetails() {
             </p>
           );
         })()}
-      </div>
+      </div> */}
 
       {/* NEW: Examiners Info Section */}
       <div className="bg-white p-6 rounded-xl border-2 border-gray-900 mb-8">
