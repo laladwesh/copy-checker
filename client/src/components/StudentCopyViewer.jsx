@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
   import { useParams } from "react-router-dom";
 import api from "../services/api";
 import Modal from "../components/Modal"; // Assuming you have this Modal component
@@ -143,6 +143,8 @@ export default function StudentCopyViewer() {
   const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumAcPages(numPages);
   }, []);
+
+  const pageWrapperRef = useRef(null);
 
   // 1) Load the copy and its queries once on mount
   useEffect(() => {
@@ -413,49 +415,18 @@ export default function StudentCopyViewer() {
             <div className="relative w-full flex-grow h-[calc(100vh-250px)] rounded-lg overflow-auto border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
               {/* React-PDF Document and Page for Answer Copy */}
               {acPdfUrl ? (
-                <Document
-                  file={acPdfUrl}
-                  onLoadSuccess={onAcDocumentLoadSuccess}
-                  onLoadError={(err) => {
-                    console.error("Error loading AC PDF:", err);
-                    setError("Failed to load Answer Copy PDF.");
-                  }}
-                  loading={
-                    <div className="flex flex-col items-center justify-center">
-                      <svg
-                        className="animate-spin h-10 w-10 text-gray-900"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      <p className="mt-3 text-gray-600">Loading PDF...</p>
-                    </div>
-                  }
-                  className="w-full h-full flex items-center justify-center"
-                >
-                  <Page
-                    pageNumber={currentPage}
-                    scale={acZoomLevel}
-                    renderAnnotationLayer={true}
-                    renderTextLayer={true}
+                <div className="relative inline-block" ref={pageWrapperRef}>
+                  <Document
+                    file={acPdfUrl}
+                    onLoadSuccess={onAcDocumentLoadSuccess}
+                    onLoadError={(err) => {
+                      console.error("Error loading AC PDF:", err);
+                      setError("Failed to load Answer Copy PDF.");
+                    }}
                     loading={
-                      <div className="flex items-center justify-center">
+                      <div className="flex flex-col items-center justify-center">
                         <svg
-                          className="animate-spin h-8 w-8 text-gray-900"
+                          className="animate-spin h-10 w-10 text-gray-900"
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
@@ -474,41 +445,77 @@ export default function StudentCopyViewer() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           ></path>
                         </svg>
+                        <p className="mt-3 text-gray-600">Loading PDF...</p>
                       </div>
                     }
-                  />
-                </Document>
+                    className="w-full h-full flex items-center justify-center"
+                  >
+                    <Page
+                      pageNumber={currentPage}
+                      scale={acZoomLevel}
+                      renderAnnotationLayer={true}
+                      renderTextLayer={true}
+                      loading={
+                        <div className="flex items-center justify-center">
+                          <svg
+                            className="animate-spin h-8 w-8 text-gray-900"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                        </div>
+                      }
+                    />
+                  </Document>
+
+                  {/* Render examiner's marks on the current page (read-only) */}
+                  {copy && copy.pages && Array.isArray(copy.pages) && (() => {
+                    const pageData = copy.pages.find(p => p && p.pageNumber === currentPage);
+                    if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
+                      return pageData.pageMarks
+                        .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
+                        .map((mark, idx) => (
+                        <div
+                          key={idx}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${mark.x}%`,
+                            top: `${mark.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 20,
+                            position: 'absolute'
+                          }}
+                        >
+                          <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                          </div>
+                        </div>
+                      ));
+                    }
+                    return null;
+                  })()}
+                </div>
               ) : (
                 <div className="text-gray-500 text-center p-4">
                   Answer Copy PDF Not Found.
                 </div>
               )}
               
-              {/* Render examiner's marks on the current page (read-only) */}
-              {copy && copy.pages && Array.isArray(copy.pages) && (() => {
-                const pageData = copy.pages.find(p => p && p.pageNumber === currentPage);
-                if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
-                  return pageData.pageMarks
-                    .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
-                    .map((mark, idx) => (
-                    <div
-                      key={idx}
-                      className="absolute pointer-events-none"
-                      style={{
-                        left: `${mark.x}%`,
-                        top: `${mark.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        zIndex: 20
-                      }}
-                    >
-                      <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-                        {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
-                      </div>
-                    </div>
-                  ));
-                }
-                return null;
-              })()}
+              {/* Marks are rendered inside the page wrapper for correct positioning */}
             </div>
             <div className="flex items-center justify-center mt-4 space-x-2">
               <button
