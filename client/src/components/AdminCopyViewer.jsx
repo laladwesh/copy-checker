@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../services/api"; // Ensure this path is correct for your axios instance
 import {
@@ -27,7 +27,8 @@ export default function AdminCopyViewer() {
 
   const [acCurrentPage, setAcCurrentPage] = useState(1);
   const [numAcPages, setNumAcPages] = useState(null);
-  const [acZoomLevel, setAcZoomLevel] = useState(1.25);
+  const DEFAULT_ZOOM = 1.05;
+  const [acZoomLevel, setAcZoomLevel] = useState(DEFAULT_ZOOM);
   const [isAcLoading, setIsAcLoading] = useState(true);
 
   const ZOOM_STEP = 0.2;
@@ -69,9 +70,11 @@ export default function AdminCopyViewer() {
     );
   }, []);
 
+  const pageWrapperRef = useRef(null);
+
   // Reset zoom on page change
   useEffect(() => {
-    setAcZoomLevel(1.25);
+    setAcZoomLevel(DEFAULT_ZOOM);
   }, [acCurrentPage]);
 
   const handleZoom = useCallback((action) => {
@@ -82,7 +85,7 @@ export default function AdminCopyViewer() {
       } else if (action === "out") {
         newZoom = Math.max(MIN_ZOOM, prevZoom - ZOOM_STEP);
       } else if (action === "reset") {
-        newZoom = 1.25;
+        newZoom = DEFAULT_ZOOM;
       }
       return parseFloat(newZoom.toFixed(2));
     });
@@ -207,49 +210,55 @@ export default function AdminCopyViewer() {
                   </div>
                 )}
                 {acPdfUrl ? (
-                  <Document
-                    file={acPdfUrl}
-                    onLoadSuccess={onAcDocumentLoadSuccess}
-                    onLoadError={onAcDocumentLoadError}
-                  >
-                    <Page
-                      pageNumber={acCurrentPage}
-                      scale={acZoomLevel}
-                      renderTextLayer={true}
-                      renderAnnotationLayer={true}
-                    />
-                  </Document>
+                  <div className="relative inline-block" ref={pageWrapperRef}>
+                    <Document
+                      file={acPdfUrl}
+                      onLoadSuccess={onAcDocumentLoadSuccess}
+                      onLoadError={onAcDocumentLoadError}
+                    >
+                      <Page
+                        pageNumber={acCurrentPage}
+                        scale={acZoomLevel}
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                      />
+                    </Document>
+
+                    {/* Render examiner's marks on the current page (read-only) */}
+                    {copy && copy.pages && Array.isArray(copy.pages) && (() => {
+                      const pageData = copy.pages.find(p => p && p.pageNumber === acCurrentPage);
+                      if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
+                        return pageData.pageMarks
+                          .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
+                          .map((mark, idx) => (
+                          <div
+                            key={idx}
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: `${mark.x}%`,
+                              top: `${mark.y}%`,
+                              transform: 'translate(-50%, -50%)',
+                              zIndex: 20,
+                              // ensure the mark is positioned relative to the page wrapper
+                              position: 'absolute'
+                            }}
+                          >
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                              {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                            </div>
+                          </div>
+                        ));
+                      }
+                      return null;
+                    })()}
+                  </div>
                 ) : (
                   <div className="text-gray-500 text-center p-4">
                     Answer Copy Not Found.
                   </div>
                 )}
                 
-                {/* Render examiner's marks on the current page (read-only) */}
-                {copy && copy.pages && Array.isArray(copy.pages) && (() => {
-                  const pageData = copy.pages.find(p => p && p.pageNumber === acCurrentPage);
-                  if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
-                    return pageData.pageMarks
-                      .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
-                      .map((mark, idx) => (
-                      <div
-                        key={idx}
-                        className="absolute pointer-events-none"
-                        style={{
-                          left: `${mark.x}%`,
-                          top: `${mark.y}%`,
-                          transform: 'translate(-50%, -50%)',
-                          zIndex: 20
-                        }}
-                      >
-                        <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-                          {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
-                        </div>
-                      </div>
-                    ));
-                  }
-                  return null;
-                })()}
+                {/* Marks are rendered inside the page wrapper to avoid duplication */}
               </div>
             </div>
 
@@ -341,7 +350,7 @@ export default function AdminCopyViewer() {
                 </button>
                 <button
                   onClick={() => handleZoom("reset")}
-                  disabled={acZoomLevel === 1.0}
+                  disabled={acZoomLevel === DEFAULT_ZOOM}
                   className="p-2 bg-white border-2 border-gray-900 text-gray-900 rounded-lg hover:bg-gray-900 hover:text-white disabled:opacity-50 transition"
                   title="Reset Zoom"
                 >
