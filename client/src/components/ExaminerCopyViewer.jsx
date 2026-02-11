@@ -40,6 +40,8 @@ export default function ExaminerCopyViewer() {
   const [acZoomLevel, setAcZoomLevel] = useState(1.25);
   const [isAcLoading, setIsAcLoading] = useState(true); // State for AC PDF loading
 
+  const pageWrapperRef = useRef(null);
+
   const ZOOM_STEP = 0.25;
   const MIN_ZOOM = 0.5;
   const MAX_ZOOM = 3;
@@ -232,24 +234,53 @@ export default function ExaminerCopyViewer() {
                 </div>
               )}
               {acPdfUrl ? (
-                <Document
-                  file={acPdfUrl}
-                  onLoadSuccess={onAcDocumentLoadSuccess}
-                  onLoadError={onAcDocumentLoadError}
-                >
-                  <Page
-                    pageNumber={acCurrentPage}
-                    scale={acZoomLevel}
-                    renderTextLayer={false}
-                    renderAnnotationLayer={true}
-                    loading={
-                      <div className="flex flex-col items-center">
-                        <ArrowPathIcon className="animate-spin h-8 w-8 text-gray-900" />
-                        <span className="ml-2 text-gray-700">Loading page...</span>
-                      </div>
+                <div className="relative inline-block" ref={pageWrapperRef}>
+                  <Document
+                    file={acPdfUrl}
+                    onLoadSuccess={onAcDocumentLoadSuccess}
+                    onLoadError={onAcDocumentLoadError}
+                  >
+                    <Page
+                      pageNumber={acCurrentPage}
+                      scale={acZoomLevel}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={true}
+                      loading={
+                        <div className="flex flex-col items-center">
+                          <ArrowPathIcon className="animate-spin h-8 w-8 text-gray-900" />
+                          <span className="ml-2 text-gray-700">Loading page...</span>
+                        </div>
+                      }
+                    />
+                  </Document>
+
+                  {/* Render examiner's marks on the current page (read-only) */}
+                  {copy && copy.pages && Array.isArray(copy.pages) && (() => {
+                    const pageData = copy.pages.find(p => p && p.pageNumber === acCurrentPage);
+                    if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
+                      return pageData.pageMarks
+                        .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
+                        .map((mark, idx) => (
+                        <div
+                          key={idx}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${mark.x}%`,
+                            top: `${mark.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 20,
+                            position: 'absolute'
+                          }}
+                        >
+                          <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                          </div>
+                        </div>
+                      ));
                     }
-                  />
-                </Document>
+                    return null;
+                  })()}
+                </div>
               ) : (
                 <div className="text-gray-500 text-center p-4">
                   Answer Copy PDF Not Found or Link Invalid.
