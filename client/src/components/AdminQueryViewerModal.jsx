@@ -1,4 +1,4 @@
-import React, { Fragment, useState, useEffect, useCallback } from 'react';
+import React, { Fragment, useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, ArrowsPointingInIcon } from '@heroicons/react/24/outline';
 
@@ -44,6 +44,9 @@ export default function AdminQueryViewerModal({
 
   const [numAcPages, setNumAcPages] = useState(null);
   const [numQpPages, setNumQpPages] = useState(null);
+
+  const acPageWrapperRef = useRef(null);
+  const qpPageWrapperRef = useRef(null);
 
   // Handlers for when PDF documents load successfully
   const onAcDocumentLoadSuccess = useCallback(({ numPages }) => {
@@ -170,50 +173,54 @@ export default function AdminQueryViewerModal({
                         </div>
                       )}
                       {selectedCopyForQueryView?.driveFile?.directDownloadLink ? (
-                        <Document
-                          file={selectedCopyForQueryView.driveFile.directDownloadLink}
-                          onLoadSuccess={onAcDocumentLoadSuccess}
-                          onLoadError={onAcDocumentLoadError}
-                          className="w-full h-full flex justify-center items-center"
-                        >
-                          <Page
-                            pageNumber={queryViewerCurrentPage}
-                            scale={queryViewerZoomLevel}
-                            renderAnnotationLayer={true}
-                            renderTextLayer={true}
-                          />
-                        </Document>
+                        <div className="relative inline-block" ref={acPageWrapperRef}>
+                          <Document
+                            file={selectedCopyForQueryView.driveFile.directDownloadLink}
+                            onLoadSuccess={onAcDocumentLoadSuccess}
+                            onLoadError={onAcDocumentLoadError}
+                            className="w-full h-full flex justify-center items-center"
+                          >
+                            <Page
+                              pageNumber={queryViewerCurrentPage}
+                              scale={queryViewerZoomLevel}
+                              renderAnnotationLayer={true}
+                              renderTextLayer={true}
+                            />
+                          </Document>
+
+                          {/* Render examiner's marks on the current page (read-only) */}
+                          {selectedCopyForQueryView && selectedCopyForQueryView.pages && Array.isArray(selectedCopyForQueryView.pages) && (() => {
+                            const pageData = selectedCopyForQueryView.pages.find(p => p && p.pageNumber === queryViewerCurrentPage);
+                            if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
+                              return pageData.pageMarks
+                                .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
+                                .map((mark, idx) => (
+                                <div
+                                  key={idx}
+                                  className="absolute pointer-events-none"
+                                  style={{
+                                    left: `${mark.x}%`,
+                                    top: `${mark.y}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                    zIndex: 20,
+                                    position: 'absolute'
+                                  }}
+                                >
+                                  <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                                    {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
+                                  </div>
+                                </div>
+                              ));
+                            }
+                            return null;
+                          })()}
+                        </div>
                       ) : (
                         <div className="text-gray-500 text-center p-4">
                           Answer Copy Not Available.
                         </div>
+                  
                       )}
-                      
-                      {/* Render examiner's marks on the current page (read-only) */}
-                      {selectedCopyForQueryView && selectedCopyForQueryView.pages && Array.isArray(selectedCopyForQueryView.pages) && (() => {
-                        const pageData = selectedCopyForQueryView.pages.find(p => p && p.pageNumber === queryViewerCurrentPage);
-                        if (pageData && pageData.pageMarks && Array.isArray(pageData.pageMarks) && pageData.pageMarks.length > 0) {
-                          return pageData.pageMarks
-                            .filter(mark => mark && typeof mark.value === 'number' && typeof mark.x === 'number' && typeof mark.y === 'number')
-                            .map((mark, idx) => (
-                            <div
-                              key={idx}
-                              className="absolute pointer-events-none"
-                              style={{
-                                left: `${mark.x}%`,
-                                top: `${mark.y}%`,
-                                transform: 'translate(-50%, -50%)',
-                                zIndex: 20
-                              }}
-                            >
-                              <div className={`w-12 h-12 flex items-center justify-center rounded-full text-white text-sm font-bold shadow-lg ${mark.value > 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-                                {Number(mark.value % 1 === 0 ? mark.value : mark.value.toFixed(1))}
-                              </div>
-                            </div>
-                          ));
-                        }
-                        return null;
-                      })()}
                     </div>
                     <div className="flex items-center justify-center mt-4 space-x-2">
                       <button
