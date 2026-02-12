@@ -42,7 +42,7 @@ export default function TermsAndConditions() {
           <div className="bg-gray-900 text-white p-1.5 rounded">
             <ScaleIcon className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold tracking-tight">Copy Checker System</span>
+          <span className="text-lg font-bold tracking-tight">PIMS Evalu Pro</span>
         </div>
         
         <Link 
@@ -112,7 +112,7 @@ export default function TermsAndConditions() {
                 <h2 className="text-3xl text-gray-900 mb-6 font-bold">1. Introduction</h2>
                 <div className="text-gray-600 leading-loose font-bold">
                   <p>
-                    Welcome to the Copy Checker System. These Terms and Conditions ("Terms") constitute a binding legal agreement between you and the institution. This system is designed specifically for the digital management and evaluation of student examination scripts.
+                    Welcome to PIMS Evalu Pro. These Terms and Conditions ("Terms") constitute a binding legal agreement between you and the institution. This system is designed specifically for the digital management and evaluation of student examination scripts.
                   </p>
                   <p className="mt-4">
                     If you do not agree with any part of these terms, you are prohibited from using the service. Continued use implies full acceptance of these operational guidelines.
