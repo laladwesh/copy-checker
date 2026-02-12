@@ -12,7 +12,7 @@ const { PDFDocument } = require("pdf-lib");
 const { google } = require('googleapis');
 const { default: mongoose } = require("mongoose");
 const sendEmail = require("../utils/sendEmail");
-const { assignedCopiesHtml } = require("../utils/emailTemplates");
+const { assignedCopiesHtml, updatedCopiesHtml } = require("../utils/emailTemplates");
 const fsSync = require('fs');
 const path = require('path');
 const os = require('os');
@@ -753,6 +753,18 @@ exports.assignExaminersToExam = async (req, res, next) => {
       });
     }
 
+    // Check which examiners already have copies for this exam (before new distribution)
+    const existingExaminerIds = new Set();
+    for (const examinerId of validExaminerObjectIds) {
+      const existingCopiesCount = await Copy.countDocuments({
+        questionPaper: paperId,
+        examiners: examinerId
+      });
+      if (existingCopiesCount > 0) {
+        existingExaminerIds.add(examinerId.toString());
+      }
+    }
+
     let examinerIndex = 0;
     // track how many copies each examiner received in this distribution
     const assignedCounts = {};
@@ -774,14 +786,38 @@ exports.assignExaminersToExam = async (req, res, next) => {
         const idStr = examiner._id.toString();
         const count = assignedCounts[idStr] || 0;
         if (count > 0 && examiner.email) {
-          const html = assignedCopiesHtml({
-            examinerName: examiner.name || examiner.email,
-            paperTitle: paper.title || "(Exam)",
-            count,
-            link: loginLink,
-            email: examiner.email,
-          });
-          const subject = `Assigned: ${count} copy(ies) for ${paper.title || "Exam"}`;
+          const isExistingExaminer = existingExaminerIds.has(idStr);
+          
+          let html, subject;
+          if (isExistingExaminer) {
+            // Get total count of copies for this examiner after new assignment
+            const totalCopies = await Copy.countDocuments({
+              questionPaper: paperId,
+              examiners: examiner._id
+            });
+            
+            // Send update email with new count and total count
+            html = updatedCopiesHtml({
+              examinerName: examiner.name || examiner.email,
+              paperTitle: paper.title || "(Exam)",
+              newCount: count,
+              totalCount: totalCopies,
+              link: loginLink,
+              email: examiner.email,
+            });
+            subject = `Updated: ${count} new copy(ies) assigned for ${paper.title || "Exam"}`;
+          } else {
+            // Send original email with count for new examiners
+            html = assignedCopiesHtml({
+              examinerName: examiner.name || examiner.email,
+              paperTitle: paper.title || "(Exam)",
+              count,
+              link: loginLink,
+              email: examiner.email,
+            });
+            subject = `Assigned: ${count} copy(ies) for ${paper.title || "Exam"}`;
+          }
+          
           // fire and forget, but await so we can log failures
           try {
             await sendEmail({ to: examiner.email, subject, html });
