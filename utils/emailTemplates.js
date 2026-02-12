@@ -26,7 +26,7 @@ function assignedCopiesHtml({ examinerName, paperTitle, count, link, email }) {
           <tr>
             <td style="background:#800000; padding:20px; text-align:center;">
               <img src="https://media.licdn.com/dms/image/v2/D4E0BAQG03u_JwSSOTg/company-logo_200_200/company-logo_200_200/0/1696437747519?e=2147483647&v=beta&t=Zvu-ZXadz0L420-4VWZNqRWCXn9SWwtH5e2mP1BFmi4" alt="PIMS Logo" width="40" style="vertical-align:middle; margin-right:8px;">
-              <span style="color:#fff; font-size:24px; font-weight:bold; vertical-align:middle;">PIMS Copy Checker</span>
+              <span style="color:#fff; font-size:24px; font-weight:bold; vertical-align:middle;">PIMS Evalu Pro</span>
             </td>
           </tr>
           <tr>
@@ -95,7 +95,7 @@ function updatedCopiesHtml({ examinerName, paperTitle, newCount, totalCount, lin
           <tr>
             <td style="background:#800000; padding:20px; text-align:center;">
               <img src="https://media.licdn.com/dms/image/v2/D4E0BAQG03u_JwSSOTg/company-logo_200_200/company-logo_200_200/0/1696437747519?e=2147483647&v=beta&t=Zvu-ZXadz0L420-4VWZNqRWCXn9SWwtH5e2mP1BFmi4" alt="PIMS Logo" width="40" style="vertical-align:middle; margin-right:8px;">
-              <span style="color:#fff; font-size:24px; font-weight:bold; vertical-align:middle;">PIMS Copy Checker</span>
+              <span style="color:#fff; font-size:24px; font-weight:bold; vertical-align:middle;">PIMS Evalu Pro</span>
             </td>
           </tr>
           <tr>
