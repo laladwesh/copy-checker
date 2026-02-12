@@ -188,7 +188,7 @@ export default function Navbar({ user, onLogout }) {
         to="/"
         className="text-3xl font-bold text-gray-900 hover:text-[#1e3a8a] transition-colors duration-300 mb-3 md:mb-0"
       >
-        PIMS Copy-Check
+        PIMS Evalu Pro
       </Link>
 
       {/* User Info and Actions */}
