@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 
 // Base route
 app.get("/api", (req, res) => {
-  res.send("Welcome to the Copy-Check API");
+  res.send("Welcome to the PIMS Evalu Pro API");
 });
 
 // Mount feature routers
