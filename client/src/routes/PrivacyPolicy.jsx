@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
           <div className="bg-gray-900 text-white p-1.5 rounded">
             <ScaleIcon className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold tracking-tight">Copy Checker System</span>
+          <span className="text-lg font-bold tracking-tight">PIMS Evalu Pro</span>
         </div>
         
         <Link 
@@ -96,7 +96,7 @@ export default function PrivacyPolicy() {
                 <h2 className="text-3xl text-gray-900 mb-6 font-bold">1. Introduction</h2>
                 <div className="text-gray-600 leading-loose font-bold">
                   <p>
-                    This Privacy Policy constitutes a legal agreement between the user ("you") and the Copy Checker System ("we", "us"). It delineates the protocols regarding the collection, use, storage, and protection of personal and academic data.
+                    This Privacy Policy constitutes a legal agreement between the user ("you") and PIMS Evalu Pro ("we", "us"). It delineates the protocols regarding the collection, use, storage, and protection of personal and academic data.
                   </p>
                   <p className="mt-4">
                     By accessing or using our platform, you acknowledge that you have read, understood, and agreed to be bound by the terms detailed herein. If you do not agree, you must discontinue use of the system immediately.
@@ -135,7 +135,7 @@ export default function PrivacyPolicy() {
               <section id="usage-protocol" className="scroll-mt-32">
                 <h2 className="text-3xl text-gray-900 mb-6 font-bold">3. Usage Protocol</h2>
                 <p className="text-gray-600 text-lg leading-relaxed mb-6 font-bold">
-                  Data processed by the Copy Checker System is utilized strictly for educational administration. We do not monetize, sell, or trade user data.
+                  Data processed by PIMS Evalu Pro is utilized strictly for educational administration. We do not monetize, sell, or trade user data.
                 </p>
                 <div className="pl-6 border-l-2 border-gray-900 space-y-4">
                   <div>
