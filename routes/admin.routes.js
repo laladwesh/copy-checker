@@ -31,6 +31,7 @@ const {
   addExaminerToExam,
   moveCopyToExaminer,
   bulkMoveCopies,
+  updateExam,
   // Smart allocation and performance tracking
   smartDistribute,
   triggerAutoReallocation,
@@ -64,6 +65,7 @@ router.post(
   createExam,
 );
 router.get("/exams", listPapers);
+router.patch("/exams/:id", updateExam);
 router.delete("/exams/:id", deleteExam);
 router.delete("/exams", deleteExamsBulk);
 router.post("/exams/:id/assign-examiners", assignExaminersToExam);
