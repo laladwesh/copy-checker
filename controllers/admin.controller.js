@@ -685,6 +685,41 @@ exports.listPapers = async (req, res, next) => {
   }
 };
 
+// Update exam/paper details (currently only title)
+exports.updateExam = async (req, res, next) => {
+  try {
+    const paperId = req.params.id;
+    const { title } = req.body;
+
+    if (!paperId) {
+      return res.status(400).json({ message: "Exam ID is required." });
+    }
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: "Exam title is required." });
+    }
+
+    const paper = await Paper.findById(paperId);
+    if (!paper) {
+      return res.status(404).json({ message: "Exam not found." });
+    }
+
+    // Update the title
+    paper.title = title.trim();
+    await paper.save();
+
+    console.log(`[Admin] Exam '${paper.title}' (ID: ${paperId}) title updated successfully.`);
+
+    res.json({
+      message: "Exam title updated successfully.",
+      paper: paper,
+    });
+  } catch (err) {
+    console.error("[Admin] Error updating exam:", err);
+    next(err);
+  }
+};
+
 // NEW: Assign Examiners to an Exam (Paper) and Distribute Copies
 exports.assignExaminersToExam = async (req, res, next) => {
   try {
