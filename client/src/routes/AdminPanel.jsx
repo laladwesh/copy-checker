@@ -915,6 +915,12 @@ export default function AdminPanel() {
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
+                    Created At
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Total Copies
                   </th>
                   <th
@@ -967,6 +973,11 @@ export default function AdminPanel() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {exam.date
                           ? new Date(exam.date).toLocaleDateString()
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {exam.createdAt
+                          ? new Date(exam.createdAt).toLocaleString()
                           : "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
