@@ -16,6 +16,7 @@ import {
   TrashIcon,
   ArrowPathIcon,
   DocumentArrowDownIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { toastSuccess, toastError, toastInfo } from "../utils/hotToast";
 // AllExaminerDetailsModal moved to a full page: /admin/examiners
@@ -43,9 +44,13 @@ export default function AdminPanel() {
   const [isScanUploadModalOpen, setIsScanUploadModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedExamForReport, setSelectedExamForReport] = useState(null);
+  const [isEditExamModalOpen, setIsEditExamModalOpen] = useState(false);
+  const [selectedExamForEdit, setSelectedExamForEdit] = useState(null);
+  const [editExamTitle, setEditExamTitle] = useState("");
 
   // Loading state for assigning examiners
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isUpdatingExam, setIsUpdatingExam] = useState(false);
 
   // Form input states
   const [newUserName, setNewUserName] = useState("");
@@ -351,6 +356,55 @@ export default function AdminPanel() {
   const handleOpenReportModal = (exam) => {
     setSelectedExamForReport(exam);
     setIsReportModalOpen(true);
+  };
+
+  // Open edit exam modal
+  const handleOpenEditExamModal = (exam) => {
+    setSelectedExamForEdit(exam);
+    setEditExamTitle(exam.title || "");
+    setIsEditExamModalOpen(true);
+  };
+
+  // Handle exam title update
+  const handleUpdateExamTitle = async () => {
+    if (!editExamTitle.trim()) {
+      toastError("Exam title cannot be empty.");
+      return;
+    }
+
+    if (editExamTitle === selectedExamForEdit?.title) {
+      toastInfo("No changes made to the exam title.");
+      setIsEditExamModalOpen(false);
+      return;
+    }
+
+    try {
+      setIsUpdatingExam(true);
+      await api.patch(`/admin/exams/${selectedExamForEdit._id}`, {
+        title: editExamTitle.trim(),
+      });
+
+      // Update local state
+      setExams((prevExams) =>
+        prevExams.map((exam) =>
+          exam._id === selectedExamForEdit._id
+            ? { ...exam, title: editExamTitle.trim() }
+            : exam
+        )
+      );
+
+      toastSuccess("Exam title updated successfully!");
+      setIsEditExamModalOpen(false);
+      setSelectedExamForEdit(null);
+      setEditExamTitle("");
+    } catch (error) {
+      console.error("Error updating exam title:", error);
+      toastError(
+        error.response?.data?.message || "Failed to update exam title."
+      );
+    } finally {
+      setIsUpdatingExam(false);
+    }
   };
 
   // Calculate exam progress and status summary
@@ -1019,6 +1073,14 @@ export default function AdminPanel() {
                             <EyeIcon className="h-4 w-4 mr-1" /> View
                           </a>
 
+                          <button
+                            onClick={() => handleOpenEditExamModal(exam)}
+                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-white bg-[#1e3a8a] hover:bg-[#1e40af] transition duration-200"
+                            title="Edit Exam Title"
+                          >
+                            <PencilSquareIcon className="h-4 w-4 mr-1" /> Edit
+                          </button>
+
                           {totalCopiesForExam > 0 && (
                             <button
                               onClick={() => handleOpenReportModal(exam)}
@@ -1637,6 +1699,91 @@ export default function AdminPanel() {
         copies={copies}
         users={users}
       />
+
+      <Modal
+        isOpen={isEditExamModalOpen}
+        onClose={() => {
+          setIsEditExamModalOpen(false);
+          setSelectedExamForEdit(null);
+          setEditExamTitle("");
+        }}
+        title="Edit Exam Title"
+      >
+        <div className="space-y-4 p-2">
+          <div>
+            <label
+              htmlFor="currentExamTitle"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Current Exam Title
+            </label>
+            <input
+              type="text"
+              id="currentExamTitle"
+              value={selectedExamForEdit?.title || ""}
+              disabled
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 text-sm cursor-not-allowed"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="newExamTitle"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              New Exam Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="newExamTitle"
+              value={editExamTitle}
+              onChange={(e) => setEditExamTitle(e.target.value)}
+              placeholder="Enter new exam title"
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+              autoFocus
+              onKeyPress={(e) => {
+                if (e.key === "Enter" && !isUpdatingExam) {
+                  handleUpdateExamTitle();
+                }
+              }}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Note: Changing the exam title will not affect any copies, queries, or examiner assignments.
+            </p>
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <button
+              onClick={() => {
+                setIsEditExamModalOpen(false);
+                setSelectedExamForEdit(null);
+                setEditExamTitle("");
+              }}
+              disabled={isUpdatingExam}
+              className="flex-1 bg-gray-200 text-gray-700 py-2.5 px-4 rounded-xl hover:bg-gray-300 transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpdateExamTitle}
+              disabled={isUpdatingExam || !editExamTitle.trim()}
+              className="flex-1 bg-[#1e3a8a] text-white py-2.5 px-4 rounded-xl hover:bg-[#1e40af] transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-medium text-sm"
+            >
+              {isUpdatingExam ? (
+                <>
+                  <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <PencilSquareIcon className="h-5 w-5 mr-2" />
+                  Update Title
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Examiner details moved to /admin/examiners page */}
     </div>
