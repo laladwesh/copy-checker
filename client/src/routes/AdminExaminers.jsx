@@ -6,8 +6,10 @@ import {
   UserGroupIcon, 
   DocumentCheckIcon, 
   ChartBarIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
+import ExaminerReportGenerator from '../components/ExaminerReportGenerator';
 
 export default function AdminExaminers({ examiners = [], copies = [], exams = [] }) {
   const location = useLocation();
@@ -22,6 +24,7 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
   const [examinerStats, setExaminerStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [examinerSearchTerm, setExaminerSearchTerm] = useState('');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // 1. Calculation Logic
   useEffect(() => {
@@ -106,13 +109,23 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Examiner Performance</h1>
             <p className="text-gray-600 mt-1 font-bold">Monitor evaluation progress and examiner workloads.</p>
           </div>
-          <button 
-            onClick={() => navigate(-1)} 
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 border-2 border-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] transition-colors text-sm font-bold"
-          >
-            <ArrowLeftIcon className="w-4 h-4" />
-            Back
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setIsReportModalOpen(true)}
+              disabled={examinerStats.length === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] border-2 border-[#1e3a8a] text-white rounded-lg hover:bg-[#1e40af] transition-colors text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <DocumentArrowDownIcon className="w-4 h-4" />
+              Download Report
+            </button>
+            <button 
+              onClick={() => navigate(-1)} 
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 border-2 border-gray-900 text-white rounded-lg hover:bg-[#1e3a8a] transition-colors text-sm font-bold"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+              Back
+            </button>
+          </div>
         </div>
 
         {/* Top Summary Cards */}
@@ -281,6 +294,14 @@ export default function AdminExaminers({ examiners = [], copies = [], exams = []
 
         </div>
       </div>
+
+      {/* Examiner Report Generator Modal */}
+      <ExaminerReportGenerator
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        examiners={dataExaminers}
+        examinerStats={examinerStats}
+      />
     </div>
   );
 }
