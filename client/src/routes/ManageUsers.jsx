@@ -1150,7 +1150,7 @@ export default function ManageUsers() {
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
                   <p className="text-blue-800">
-                    <span className="font-bold">ℹ️ Note:</span> Banking details (Aadhar, PAN, Account) are entered by examiners on first login.
+                    <span className="font-bold">Note:</span> Banking details (Aadhar, PAN, Account) are entered by examiners on first login.
                   </p>
                 </div>
               </>
