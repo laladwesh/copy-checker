@@ -9,7 +9,7 @@ const initializeScheduledJobs = () => {
   console.log('Initializing scheduled jobs for copy checking automation...');
 
   // Job 1: Auto-reallocate idle copies every hour
-  // Runs at minute 0 of every hour
+  // Runs at minute 0 of every hours
   cron.schedule('0 * * * *', async () => {
     console.log('[Scheduled Job] Running auto-reallocation of idle copies...');
     try {
