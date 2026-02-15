@@ -85,7 +85,7 @@ const initializeScheduledJobs = () => {
 
       console.log('[REPORT] Daily Performance Report:', JSON.stringify(report, null, 2));
       
-      // You can also send this report via email to admins
+      // You can also send this report via email to admin
       // const admins = await User.find({ role: 'admin' });
       // for (const admin of admins) {
       //   await sendEmail({ to: admin.email, subject: 'Daily Performance Report', html: ... });
