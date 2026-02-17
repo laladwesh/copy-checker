@@ -6,7 +6,8 @@ const pdfGen = require("../utils/pdfGenerator");
 const {
   getOrCreateFolder,
   uploadFileToFolder,
-  drive
+  drive,
+  getDriveFile, // Smart file fetcher with fallback
 } = require("../config/googleDrive");
 const { PDFDocument } = require("pdf-lib");
 const { google } = require('googleapis');
@@ -259,7 +260,7 @@ exports.serveDrivePdf = async (req, res, next) => {
 
         // Otherwise, fetch the file from Drive into a temp file, stream to response and write to cache
         const tmpPath = path.join(cacheDir, `${fileId}_${Date.now()}.download`);
-        const driveRes = await drive.files.get({ fileId: fileId, alt: 'media' }, { responseType: 'stream' });
+        const driveRes = await getDriveFile(fileId, { alt: 'media' }, { responseType: 'stream' });
 
         // Set minimal headers for streaming initial content
         res.setHeader('Content-Type', 'application/pdf');

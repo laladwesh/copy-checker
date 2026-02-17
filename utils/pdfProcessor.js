@@ -9,18 +9,8 @@ const PDFPoppler = require("pdf-poppler"); // <<< CHANGE HERE
 const {
   getOrCreateFolder,
   uploadFileToFolder,
+  getDriveFile, // Smart file fetcher with fallback
 } = require("../config/googleDrive");
-
-// Set up your OAuth2 client exactly as in config/googleDrive.js
-const oauth2Client = new OAuth2(
-  process.env.GOOGLE_DRIVE_CLIENT_ID,
-  process.env.GOOGLE_DRIVE_CLIENT_SECRET,
-  process.env.GOOGLE_DRIVE_REDIRECT_URI
-);
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
-});
-const drive = google.drive({ version: "v3", auth: oauth2Client });
 
 /**
  * Downloads a file from Google Drive as a Buffer.
@@ -28,8 +18,9 @@ const drive = google.drive({ version: "v3", auth: oauth2Client });
  * @returns {Promise<Buffer>} The file content as a Buffer.
  */
 async function downloadFileFromDrive(fileId) {
-  const driveRes = await drive.files.get(
-    { fileId: fileId, alt: "media" },
+  const driveRes = await getDriveFile(
+    fileId,
+    { alt: "media" },
     { responseType: "stream" }
   );
 

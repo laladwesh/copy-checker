@@ -11,21 +11,10 @@ const adminController = require("../controllers/admin.controller");
 // Import Mongoose models
 const Paper = require("../models/Paper");
 const Copy = require("../models/Copy");
+const { drive, getDriveFile } = require("../config/googleDrive");
 
 
 router.get('/pdf/:fileId', adminController.serveDrivePdf);
-
-
-// Set up your OAuth2 client
-const oauth2Client = new OAuth2(
-  process.env.GOOGLE_DRIVE_CLIENT_ID,
-  process.env.GOOGLE_DRIVE_CLIENT_SECRET,
-  process.env.GOOGLE_DRIVE_REDIRECT_URI
-);
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
-});
-const drive = google.drive({ version: "v3", auth: oauth2Client });
 
 /**
  * Extracts a specific page from a PDF buffer as a PNG image using pdftoppm.
@@ -179,8 +168,9 @@ async function extractPageAsImage(pdfBuffer, pageNumber, uniqueId) {
 router.get("/file/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const driveRes = await drive.files.get(
-      { fileId: id, alt: "media" },
+    const driveRes = await getDriveFile(
+      id,
+      { alt: "media" },
       { responseType: "stream" }
     );
     res.setHeader("Content-Type", "application/pdf");
@@ -211,8 +201,9 @@ router.get(
       }
 
       // 1. Fetch the entire PDF file from Google Drive
-      const driveRes = await drive.files.get(
-        { fileId: originalFileId, alt: "media" },
+      const driveRes = await getDriveFile(
+        originalFileId,
+        { alt: "media" },
         { responseType: "arraybuffer" }
       );
 

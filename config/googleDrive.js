@@ -11,6 +11,7 @@ function bufferToStream(buffer) {
   return stream;
 }
 
+// Primary Drive client (NEW 20TB account for uploads)
 const oauth2Client = new OAuth2(
   process.env.GOOGLE_DRIVE_CLIENT_ID,
   process.env.GOOGLE_DRIVE_CLIENT_SECRET,
@@ -22,6 +23,49 @@ oauth2Client.setCredentials({
 });
 
 const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+// Fallback Drive client (OLD 15GB account for existing files)
+let driveOld = null;
+if (
+  process.env.GOOGLE_DRIVE_OLD_CLIENT_ID &&
+  process.env.GOOGLE_DRIVE_OLD_REFRESH_TOKEN
+) {
+  const oauth2ClientOld = new OAuth2(
+    process.env.GOOGLE_DRIVE_OLD_CLIENT_ID,
+    process.env.GOOGLE_DRIVE_OLD_CLIENT_SECRET,
+    process.env.GOOGLE_DRIVE_OLD_REDIRECT_URI
+  );
+
+  oauth2ClientOld.setCredentials({
+    refresh_token: process.env.GOOGLE_DRIVE_OLD_REFRESH_TOKEN,
+  });
+
+  driveOld = google.drive({ version: "v3", auth: oauth2ClientOld });
+  console.log("[Drive] Old account fallback configured for existing files.");
+}
+
+/**
+ * Smart file fetcher: tries new account first, falls back to old account if 404
+ * @param {string} fileId - The Google Drive file ID
+ * @param {object} requestParams - Request parameters (e.g., { alt: 'media' })
+ * @param {object} config - Config options (e.g., { responseType: 'stream' })
+ */
+async function getDriveFile(fileId, requestParams = {}, config = {}) {
+  try {
+    // Try new account first
+    return await drive.files.get({ fileId, ...requestParams }, config);
+  } catch (error) {
+    // If 404 and old account exists, try old account
+    if (error.code === 404 && driveOld) {
+      console.log(
+        `[Drive] File ${fileId} not found in new account, trying old account...`
+      );
+      return await driveOld.files.get({ fileId, ...requestParams }, config);
+    }
+    // Otherwise, throw the original error
+    throw error;
+  }
+}
 
 /**
  * Find or create a folder by name under the given parent.
@@ -119,5 +163,7 @@ async function uploadFileToFolder(buffer, filename, mimeType, folderId) {
 module.exports = {
   getOrCreateFolder,
   uploadFileToFolder,
-  drive, // <--- EXPORT THE AUTHENTICATED DRIVE INSTANCE
+  drive, // Primary drive instance (new account)
+  driveOld, // Fallback drive instance (old account) - may be null
+  getDriveFile, // Smart file fetcher with fallback
 };
