@@ -535,12 +535,6 @@ exports.bulkCreateStudents = async (req, res, next) => {
 // 2. Exam (Question Paper) Management
 exports.createExam = async (req, res, next) => {
   try {
-    // TEMPORARY BLOCK: Drive storage full
-    return res.status(507).json({
-      message: "Upload temporarily disabled. Drive storage is full. Please contact administrator.",
-      error: "STORAGE_FULL"
-    });
-
     const { title, course, examType, date, totalMarks } = req.body;
 
     console.log("--- Inside createExam controller ---");
@@ -1001,12 +995,6 @@ exports.redistributeCopies = async (req, res, next) => {
 // 3. Answer Copy Management (Manual Upload by Admin/Examiner)
 exports.uploadCopy = async (req, res, next) => {
   try {
-    // TEMPORARY BLOCK: Drive storage full
-    return res.status(507).json({
-      message: "Upload temporarily disabled. Drive storage is full. Please contact administrator.",
-      error: "STORAGE_FULL"
-    });
-
     const { studentId, paperId } = req.body;
     const files = req.files || {};
     let finalPdfBuffer;
@@ -1299,12 +1287,6 @@ exports.toggleExamCopyRelease = async (req, res, next) => {
 // 6. Handle scanned copy upload (simulated printer scanning)
 exports.uploadScannedCopy = async (req, res, next) => {
   try {
-    // TEMPORARY BLOCK: Drive storage full
-    return res.status(507).json({
-      message: "Upload temporarily disabled. Drive storage is full. Please contact administrator.",
-      error: "STORAGE_FULL"
-    });
-
     const { studentEmail, questionPaperId } = req.body;
     const uploadedFiles = req.files;
 
