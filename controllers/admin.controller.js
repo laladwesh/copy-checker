@@ -28,6 +28,54 @@ const getDirectDriveDownloadLink = (fileId) => {
     return `https://drive.google.com/uc?export=download&id=${fileId}`;
 };
 
+/**
+ * Clean up old cached PDF files to prevent disk accumulation
+ * @param {number} maxAgeHours - Delete files older than this many hours (default: 24)
+ * @param {string} cacheDir - Cache directory path
+ * @returns {Promise<{deleted: number, errors: number}>}
+ */
+const cleanupOldCachedPDFs = async (maxAgeHours = 24, cacheDir = null) => {
+  try {
+    const dir = cacheDir || path.join(os.tmpdir(), 'pims_pdf_cache');
+    
+    if (!fsSync.existsSync(dir)) {
+      return { deleted: 0, errors: 0 };
+    }
+
+    const files = fsSync.readdirSync(dir);
+    const now = Date.now();
+    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+    let deleted = 0;
+    let errors = 0;
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(dir, file);
+        const stats = fsSync.statSync(filePath);
+        const fileAge = now - stats.mtimeMs;
+
+        if (fileAge > maxAgeMs) {
+          fsSync.unlinkSync(filePath);
+          deleted++;
+          console.log(`[Cache Cleanup] Deleted old cached file: ${file} (age: ${(fileAge / 3600000).toFixed(1)}h)`);
+        }
+      } catch (err) {
+        errors++;
+        console.warn(`[Cache Cleanup] Error deleting file ${file}:`, err.message);
+      }
+    }
+
+    console.log(`[Cache Cleanup] Completed: ${deleted} deleted, ${errors} errors, ${files.length - deleted} kept`);
+    return { deleted, errors };
+  } catch (err) {
+    console.error('[Cache Cleanup] Error during cleanup:', err);
+    return { deleted: 0, errors: 1 };
+  }
+};
+
+// Export cleanup function for use in scheduled jobs
+exports.cleanupOldCachedPDFs = cleanupOldCachedPDFs;
+
 // Delete a single copy by ID
 // Delete a single copy by ID (also remove associated queries and Drive file)
 exports.deleteCopy = async (req, res, next) => {
@@ -211,6 +259,14 @@ exports.serveDrivePdf = async (req, res, next) => {
         const cacheDir = path.join(os.tmpdir(), 'pims_pdf_cache');
         if (!fsSync.existsSync(cacheDir)) {
           try { fsSync.mkdirSync(cacheDir, { recursive: true }); } catch (e) { /* ignore */ }
+        }
+
+        // Lazy cleanup: periodically clean old cached files (don't await, run async)
+        // Only run cleanup 10% of the time to avoid performance overhead
+        if (Math.random() < 0.1) {
+          cleanupOldCachedPDFs(24, cacheDir).catch(err => 
+            console.warn('[Cache Cleanup] Background cleanup failed:', err)
+          );
         }
 
         const cachedFilePath = path.join(cacheDir, `${fileId}.pdf`);
